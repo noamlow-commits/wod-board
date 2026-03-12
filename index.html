@@ -157,6 +157,7 @@
     .workout-row {
       display: flex;
       gap: 0.6rem;
+      flex: 1 1 auto;
       min-height: 0;
       animation: cardIn 0.5s ease-out both;
     }
@@ -755,6 +756,23 @@
       // Cap at user's max setting
       const finalScale = Math.min(lo, maxScale);
       root.style.setProperty('--font-scale', finalScale.toFixed(4));
+
+      // Redistribute row flex based on actual rendered content heights
+      // so each row gets exactly the space it needs (no black gaps)
+      const rows = container.querySelectorAll('.workout-row');
+      if (rows.length > 1) {
+        const heights = Array.from(rows).map(r => {
+          // Measure natural content height by temporarily removing flex-grow
+          r.style.flex = '0 0 auto';
+          container.offsetHeight;
+          const h = r.scrollHeight;
+          return h;
+        });
+        // Restore flex with proportional weights based on actual content
+        rows.forEach((r, i) => {
+          r.style.flex = `${heights[i]} 1 0px`;
+        });
+      }
     }
 
     // ════════════════════════════════════════
@@ -910,22 +928,8 @@
         return;
       }
 
-      // Distribute row flex proportionally based on visible height
-      const rowWeights = data.rows.map(row => {
-        const contentCells = row.cells.filter(c => c.lines.length > 0 && !isSafetyColumn(c.header));
-        if (contentCells.length === 1 && contentCells[0].lines.length > 3) {
-          // Spread layout: height = lines / columns
-          const lines = contentCells[0].lines.length;
-          const numCols = Math.min(3, Math.ceil(lines / 3));
-          return Math.ceil(lines / numCols);
-        }
-        // Multi-phase: height = tallest cell
-        return Math.max(...row.cells.map(c => c.lines.length), 1);
-      });
-
       const rowsHTML = data.rows.map((row, rowIdx) => {
         const theme = detectSectionTheme(row.label);
-        const weight = rowWeights[rowIdx];
 
         // Count how many cells have content (excluding safety)
         const contentCells = row.cells.filter(c => c.lines.length > 0 && !isSafetyColumn(c.header));
@@ -993,7 +997,7 @@
         }
 
         return `
-          <div class="workout-row" style="flex:${weight}">
+          <div class="workout-row">
             <div class="row-label ${theme}">${escapeHtml(row.label)}</div>
             <div class="row-cells">${cardsHTML}</div>
           </div>`;
