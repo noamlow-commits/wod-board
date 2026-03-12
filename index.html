@@ -547,6 +547,7 @@
     <div class="logo" id="gymName">WOD BOARD</div>
     <div style="display:flex;align-items:center;gap:1rem;">
       <span class="refresh-dot" id="refreshDot" title="מחובר"></span>
+      <button class="settings-btn" id="fullscreenBtn" title="מסך מלא">⛶</button>
       <button class="settings-btn" id="settingsBtn" title="הגדרות">⚙</button>
     </div>
   </div>
@@ -600,10 +601,10 @@
 
       <div class="form-group">
         <label>
-          גודל פונט
+          גודל פונט מקסימלי (מתאים אוטומטית למסך)
           <span class="range-value" id="fontValue">100%</span>
         </label>
-        <input type="range" id="inputFontSize" min="60" max="160" value="100" oninput="document.getElementById('fontValue').textContent=this.value+'%'">
+        <input type="range" id="inputFontSize" min="60" max="200" value="100" oninput="document.getElementById('fontValue').textContent=this.value+'%'">
       </div>
 
       <div class="modal-actions">
@@ -702,12 +703,58 @@
       saveSettings(settings);
       closeSettings();
       applySettings();
+      lastDataJSON = ''; // Force re-render so autoFit runs
       startApp();
     }
 
     function applySettings() {
       document.documentElement.style.setProperty('--font-scale', (settings.fontSize / 100).toFixed(2));
       document.getElementById('gymName').textContent = settings.gymName || 'WOD BOARD';
+    }
+
+    // Auto-fit: find the largest font scale that doesn't cause overflow
+    function autoFitFontSize() {
+      const container = document.getElementById('mainContent');
+      if (!container.children.length) return;
+
+      const maxScale = (settings.fontSize || 100) / 100;
+      let lo = 0.4, hi = Math.max(maxScale, 2.0);
+      const root = document.documentElement;
+
+      function hasOverflow() {
+        // Check main container vertical overflow
+        if (container.scrollHeight > container.clientHeight + 2) return true;
+        // Check each row for overflow
+        for (const row of container.querySelectorAll('.workout-row')) {
+          if (row.scrollHeight > row.clientHeight + 2) return true;
+        }
+        // Check each card-body for internal scrolling
+        for (const body of container.querySelectorAll('.card-body')) {
+          if (body.scrollHeight > body.clientHeight + 2) return true;
+        }
+        // Check spread columns too
+        for (const col of container.querySelectorAll('.spread-col')) {
+          if (col.scrollHeight > col.clientHeight + 2) return true;
+        }
+        return false;
+      }
+
+      // Binary search for optimal scale (12 iterations = precision ~0.04%)
+      for (let i = 0; i < 12; i++) {
+        const mid = (lo + hi) / 2;
+        root.style.setProperty('--font-scale', mid.toFixed(4));
+        // Force layout recalc
+        container.offsetHeight;
+        if (hasOverflow()) {
+          hi = mid;
+        } else {
+          lo = mid;
+        }
+      }
+
+      // Cap at user's max setting
+      const finalScale = Math.min(lo, maxScale);
+      root.style.setProperty('--font-scale', finalScale.toFixed(4));
     }
 
     // ════════════════════════════════════════
@@ -958,6 +1005,8 @@
         container.innerHTML = rowsHTML;
         container.classList.add('fade-enter');
         setTimeout(() => container.classList.remove('fade-enter'), 500);
+        // Auto-fit font to fill screen without overflow
+        requestAnimationFrame(() => autoFitFontSize());
       }
     }
 
@@ -1030,6 +1079,19 @@
     // ════════════════════════════════════════
     document.getElementById('settingsBtn').addEventListener('click', openSettings);
 
+    // Fullscreen toggle
+    document.getElementById('fullscreenBtn').addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    });
+    document.addEventListener('fullscreenchange', () => {
+      // Re-fit after screen geometry change (enter/exit fullscreen)
+      setTimeout(() => autoFitFontSize(), 200);
+    });
+
     document.getElementById('settingsModal').addEventListener('click', (e) => {
       if (e.target === e.currentTarget) closeSettings();
     });
@@ -1038,10 +1100,17 @@
       if (e.key === 'Enter') addTab();
     });
 
+    // Re-fit font on resize
+    window.addEventListener('resize', () => autoFitFontSize());
+
     // Keyboard shortcut: Escape to close modal, S to open settings
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeSettings();
+      if (e.key === 'Escape') { closeSettings(); if (document.fullscreenElement) document.exitFullscreen(); }
       if (e.key === 's' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') openSettings();
+      if (e.key === 'f' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+      }
     });
 
     // ════════════════════════════════════════
