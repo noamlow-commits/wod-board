@@ -898,6 +898,11 @@
           <input type="checkbox" id="inputShowQR" checked style="width:auto;accent-color:var(--metcon-start);">
           <label for="inputShowQR" style="margin:0;">הצג QR Code על המסך</label>
         </div>
+
+        <div class="form-group" style="display:flex;align-items:center;gap:0.8rem;">
+          <input type="checkbox" id="inputShowQRinWod" style="width:auto;accent-color:var(--metcon-start);">
+          <label for="inputShowQRinWod" style="margin:0;">הצג QR גם במצב WOD</label>
+        </div>
       </div>
 
       <div class="modal-actions">
@@ -933,7 +938,7 @@
     // Settings persistence
     // ════════════════════════════════════════
     function loadSettings() {
-      const defaults = { sheetId: '', tabs: [], gymName: 'CrossFit Gush Etzion', refreshInterval: 30, fontSize: 100, appsScriptUrl: '', autoRotateInterval: 15, showQR: true };
+      const defaults = { sheetId: '', tabs: [], gymName: 'CrossFit Gush Etzion', refreshInterval: 30, fontSize: 100, appsScriptUrl: '', autoRotateInterval: 15, showQR: true, showQRinWod: false };
       try {
         return { ...defaults, ...JSON.parse(localStorage.getItem('wodboard') || '{}') };
       } catch { return defaults; }
@@ -964,6 +969,7 @@
       document.getElementById('inputAutoRotate').value = settings.autoRotateInterval || 15;
       document.getElementById('autoRotateValue').textContent = settings.autoRotateInterval || 15;
       document.getElementById('inputShowQR').checked = settings.showQR !== false;
+      document.getElementById('inputShowQRinWod').checked = !!settings.showQRinWod;
       renderTabChips();
       document.getElementById('settingsModal').classList.add('open');
     }
@@ -1005,6 +1011,7 @@
       settings.appsScriptUrl = document.getElementById('inputAppsScript').value.trim();
       settings.autoRotateInterval = parseInt(document.getElementById('inputAutoRotate').value) || 15;
       settings.showQR = document.getElementById('inputShowQR').checked;
+      settings.showQRinWod = document.getElementById('inputShowQRinWod').checked;
       saveSettings(settings);
       closeSettings();
       applySettings();
@@ -1136,7 +1143,7 @@
 
     function updateQR() {
       const qr = document.getElementById('qrOverlay');
-      const shouldShow = settings.showQR && settings.appsScriptUrl;
+      const shouldShow = settings.showQR && settings.appsScriptUrl && (displayMode !== 'wod' || settings.showQRinWod);
 
       if (shouldShow) {
         // Always use GitHub Pages URL so QR works even when opened locally
