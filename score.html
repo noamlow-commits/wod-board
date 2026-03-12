@@ -18,6 +18,8 @@
       --accent: #ef4444;
       --accent2: #f59e0b;
       --success: #22c55e;
+      --blue: #3b82f6;
+      --purple: #a855f7;
     }
 
     body {
@@ -33,7 +35,7 @@
 
     .header {
       text-align: center;
-      padding: 1rem 0 1.5rem;
+      padding: 0.8rem 0 1rem;
       width: 100%;
       max-width: 420px;
     }
@@ -50,10 +52,7 @@
       margin-bottom: 0.3rem;
     }
 
-    .header .subtitle {
-      color: var(--text-dim);
-      font-size: 0.95rem;
-    }
+    .header .subtitle { color: var(--text-dim); font-size: 0.95rem; }
 
     .card {
       background: var(--card-bg);
@@ -65,314 +64,177 @@
       margin-bottom: 1rem;
     }
 
-    .form-group {
-      margin-bottom: 1.2rem;
-    }
-
+    .form-group { margin-bottom: 1.2rem; }
     .form-group label {
-      display: block;
-      font-size: 0.9rem;
-      color: var(--text-dim);
-      margin-bottom: 0.4rem;
-      font-weight: 700;
+      display: block; font-size: 0.9rem; color: var(--text-dim);
+      margin-bottom: 0.4rem; font-weight: 700;
     }
-
     .form-group input[type="text"],
-    .form-group input[type="number"] {
-      width: 100%;
-      padding: 0.8rem 1rem;
-      background: #111;
-      border: 1px solid #333;
-      border-radius: 10px;
-      color: var(--text);
-      font-family: 'Heebo', sans-serif;
-      font-size: 1.1rem;
-      direction: auto;
+    .form-group input[type="number"],
+    .form-group select {
+      width: 100%; padding: 0.8rem 1rem; background: #111;
+      border: 1px solid #333; border-radius: 10px; color: var(--text);
+      font-family: 'Heebo', sans-serif; font-size: 1.1rem; direction: auto;
     }
+    .form-group select { -webkit-appearance: none; appearance: none; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
 
-    .form-group input:focus {
-      outline: none;
-      border-color: var(--accent);
+    /* Track selector tabs */
+    .track-tabs {
+      display: flex; gap: 0; width: 100%; max-width: 420px;
+      margin-bottom: 1rem; border-radius: 12px; overflow: hidden;
+      border: 1px solid #333;
     }
+    .track-tab {
+      flex: 1; padding: 0.7rem 0.3rem; border: none; background: #111;
+      color: var(--text-dim); font-family: 'Heebo', sans-serif;
+      font-size: 0.85rem; font-weight: 700; cursor: pointer;
+      text-align: center; transition: all 0.2s;
+    }
+    .track-tab + .track-tab { border-right: 1px solid #333; }
+    .track-tab.active { color: #fff; }
+    .track-tab[data-track="wod"].active { background: var(--accent); }
+    .track-tab[data-track="lift"].active { background: var(--blue); }
+    .track-tab[data-track="benchmark"].active { background: var(--purple); }
+
+    .track-panel { display: none; }
+    .track-panel.active { display: block; }
 
     /* Score type selector */
-    .type-selector {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.5rem;
-      margin-bottom: 1.2rem;
-    }
-
+    .type-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1.2rem; }
     .type-btn {
-      padding: 0.7rem;
-      border: 2px solid #333;
-      border-radius: 10px;
-      background: transparent;
-      color: var(--text-dim);
-      font-family: 'Heebo', sans-serif;
-      font-size: 0.9rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s;
-      text-align: center;
+      padding: 0.7rem; border: 2px solid #333; border-radius: 10px;
+      background: transparent; color: var(--text-dim); font-family: 'Heebo', sans-serif;
+      font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.2s; text-align: center;
     }
-
-    .type-btn:hover {
-      border-color: #555;
-      color: var(--text);
-    }
-
-    .type-btn.active {
-      border-color: var(--accent);
-      color: var(--text);
-      background: rgba(239, 68, 68, 0.1);
-    }
-
-    .type-btn .type-icon {
-      display: block;
-      font-size: 1.3rem;
-      margin-bottom: 0.2rem;
-    }
+    .type-btn:hover { border-color: #555; color: var(--text); }
+    .type-btn.active { border-color: var(--accent); color: var(--text); background: rgba(239,68,68,0.1); }
+    .type-btn .type-icon { display: block; font-size: 1.3rem; margin-bottom: 0.2rem; }
 
     /* Score input areas */
-    .score-input-area {
-      display: none;
-    }
-
-    .score-input-area.active {
-      display: block;
-    }
+    .score-input-area { display: none; }
+    .score-input-area.active { display: block; }
 
     .time-inputs, .amrap-inputs {
-      display: flex;
-      gap: 0.8rem;
-      align-items: center;
-      direction: ltr;
+      display: flex; gap: 0.8rem; align-items: center; direction: ltr;
     }
-
     .time-inputs input, .amrap-inputs input {
-      flex: 1;
-      text-align: center;
-      font-size: 2rem;
-      font-weight: 900;
-      font-family: 'Barlow', sans-serif;
-      padding: 0.8rem;
-      background: #111;
-      border: 1px solid #333;
-      border-radius: 10px;
-      color: var(--text);
+      flex: 1; text-align: center; font-size: 2rem; font-weight: 900;
+      font-family: 'Barlow', sans-serif; padding: 0.8rem; background: #111;
+      border: 1px solid #333; border-radius: 10px; color: var(--text);
     }
-
-    .time-inputs input:focus, .amrap-inputs input:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    .time-inputs .separator, .amrap-inputs .separator {
-      font-size: 2rem;
-      font-weight: 900;
-      color: var(--text-dim);
-    }
-
-    .input-label {
-      display: block;
-      text-align: center;
-      font-size: 0.75rem;
-      color: var(--text-dim);
-      margin-top: 0.3rem;
-    }
+    .time-inputs input:focus, .amrap-inputs input:focus { outline: none; border-color: var(--accent); }
+    .time-inputs .separator, .amrap-inputs .separator { font-size: 2rem; font-weight: 900; color: var(--text-dim); }
+    .input-label { display: block; text-align: center; font-size: 0.75rem; color: var(--text-dim); margin-top: 0.3rem; }
 
     .single-score input {
-      width: 100%;
-      text-align: center;
-      font-size: 2.5rem;
-      font-weight: 900;
-      font-family: 'Barlow', sans-serif;
-      padding: 0.8rem;
-      background: #111;
-      border: 1px solid #333;
-      border-radius: 10px;
-      color: var(--text);
-      direction: ltr;
+      width: 100%; text-align: center; font-size: 2.5rem; font-weight: 900;
+      font-family: 'Barlow', sans-serif; padding: 0.8rem; background: #111;
+      border: 1px solid #333; border-radius: 10px; color: var(--text); direction: ltr;
     }
+    .single-score input:focus { outline: none; border-color: var(--accent); }
 
-    .single-score input:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    .weight-unit {
-      display: flex;
-      justify-content: center;
-      gap: 0.5rem;
-      margin-top: 0.5rem;
-    }
-
+    .weight-unit { display: flex; justify-content: center; gap: 0.5rem; margin-top: 0.5rem; }
     .weight-unit button {
-      padding: 0.4rem 1.2rem;
-      border: 1px solid #333;
-      border-radius: 8px;
-      background: transparent;
-      color: var(--text-dim);
-      font-family: 'Barlow', sans-serif;
-      font-size: 0.9rem;
-      font-weight: 700;
-      cursor: pointer;
+      padding: 0.4rem 1.2rem; border: 1px solid #333; border-radius: 8px;
+      background: transparent; color: var(--text-dim); font-family: 'Barlow', sans-serif;
+      font-size: 0.9rem; font-weight: 700; cursor: pointer;
     }
-
-    .weight-unit button.active {
-      border-color: var(--accent2);
-      color: var(--accent2);
-      background: rgba(245, 158, 11, 0.1);
-    }
+    .weight-unit button.active { border-color: var(--accent2); color: var(--accent2); background: rgba(245,158,11,0.1); }
 
     /* Rx selector */
-    .rx-selector {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1.2rem;
-    }
-
+    .rx-selector { display: flex; gap: 0.5rem; margin-bottom: 1.2rem; }
     .rx-btn {
-      flex: 1;
-      padding: 0.5rem;
-      border: 1px solid #333;
-      border-radius: 8px;
-      background: transparent;
-      color: var(--text-dim);
-      font-family: 'Barlow', sans-serif;
-      font-size: 0.85rem;
-      font-weight: 700;
-      cursor: pointer;
-      text-align: center;
+      flex: 1; padding: 0.5rem; border: 1px solid #333; border-radius: 8px;
+      background: transparent; color: var(--text-dim); font-family: 'Barlow', sans-serif;
+      font-size: 0.85rem; font-weight: 700; cursor: pointer; text-align: center;
     }
-
-    .rx-btn.active {
-      border-color: var(--success);
-      color: var(--success);
-      background: rgba(34, 197, 94, 0.1);
-    }
+    .rx-btn.active { border-color: var(--success); color: var(--success); background: rgba(34,197,94,0.1); }
 
     /* Submit button */
     .submit-btn {
-      width: 100%;
-      padding: 1rem;
-      border: none;
-      border-radius: 12px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color: #fff;
-      font-family: 'Heebo', sans-serif;
-      font-size: 1.2rem;
-      font-weight: 900;
-      cursor: pointer;
-      transition: all 0.2s;
-      letter-spacing: 0.03em;
+      width: 100%; padding: 1rem; border: none; border-radius: 12px;
+      color: #fff; font-family: 'Heebo', sans-serif; font-size: 1.2rem;
+      font-weight: 900; cursor: pointer; transition: all 0.2s; letter-spacing: 0.03em;
     }
+    .submit-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .submit-btn:active { transform: translateY(0); }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .submit-btn.wod-btn { background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+    .submit-btn.lift-btn { background: linear-gradient(135deg, var(--blue), #2563eb); }
+    .submit-btn.benchmark-btn { background: linear-gradient(135deg, var(--purple), #7c3aed); }
 
-    .submit-btn:hover {
-      filter: brightness(1.1);
-      transform: translateY(-1px);
+    /* PR Banner */
+    .pr-banner {
+      display: none; text-align: center; padding: 0.6rem; margin-bottom: 1rem;
+      background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3);
+      border-radius: 10px; color: var(--accent2); font-weight: 700; font-size: 0.9rem;
     }
+    .pr-banner.show { display: block; }
 
-    .submit-btn:active {
-      transform: translateY(0);
+    /* Previous result hint */
+    .prev-result {
+      text-align: center; padding: 0.5rem; margin-bottom: 1rem;
+      background: rgba(255,255,255,0.05); border-radius: 8px;
+      color: var(--text-dim); font-size: 0.85rem;
     }
+    .prev-result strong { color: var(--text); font-family: 'Barlow', sans-serif; }
 
-    .submit-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
+    /* Exercise list */
+    .exercise-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-bottom: 1.2rem;
     }
+    .exercise-btn {
+      padding: 0.6rem 0.3rem; border: 1px solid #333; border-radius: 8px;
+      background: transparent; color: var(--text-dim); font-family: 'Heebo', sans-serif;
+      font-size: 0.8rem; font-weight: 700; cursor: pointer; text-align: center;
+      transition: all 0.15s;
+    }
+    .exercise-btn:hover { border-color: #555; color: var(--text); }
+    .exercise-btn.active { border-color: var(--blue); color: var(--blue); background: rgba(59,130,246,0.1); }
 
-    /* Toast notification */
+    /* Benchmark list */
+    .benchmark-list { max-height: 200px; overflow-y: auto; margin-bottom: 1rem; scrollbar-width: thin; scrollbar-color: #333 transparent; }
+    .benchmark-item {
+      padding: 0.6rem 0.8rem; border: 1px solid #333; border-radius: 8px;
+      margin-bottom: 0.3rem; cursor: pointer; transition: all 0.15s;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .benchmark-item:hover { border-color: #555; }
+    .benchmark-item.active { border-color: var(--purple); background: rgba(168,85,247,0.1); }
+    .benchmark-item .bm-name { font-weight: 700; color: var(--text); font-size: 0.95rem; }
+    .benchmark-item .bm-type { font-size: 0.7rem; color: var(--text-dim); }
+
+    /* Toast */
     .toast {
-      position: fixed;
-      bottom: 2rem;
-      left: 50%;
+      position: fixed; bottom: 2rem; left: 50%;
       transform: translateX(-50%) translateY(100px);
-      padding: 1rem 2rem;
-      border-radius: 12px;
-      font-weight: 700;
-      font-size: 1rem;
-      transition: transform 0.3s ease-out;
-      z-index: 100;
-      text-align: center;
+      padding: 1rem 2rem; border-radius: 12px; font-weight: 700;
+      font-size: 1rem; transition: transform 0.3s ease-out; z-index: 100; text-align: center;
     }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { background: rgba(34,197,94,0.95); color: #fff; }
+    .toast.error { background: rgba(239,68,68,0.95); color: #fff; }
+    .toast.pr { background: rgba(245,158,11,0.95); color: #fff; font-size: 1.3rem; }
 
-    .toast.show {
-      transform: translateX(-50%) translateY(0);
-    }
-
-    .toast.success {
-      background: rgba(34, 197, 94, 0.95);
-      color: #fff;
-    }
-
-    .toast.error {
-      background: rgba(239, 68, 68, 0.95);
-      color: #fff;
-    }
-
-    /* View scoreboard link */
-    .view-board {
-      text-align: center;
-      margin-top: 0.5rem;
-    }
-
-    .view-board a {
-      color: var(--text-dim);
-      font-size: 0.85rem;
-      text-decoration: none;
-    }
-
-    .view-board a:hover {
-      color: var(--text);
-    }
-
-    /* History */
-    .history {
-      width: 100%;
-      max-width: 420px;
-    }
-
-    .history h3 {
-      font-size: 0.9rem;
-      color: var(--text-dim);
-      margin-bottom: 0.5rem;
-    }
-
+    /* History tabs */
+    .history { width: 100%; max-width: 420px; }
+    .history h3 { font-size: 0.9rem; color: var(--text-dim); margin-bottom: 0.5rem; }
     .history-item {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 10px;
-      padding: 0.7rem 1rem;
-      margin-bottom: 0.4rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      direction: ltr;
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: 10px; padding: 0.7rem 1rem; margin-bottom: 0.4rem;
+      display: flex; justify-content: space-between; align-items: center; direction: ltr;
     }
+    .history-item .h-score { font-family: 'Barlow', sans-serif; font-weight: 900; font-size: 1.1rem; }
+    .history-item .h-meta { color: var(--text-dim); font-size: 0.75rem; text-align: left; }
+    .history-item .h-rx { font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 6px; font-weight: 700; }
+    .history-item .h-rx.rx { background: rgba(34,197,94,0.15); color: var(--success); }
+    .history-item .h-rx.scaled { background: rgba(245,158,11,0.15); color: var(--accent2); }
+    .history-item .h-pr { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px; background: rgba(245,158,11,0.2); color: var(--accent2); font-weight: 700; margin-right: 0.3rem; }
 
-    .history-item .h-score {
-      font-family: 'Barlow', sans-serif;
-      font-weight: 900;
-      font-size: 1.1rem;
-    }
-
-    .history-item .h-time {
-      color: var(--text-dim);
-      font-size: 0.8rem;
-    }
-
-    .history-item .h-rx {
-      font-size: 0.75rem;
-      padding: 0.15rem 0.5rem;
-      border-radius: 6px;
-      font-weight: 700;
-    }
-
-    .history-item .h-rx.rx { background: rgba(34, 197, 94, 0.15); color: var(--success); }
-    .history-item .h-rx.scaled { background: rgba(245, 158, 11, 0.15); color: var(--accent2); }
+    .view-board { text-align: center; margin-top: 0.5rem; }
+    .view-board a { color: var(--text-dim); font-size: 0.85rem; text-decoration: none; }
+    .view-board a:hover { color: var(--text); }
   </style>
 </head>
 <body>
@@ -382,94 +244,147 @@
     <div class="subtitle">רישום תוצאות</div>
   </div>
 
-  <div class="card">
-    <!-- Name -->
-    <div class="form-group">
+  <!-- Name (shared across all tracks) -->
+  <div class="card" style="padding:1rem 1.5rem;margin-bottom:0.8rem;">
+    <div class="form-group" style="margin-bottom:0;">
       <label>שם</label>
       <input type="text" id="athleteName" placeholder="הכנס את שמך" autocomplete="name">
     </div>
-
-    <!-- Score Type -->
-    <label style="font-size:0.9rem;color:var(--text-dim);font-weight:700;margin-bottom:0.4rem;display:block;">סוג תוצאה</label>
-    <div class="type-selector">
-      <button class="type-btn active" data-type="time" onclick="selectType('time')">
-        <span class="type-icon">⏱</span>
-        For Time
-      </button>
-      <button class="type-btn" data-type="amrap" onclick="selectType('amrap')">
-        <span class="type-icon">🔄</span>
-        AMRAP
-      </button>
-      <button class="type-btn" data-type="reps" onclick="selectType('reps')">
-        <span class="type-icon">💪</span>
-        Reps
-      </button>
-      <button class="type-btn" data-type="weight" onclick="selectType('weight')">
-        <span class="type-icon">🏋️</span>
-        Weight
-      </button>
-    </div>
-
-    <!-- Time input -->
-    <div class="score-input-area active" id="input-time">
-      <div class="time-inputs">
-        <div style="flex:1;">
-          <input type="number" id="timeMin" min="0" max="99" placeholder="00" inputmode="numeric">
-          <span class="input-label">min</span>
-        </div>
-        <span class="separator">:</span>
-        <div style="flex:1;">
-          <input type="number" id="timeSec" min="0" max="59" placeholder="00" inputmode="numeric">
-          <span class="input-label">sec</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- AMRAP input -->
-    <div class="score-input-area" id="input-amrap">
-      <div class="amrap-inputs">
-        <div style="flex:1;">
-          <input type="number" id="amrapRounds" min="0" max="999" placeholder="0" inputmode="numeric">
-          <span class="input-label">rounds</span>
-        </div>
-        <span class="separator">+</span>
-        <div style="flex:1;">
-          <input type="number" id="amrapReps" min="0" max="999" placeholder="0" inputmode="numeric">
-          <span class="input-label">reps</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Reps input -->
-    <div class="score-input-area" id="input-reps">
-      <div class="single-score">
-        <input type="number" id="repsTotal" min="0" max="9999" placeholder="0" inputmode="numeric">
-        <span class="input-label">total reps</span>
-      </div>
-    </div>
-
-    <!-- Weight input -->
-    <div class="score-input-area" id="input-weight">
-      <div class="single-score">
-        <input type="number" id="weightVal" min="0" max="999" step="0.5" placeholder="0" inputmode="decimal">
-        <div class="weight-unit">
-          <button class="active" onclick="selectUnit(this, 'kg')">KG</button>
-          <button onclick="selectUnit(this, 'lbs')">LBS</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Rx / Scaled -->
-    <div class="rx-selector">
-      <button class="rx-btn active" onclick="selectRx(this, 'Rx')">Rx</button>
-      <button class="rx-btn" onclick="selectRx(this, 'Scaled')">Scaled</button>
-    </div>
-
-    <!-- Submit -->
-    <button class="submit-btn" id="submitBtn" onclick="submitScore()">שלח תוצאה</button>
   </div>
 
-  <!-- Today's submissions from this device -->
+  <!-- Track selector -->
+  <div class="track-tabs">
+    <button class="track-tab active" data-track="wod" onclick="selectTrack('wod')">⏱ WOD של היום</button>
+    <button class="track-tab" data-track="lift" onclick="selectTrack('lift')">🏋️ הרמה</button>
+    <button class="track-tab" data-track="benchmark" onclick="selectTrack('benchmark')">⭐ Benchmark</button>
+  </div>
+
+  <!-- ═══════════ TRACK 1: WOD ═══════════ -->
+  <div class="track-panel active" id="panel-wod">
+    <div class="card">
+      <label style="font-size:0.9rem;color:var(--text-dim);font-weight:700;margin-bottom:0.4rem;display:block;">סוג תוצאה</label>
+      <div class="type-selector">
+        <button class="type-btn active" data-type="time" onclick="selectType('time')">
+          <span class="type-icon">⏱</span> For Time
+        </button>
+        <button class="type-btn" data-type="amrap" onclick="selectType('amrap')">
+          <span class="type-icon">🔄</span> AMRAP
+        </button>
+        <button class="type-btn" data-type="reps" onclick="selectType('reps')">
+          <span class="type-icon">💪</span> Reps
+        </button>
+        <button class="type-btn" data-type="weight" onclick="selectType('weight')">
+          <span class="type-icon">🏋️</span> Weight
+        </button>
+      </div>
+
+      <div class="score-input-area active" id="input-time">
+        <div class="time-inputs">
+          <div style="flex:1;"><input type="number" id="timeMin" min="0" max="99" placeholder="00" inputmode="numeric"><span class="input-label">min</span></div>
+          <span class="separator">:</span>
+          <div style="flex:1;"><input type="number" id="timeSec" min="0" max="59" placeholder="00" inputmode="numeric"><span class="input-label">sec</span></div>
+        </div>
+      </div>
+      <div class="score-input-area" id="input-amrap">
+        <div class="amrap-inputs">
+          <div style="flex:1;"><input type="number" id="amrapRounds" min="0" max="999" placeholder="0" inputmode="numeric"><span class="input-label">rounds</span></div>
+          <span class="separator">+</span>
+          <div style="flex:1;"><input type="number" id="amrapReps" min="0" max="999" placeholder="0" inputmode="numeric"><span class="input-label">reps</span></div>
+        </div>
+      </div>
+      <div class="score-input-area" id="input-reps">
+        <div class="single-score"><input type="number" id="repsTotal" min="0" max="9999" placeholder="0" inputmode="numeric"><span class="input-label">total reps</span></div>
+      </div>
+      <div class="score-input-area" id="input-weight">
+        <div class="single-score">
+          <input type="number" id="weightVal" min="0" max="999" step="0.5" placeholder="0" inputmode="decimal">
+          <div class="weight-unit">
+            <button class="active" onclick="selectUnit(this,'kg')">KG</button>
+            <button onclick="selectUnit(this,'lbs')">LBS</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="rx-selector">
+        <button class="rx-btn active" onclick="selectRx(this,'Rx')">Rx</button>
+        <button class="rx-btn" onclick="selectRx(this,'Scaled')">Scaled</button>
+      </div>
+
+      <button class="submit-btn wod-btn" onclick="submitWod()">שלח תוצאה</button>
+    </div>
+  </div>
+
+  <!-- ═══════════ TRACK 2: LIFT ═══════════ -->
+  <div class="track-panel" id="panel-lift">
+    <div class="card">
+      <label style="font-size:0.9rem;color:var(--text-dim);font-weight:700;margin-bottom:0.4rem;display:block;">בחר תרגיל</label>
+      <div class="exercise-grid" id="exerciseGrid"></div>
+
+      <div id="liftPrevResult" class="prev-result" style="display:none;"></div>
+
+      <div class="form-group">
+        <label>משקל</label>
+        <div style="display:flex;gap:0.8rem;align-items:center;direction:ltr;">
+          <input type="number" id="liftWeight" min="0" max="999" step="0.5" placeholder="0" inputmode="decimal" style="text-align:center;font-size:1.8rem;font-weight:900;font-family:'Barlow',sans-serif;">
+          <div class="weight-unit" style="flex-direction:column;margin-top:0;">
+            <button class="active" onclick="selectLiftUnit(this,'kg')">KG</button>
+            <button onclick="selectLiftUnit(this,'lbs')">LBS</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>חזרות</label>
+        <div style="display:flex;gap:0.5rem;direction:ltr;">
+          <button class="type-btn" style="flex:1;padding:0.5rem;" onclick="selectLiftReps(1)">1</button>
+          <button class="type-btn" style="flex:1;padding:0.5rem;" onclick="selectLiftReps(2)">2</button>
+          <button class="type-btn active" style="flex:1;padding:0.5rem;" onclick="selectLiftReps(3)">3</button>
+          <button class="type-btn" style="flex:1;padding:0.5rem;" onclick="selectLiftReps(5)">5</button>
+          <input type="number" id="liftRepsCustom" min="1" max="99" placeholder="אחר" inputmode="numeric"
+            style="flex:1;text-align:center;font-size:1rem;padding:0.5rem;background:#111;border:1px solid #333;border-radius:10px;color:var(--text);font-family:'Heebo',sans-serif;"
+            oninput="selectLiftReps(parseInt(this.value)||1, true)">
+        </div>
+      </div>
+
+      <button class="submit-btn lift-btn" onclick="submitLift()">שלח הרמה</button>
+    </div>
+  </div>
+
+  <!-- ═══════════ TRACK 3: BENCHMARK ═══════════ -->
+  <div class="track-panel" id="panel-benchmark">
+    <div class="card">
+      <label style="font-size:0.9rem;color:var(--text-dim);font-weight:700;margin-bottom:0.4rem;display:block;">בחר אימון</label>
+      <div class="benchmark-list" id="benchmarkList"></div>
+
+      <div id="bmPrevResult" class="prev-result" style="display:none;"></div>
+
+      <div id="bmScoreArea" style="display:none;">
+        <div id="bmTimeInput" class="score-input-area">
+          <div class="time-inputs">
+            <div style="flex:1;"><input type="number" id="bmMin" min="0" max="99" placeholder="00" inputmode="numeric"><span class="input-label">min</span></div>
+            <span class="separator">:</span>
+            <div style="flex:1;"><input type="number" id="bmSec" min="0" max="59" placeholder="00" inputmode="numeric"><span class="input-label">sec</span></div>
+          </div>
+        </div>
+        <div id="bmAmrapInput" class="score-input-area">
+          <div class="amrap-inputs">
+            <div style="flex:1;"><input type="number" id="bmRounds" min="0" max="999" placeholder="0" inputmode="numeric"><span class="input-label">rounds</span></div>
+            <span class="separator">+</span>
+            <div style="flex:1;"><input type="number" id="bmRepsInput" min="0" max="999" placeholder="0" inputmode="numeric"><span class="input-label">reps</span></div>
+          </div>
+        </div>
+
+        <div class="rx-selector">
+          <button class="rx-btn active" onclick="selectBmRx(this,'Rx')">Rx</button>
+          <button class="rx-btn" onclick="selectBmRx(this,'Scaled')">Scaled</button>
+        </div>
+
+        <button class="submit-btn benchmark-btn" onclick="submitBenchmark()">שלח תוצאה</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- History -->
   <div class="history" id="historySection" style="display:none;">
     <h3>השליחות שלך היום</h3>
     <div id="historyList"></div>
@@ -479,18 +394,69 @@
     <a href="index.html" target="_blank">צפה בלוח התוצאות &larr;</a>
   </div>
 
-  <!-- Toast -->
   <div class="toast" id="toast"></div>
 
   <script>
     // ═══════════════════════════════
+    // Data
+    // ═══════════════════════════════
+    const EXERCISES = [
+      { name: 'Back Squat', cat: 'PL' },
+      { name: 'Front Squat', cat: 'PL' },
+      { name: 'Deadlift', cat: 'PL' },
+      { name: 'Bench Press', cat: 'PL' },
+      { name: 'Strict Press', cat: 'PL' },
+      { name: 'Snatch', cat: 'OLY' },
+      { name: 'Clean & Jerk', cat: 'OLY' },
+      { name: 'Power Clean', cat: 'OLY' },
+      { name: 'Power Snatch', cat: 'OLY' },
+      { name: 'Hang Clean', cat: 'OLY' },
+      { name: 'Clean', cat: 'OLY' },
+      { name: 'Overhead Squat', cat: 'ACC' },
+      { name: 'Push Jerk', cat: 'ACC' },
+      { name: 'Thruster', cat: 'ACC' },
+    ];
+
+    const BENCHMARKS = [
+      { name: 'Fran', type: 'time', desc: '21-15-9: Thrusters + Pull-ups' },
+      { name: 'Grace', type: 'time', desc: '30 Clean & Jerk' },
+      { name: 'Diane', type: 'time', desc: '21-15-9: Deadlift + HSPU' },
+      { name: 'Isabel', type: 'time', desc: '30 Snatches' },
+      { name: 'Helen', type: 'time', desc: '3 Rds: Run + KB Swing + Pull-ups' },
+      { name: 'Karen', type: 'time', desc: '150 Wall Balls' },
+      { name: 'Annie', type: 'time', desc: '50-40-30-20-10: DU + Sit-ups' },
+      { name: 'Jackie', type: 'time', desc: '1000m Row + 50 Thrusters + 30 Pull-ups' },
+      { name: 'Nancy', type: 'time', desc: '5 Rds: 400m Run + 15 OHS' },
+      { name: 'Amanda', type: 'time', desc: '9-7-5: MU + Squat Snatch' },
+      { name: 'Elizabeth', type: 'time', desc: '21-15-9: Squat Clean + Ring Dips' },
+      { name: 'Angie', type: 'time', desc: '100 each: PU+Push+Sit+Squat' },
+      { name: 'Barbara', type: 'time', desc: '5 Rds: 20PU+30Push+40Sit+50Squat' },
+      { name: 'Kelly', type: 'time', desc: '5 Rds: Run+Box Jump+Wall Ball' },
+      { name: 'Linda', type: 'time', desc: '10-9-8..1: DL+Bench+Clean' },
+      { name: 'Cindy', type: 'amrap', desc: '20min: 5PU + 10Push + 15Squat' },
+      { name: 'Mary', type: 'amrap', desc: '20min: 5HSPU + 10Pistol + 15PU' },
+      { name: 'Murph', type: 'time', desc: 'Run+100PU+200Push+300Squat+Run' },
+      { name: 'DT', type: 'time', desc: '5 Rds: 12DL+9HPC+6PJ' },
+      { name: 'JT', type: 'time', desc: '21-15-9: HSPU+Ring Dips+Push-ups' },
+      { name: 'Nate', type: 'amrap', desc: '20min: 2MU+4HSPU+8KB Swing' },
+      { name: 'Chelsea', type: 'amrap', desc: '30min EMOM: 5PU+10Push+15Squat' },
+      { name: 'Fight Gone Bad', type: 'reps', desc: '3 Rds: WB+SDHP+BJ+Push Press+Row' },
+    ];
+
+    // ═══════════════════════════════
     // State
     // ═══════════════════════════════
+    let currentTrack = 'wod';
     let selectedType = 'time';
     let selectedRx = 'Rx';
     let selectedUnit = 'kg';
+    let selectedExercise = '';
+    let selectedLiftUnit = 'kg';
+    let selectedLiftReps = 3;
+    let selectedBenchmark = null;
+    let selectedBmRx = 'Rx';
+    let myPRs = {}; // { "exercise|type": { best, bestRaw, reps, date } }
 
-    // Read API URL from URL parameter or localStorage
     const urlParams = new URLSearchParams(window.location.search);
     const API_URL = urlParams.get('api') || localStorage.getItem('wodboard-api') || '';
 
@@ -498,213 +464,393 @@
     // Init
     // ═══════════════════════════════
     (function init() {
-      // Restore saved name
       const savedName = localStorage.getItem('wodboard-athlete-name');
       if (savedName) document.getElementById('athleteName').value = savedName;
 
-      // Restore last used type
       const savedType = localStorage.getItem('wodboard-score-type');
       if (savedType) selectType(savedType);
 
-      // Save API URL to localStorage for future use
-      if (urlParams.get('api')) {
-        localStorage.setItem('wodboard-api', urlParams.get('api'));
-      }
+      if (urlParams.get('api')) localStorage.setItem('wodboard-api', urlParams.get('api'));
 
+      renderExerciseGrid();
+      renderBenchmarkList();
       renderHistory();
+      loadMyPRs();
     })();
 
     // ═══════════════════════════════
-    // Type selection
+    // Track switching
+    // ═══════════════════════════════
+    function selectTrack(track) {
+      currentTrack = track;
+      document.querySelectorAll('.track-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.track-tab[data-track="${track}"]`).classList.add('active');
+      document.querySelectorAll('.track-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById(`panel-${track}`).classList.add('active');
+    }
+
+    // ═══════════════════════════════
+    // WOD type selection
     // ═══════════════════════════════
     function selectType(type) {
       selectedType = type;
       localStorage.setItem('wodboard-score-type', type);
-
       document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
-      document.querySelector(`.type-btn[data-type="${type}"]`).classList.add('active');
-
-      document.querySelectorAll('.score-input-area').forEach(a => a.classList.remove('active'));
+      const btn = document.querySelector(`.type-btn[data-type="${type}"]`);
+      if (btn) btn.classList.add('active');
+      document.querySelectorAll('#panel-wod .score-input-area').forEach(a => a.classList.remove('active'));
       document.getElementById(`input-${type}`).classList.add('active');
     }
 
     function selectRx(btn, val) {
       selectedRx = val;
-      document.querySelectorAll('.rx-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#panel-wod .rx-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
     }
 
     function selectUnit(btn, unit) {
       selectedUnit = unit;
-      document.querySelectorAll('.weight-unit button').forEach(b => b.classList.remove('active'));
+      btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
     }
 
     // ═══════════════════════════════
-    // Build score data
+    // Lift selections
     // ═══════════════════════════════
-    function getScoreData() {
-      let score = '';
-      let rawValue = 0;
+    function renderExerciseGrid() {
+      const grid = document.getElementById('exerciseGrid');
+      grid.innerHTML = EXERCISES.map(ex =>
+        `<button class="exercise-btn" data-ex="${ex.name}" onclick="selectExercise('${ex.name}')">${ex.name}</button>`
+      ).join('');
+    }
 
+    function selectExercise(name) {
+      selectedExercise = name;
+      document.querySelectorAll('.exercise-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector(`.exercise-btn[data-ex="${name}"]`).classList.add('active');
+      showLiftPR(name);
+    }
+
+    function selectLiftUnit(btn, unit) {
+      selectedLiftUnit = unit;
+      btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    function selectLiftReps(n, fromInput) {
+      selectedLiftReps = n;
+      if (!fromInput) {
+        document.getElementById('liftRepsCustom').value = '';
+        document.querySelectorAll('#panel-lift .type-btn').forEach(b => b.classList.remove('active'));
+        const btns = document.querySelectorAll('#panel-lift .type-btn');
+        btns.forEach(b => { if (b.textContent.trim() == String(n)) b.classList.add('active'); });
+      } else {
+        document.querySelectorAll('#panel-lift .type-btn').forEach(b => b.classList.remove('active'));
+      }
+    }
+
+    function showLiftPR(exercise) {
+      const el = document.getElementById('liftPrevResult');
+      const key = exercise + '|lift';
+      const pr = myPRs[key];
+      if (pr) {
+        el.innerHTML = `השיא שלך: <strong>${pr.best}</strong> <span style="color:var(--text-dim);font-size:0.8rem;">(${pr.date})</span>`;
+        el.style.display = 'block';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
+    // ═══════════════════════════════
+    // Benchmark selections
+    // ═══════════════════════════════
+    function renderBenchmarkList() {
+      const list = document.getElementById('benchmarkList');
+      list.innerHTML = BENCHMARKS.map(bm =>
+        `<div class="benchmark-item" data-bm="${bm.name}" onclick="selectBenchmark('${bm.name}')">
+          <div><span class="bm-name">${bm.name}</span><br><span class="bm-type">${bm.desc}</span></div>
+          <span class="bm-type" style="text-transform:uppercase;">${bm.type}</span>
+        </div>`
+      ).join('');
+    }
+
+    function selectBenchmark(name) {
+      const bm = BENCHMARKS.find(b => b.name === name);
+      if (!bm) return;
+      selectedBenchmark = bm;
+      document.querySelectorAll('.benchmark-item').forEach(i => i.classList.remove('active'));
+      document.querySelector(`.benchmark-item[data-bm="${name}"]`).classList.add('active');
+
+      // Show correct score input
+      const area = document.getElementById('bmScoreArea');
+      area.style.display = 'block';
+      document.getElementById('bmTimeInput').classList.toggle('active', bm.type === 'time');
+      document.getElementById('bmAmrapInput').classList.toggle('active', bm.type === 'amrap' || bm.type === 'reps');
+
+      showBenchmarkPR(name);
+    }
+
+    function selectBmRx(btn, val) {
+      selectedBmRx = val;
+      document.querySelectorAll('#panel-benchmark .rx-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    function showBenchmarkPR(wod) {
+      const el = document.getElementById('bmPrevResult');
+      const key = wod + '|benchmark';
+      const pr = myPRs[key];
+      if (pr) {
+        el.innerHTML = `הפעם הקודמת: <strong>${pr.best}</strong> <span style="color:var(--text-dim);font-size:0.8rem;">(${pr.date})</span>`;
+        el.style.display = 'block';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
+    // ═══════════════════════════════
+    // Load PRs from server
+    // ═══════════════════════════════
+    function loadMyPRs() {
+      const name = (localStorage.getItem('wodboard-athlete-name') || '').trim();
+      if (!name || !API_URL) {
+        loadLocalPRs();
+        return;
+      }
+      const cbName = '_prCb_' + Date.now();
+      const url = `${API_URL}?action=myprs&name=${encodeURIComponent(name)}&callback=${cbName}`;
+      const script = document.createElement('script');
+      window[cbName] = function(data) {
+        delete window[cbName]; script.remove();
+        if (data && data.prs) {
+          myPRs = {};
+          data.prs.forEach(p => { myPRs[p.exercise + '|' + p.type] = p; });
+          saveLocalPRs();
+        }
+      };
+      script.onerror = () => { delete window[cbName]; script.remove(); loadLocalPRs(); };
+      setTimeout(() => { if (window[cbName]) { delete window[cbName]; script.remove(); } }, 8000);
+      script.src = url;
+      document.body.appendChild(script);
+    }
+
+    function saveLocalPRs() { localStorage.setItem('wodboard-prs', JSON.stringify(myPRs)); }
+    function loadLocalPRs() { try { myPRs = JSON.parse(localStorage.getItem('wodboard-prs') || '{}'); } catch {} }
+
+    // ═══════════════════════════════
+    // POST via hidden form + iframe
+    // ═══════════════════════════════
+    function postViaForm(url, data) {
+      return new Promise((resolve, reject) => {
+        const iframeName = '_postFrame_' + Date.now();
+        const iframe = document.createElement('iframe');
+        iframe.name = iframeName; iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+        const form = document.createElement('form');
+        form.method = 'POST'; form.action = url; form.target = iframeName; form.style.display = 'none';
+        const input = document.createElement('input');
+        input.type = 'hidden'; input.name = 'payload'; input.value = JSON.stringify(data);
+        form.appendChild(input); document.body.appendChild(form);
+        iframe.onload = () => { setTimeout(() => { iframe.remove(); form.remove(); }, 500); resolve(); };
+        iframe.onerror = () => { iframe.remove(); form.remove(); reject(new Error('fail')); };
+        setTimeout(() => { resolve(); try { iframe.remove(); form.remove(); } catch {} }, 5000);
+        form.submit();
+      });
+    }
+
+    // ═══════════════════════════════
+    // Submit: WOD
+    // ═══════════════════════════════
+    async function submitWod() {
+      const name = getName(); if (!name) return;
+      const scoreData = getWodScoreData(); if (!scoreData) return;
+      if (!API_URL) { showToast('API URL missing', 'error'); return; }
+
+      const today = localToday();
+      const payload = { name, score: scoreData.score, scoreType: scoreData.scoreType, rawValue: scoreData.rawValue, rx: selectedRx, workoutDate: today };
+
+      await doSubmit(payload, 'wod');
+    }
+
+    function getWodScoreData() {
+      let score = '', rawValue = 0;
       switch (selectedType) {
         case 'time': {
           const min = parseInt(document.getElementById('timeMin').value) || 0;
           const sec = parseInt(document.getElementById('timeSec').value) || 0;
-          if (min === 0 && sec === 0) return null;
-          score = `${min}:${String(sec).padStart(2, '0')}`;
+          if (min === 0 && sec === 0) { showToast('הכנס תוצאה', 'error'); return null; }
+          score = `${min}:${String(sec).padStart(2,'0')}`;
           rawValue = min * 60 + sec;
           break;
         }
         case 'amrap': {
           const rounds = parseInt(document.getElementById('amrapRounds').value) || 0;
           const reps = parseInt(document.getElementById('amrapReps').value) || 0;
-          if (rounds === 0 && reps === 0) return null;
+          if (rounds === 0 && reps === 0) { showToast('הכנס תוצאה', 'error'); return null; }
           score = `${rounds}+${reps}`;
           rawValue = rounds * 1000 + reps;
           break;
         }
         case 'reps': {
           const total = parseInt(document.getElementById('repsTotal').value) || 0;
-          if (total === 0) return null;
-          score = String(total);
-          rawValue = total;
+          if (total === 0) { showToast('הכנס תוצאה', 'error'); return null; }
+          score = String(total); rawValue = total;
           break;
         }
         case 'weight': {
           const wt = parseFloat(document.getElementById('weightVal').value) || 0;
-          if (wt === 0) return null;
+          if (wt === 0) { showToast('הכנס תוצאה', 'error'); return null; }
           score = `${wt} ${selectedUnit}`;
-          rawValue = selectedUnit === 'lbs' ? wt * 0.453592 : wt; // normalize to kg
+          rawValue = selectedUnit === 'lbs' ? wt * 0.453592 : wt;
           break;
         }
       }
-
       return { score, rawValue, scoreType: selectedType };
     }
 
     // ═══════════════════════════════
-    // POST via hidden form + iframe
-    // (Apps Script 302 redirect breaks fetch — form handles it correctly)
+    // Submit: Lift
     // ═══════════════════════════════
-    function postViaForm(url, data) {
-      return new Promise((resolve, reject) => {
-        const iframeName = '_postFrame_' + Date.now();
-        const iframe = document.createElement('iframe');
-        iframe.name = iframeName;
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
+    async function submitLift() {
+      const name = getName(); if (!name) return;
+      if (!selectedExercise) { showToast('בחר תרגיל', 'error'); return; }
+      const weight = parseFloat(document.getElementById('liftWeight').value) || 0;
+      if (weight === 0) { showToast('הכנס משקל', 'error'); return; }
+      if (!API_URL) { showToast('API URL missing', 'error'); return; }
 
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = url;
-        form.target = iframeName;
-        form.style.display = 'none';
+      const payload = {
+        action: 'lift', name, exercise: selectedExercise,
+        weight, reps: selectedLiftReps, unit: selectedLiftUnit,
+        workoutDate: localToday()
+      };
 
-        // Send JSON as a single hidden field named 'payload'
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'payload';
-        input.value = JSON.stringify(data);
-        form.appendChild(input);
-
-        document.body.appendChild(form);
-
-        iframe.onload = () => {
-          // Cleanup after a short delay
-          setTimeout(() => {
-            iframe.remove();
-            form.remove();
-          }, 500);
-          resolve();
-        };
-
-        iframe.onerror = () => {
-          iframe.remove();
-          form.remove();
-          reject(new Error('Form submission failed'));
-        };
-
-        // Timeout fallback
-        setTimeout(() => {
-          resolve(); // Assume success after timeout
-          try { iframe.remove(); form.remove(); } catch {}
-        }, 5000);
-
-        form.submit();
-      });
+      await doSubmit(payload, 'lift');
     }
 
     // ═══════════════════════════════
-    // Submit
+    // Submit: Benchmark
     // ═══════════════════════════════
-    async function submitScore() {
-      const name = document.getElementById('athleteName').value.trim();
-      if (!name) {
-        showToast('הכנס את שמך', 'error');
-        document.getElementById('athleteName').focus();
-        return;
+    async function submitBenchmark() {
+      const name = getName(); if (!name) return;
+      if (!selectedBenchmark) { showToast('בחר אימון', 'error'); return; }
+      if (!API_URL) { showToast('API URL missing', 'error'); return; }
+
+      let score = '', rawValue = 0;
+      const st = selectedBenchmark.type;
+
+      if (st === 'time') {
+        const min = parseInt(document.getElementById('bmMin').value) || 0;
+        const sec = parseInt(document.getElementById('bmSec').value) || 0;
+        if (min === 0 && sec === 0) { showToast('הכנס זמן', 'error'); return; }
+        score = `${min}:${String(sec).padStart(2,'0')}`;
+        rawValue = min * 60 + sec;
+      } else {
+        const rounds = parseInt(document.getElementById('bmRounds').value) || 0;
+        const reps = parseInt(document.getElementById('bmRepsInput').value) || 0;
+        if (rounds === 0 && reps === 0) { showToast('הכנס תוצאה', 'error'); return; }
+        score = st === 'reps' ? String(rounds * 1000 + reps) : `${rounds}+${reps}`;
+        rawValue = rounds * 1000 + reps;
       }
-
-      const scoreData = getScoreData();
-      if (!scoreData) {
-        showToast('הכנס תוצאה', 'error');
-        return;
-      }
-
-      if (!API_URL) {
-        showToast('API URL missing — scan QR from the board', 'error');
-        return;
-      }
-
-      const btn = document.getElementById('submitBtn');
-      btn.disabled = true;
-      btn.textContent = 'שולח...';
-
-      // Save name for next time
-      localStorage.setItem('wodboard-athlete-name', name);
-
-      const today = new Date().toISOString().slice(0, 10);
 
       const payload = {
-        name,
-        score: scoreData.score,
-        scoreType: scoreData.scoreType,
-        rawValue: scoreData.rawValue,
-        rx: selectedRx,
-        workoutDate: today
+        action: 'benchmark', name, wod: selectedBenchmark.name,
+        score, scoreType: st, rawValue, rx: selectedBmRx,
+        workoutDate: localToday()
       };
 
+      await doSubmit(payload, 'benchmark');
+    }
+
+    // ═══════════════════════════════
+    // Shared submit logic
+    // ═══════════════════════════════
+    async function doSubmit(payload, type) {
+      const btns = document.querySelectorAll('.submit-btn');
+      btns.forEach(b => { b.disabled = true; b.textContent = 'שולח...'; });
+
+      localStorage.setItem('wodboard-athlete-name', payload.name);
+
       try {
-        // Use hidden form + iframe to reliably POST to Apps Script
-        // (fetch with no-cors fails because 302 redirect converts POST to GET)
         await postViaForm(API_URL, payload);
 
-        showToast('התוצאה נשלחה!', 'success');
-        saveToHistory(payload);
+        // Check for PR locally
+        let isPR = false;
+        if (type === 'lift') {
+          const weightKg = (payload.unit === 'lbs') ? payload.weight * 0.453592 : payload.weight;
+          const est1RM = payload.reps === 1 ? weightKg : Math.round(weightKg * (1 + payload.reps / 30) * 10) / 10;
+          const key = payload.exercise + '|lift';
+          const prev = myPRs[key];
+          if (!prev || est1RM > prev.bestRaw) {
+            isPR = true;
+            myPRs[key] = { exercise: payload.exercise, type: 'lift', best: payload.weight + ' ' + payload.unit + ' x' + payload.reps, bestRaw: est1RM, reps: payload.reps, date: localToday() };
+            saveLocalPRs();
+          }
+        } else if (type === 'benchmark') {
+          const key = payload.wod + '|benchmark';
+          const prev = myPRs[key];
+          const better = payload.scoreType === 'time'
+            ? (!prev || payload.rawValue < prev.bestRaw)
+            : (!prev || payload.rawValue > prev.bestRaw);
+          if (better) {
+            isPR = true;
+            myPRs[key] = { exercise: payload.wod, type: 'benchmark', best: payload.score, bestRaw: payload.rawValue, reps: 0, date: localToday() };
+            saveLocalPRs();
+          }
+        }
+
+        if (isPR) {
+          showToast('🎉 שיא חדש!', 'pr');
+        } else {
+          showToast('נשלח בהצלחה!', 'success');
+        }
+
+        saveToHistory(payload, type, isPR);
         renderHistory();
 
+        // Refresh PR display
+        if (type === 'lift' && selectedExercise) showLiftPR(selectedExercise);
+        if (type === 'benchmark' && selectedBenchmark) showBenchmarkPR(selectedBenchmark.name);
+
       } catch (err) {
-        console.error('Submit error:', err);
-        showToast('שגיאה בשליחה, נסה שוב', 'error');
+        showToast('שגיאה, נסה שוב', 'error');
       }
 
-      btn.disabled = false;
-      btn.textContent = 'שלח תוצאה';
+      btns.forEach(b => { b.disabled = false; });
+      document.querySelector('#panel-wod .submit-btn').textContent = 'שלח תוצאה';
+      document.querySelector('#panel-lift .submit-btn').textContent = 'שלח הרמה';
+      document.querySelector('#panel-benchmark .submit-btn').textContent = 'שלח תוצאה';
+    }
+
+    // ═══════════════════════════════
+    // Helpers
+    // ═══════════════════════════════
+    function getName() {
+      const name = document.getElementById('athleteName').value.trim();
+      if (!name) { showToast('הכנס את שמך', 'error'); document.getElementById('athleteName').focus(); return null; }
+      return name;
+    }
+
+    function localToday() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
 
     // ═══════════════════════════════
     // Local history
     // ═══════════════════════════════
-    function saveToHistory(entry) {
+    function saveToHistory(entry, type, isPR) {
       const key = 'wodboard-history';
       let history = [];
       try { history = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
-      entry.timestamp = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-      history.unshift(entry);
-      // Keep only today's entries, max 20
-      const today = new Date().toISOString().slice(0, 10);
-      history = history.filter(h => h.workoutDate === today).slice(0, 20);
+      const item = {
+        ...entry,
+        trackType: type,
+        isPR: isPR || false,
+        timestamp: new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
+      };
+      history.unshift(item);
+      const today = localToday();
+      history = history.filter(h => h.workoutDate === today).slice(0, 30);
       localStorage.setItem(key, JSON.stringify(history));
     }
 
@@ -712,25 +858,30 @@
       const key = 'wodboard-history';
       let history = [];
       try { history = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localToday();
       history = history.filter(h => h.workoutDate === today);
 
       const section = document.getElementById('historySection');
       const list = document.getElementById('historyList');
 
-      if (history.length === 0) {
-        section.style.display = 'none';
-        return;
-      }
+      if (history.length === 0) { section.style.display = 'none'; return; }
 
       section.style.display = 'block';
-      list.innerHTML = history.map(h => `
-        <div class="history-item">
-          <span class="h-score">${h.score}</span>
-          <span class="h-rx ${h.rx === 'Rx' ? 'rx' : 'scaled'}">${h.rx}</span>
-          <span class="h-time">${h.timestamp}</span>
-        </div>
-      `).join('');
+      list.innerHTML = history.map(h => {
+        let label = '';
+        if (h.trackType === 'lift') label = h.exercise || '';
+        else if (h.trackType === 'benchmark') label = h.wod || '';
+        else label = (h.scoreType || '').toUpperCase();
+
+        const displayScore = h.trackType === 'lift' ? `${h.weight} ${h.unit} x${h.reps}` : (h.score || '');
+        const prBadge = h.isPR ? '<span class="h-pr">PR!</span>' : '';
+
+        return `<div class="history-item">
+          <span class="h-score">${displayScore}</span>
+          <span class="h-meta">${prBadge}${label}<br>${h.timestamp}</span>
+          ${h.rx ? `<span class="h-rx ${h.rx === 'Rx' ? 'rx' : 'scaled'}">${h.rx}</span>` : ''}
+        </div>`;
+      }).join('');
     }
 
     // ═══════════════════════════════
@@ -740,7 +891,7 @@
       const toast = document.getElementById('toast');
       toast.textContent = msg;
       toast.className = `toast ${type} show`;
-      setTimeout(() => toast.classList.remove('show'), 2500);
+      setTimeout(() => toast.classList.remove('show'), type === 'pr' ? 3500 : 2500);
     }
   </script>
 </body>
