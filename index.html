@@ -548,7 +548,7 @@
     }
 
     .main-content.mode-split #wodArea {
-      flex: 6;
+      flex: 3;
       display: flex;
       flex-direction: column;
       gap: 0.6rem;
@@ -557,7 +557,7 @@
     }
 
     .main-content.mode-split #scoreboardArea {
-      flex: 4;
+      flex: 1;
       min-width: 0;
       border-inline-start: 1px solid #222;
       padding-inline-start: 0.8rem;
@@ -1102,7 +1102,7 @@
       if (shouldShow) {
         const baseUrl = window.location.href.replace(/index\.html$/, '').replace(/\/$/, '');
         const scoreUrl = `${baseUrl}/score.html?api=${encodeURIComponent(settings.appsScriptUrl)}`;
-        const qrApiUrl = `https://chart.googleapis.com/chart?cht=qr&chs=280x280&chl=${encodeURIComponent(scoreUrl)}&choe=UTF-8`;
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(scoreUrl)}`;
         document.getElementById('qrImg').src = qrApiUrl;
         qr.classList.remove('hidden');
       } else {
