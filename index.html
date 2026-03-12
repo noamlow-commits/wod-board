@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WOD Board</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0a0a0a;
+      --card-bg: #141414;
+      --card-border: #2a2a2a;
+      --text: #f0f0f0;
+      --text-dim: #888;
+      --warmup-start: #f59e0b;
+      --warmup-end: #d97706;
+      --skill-start: #3b82f6;
+      --skill-end: #1d4ed8;
+      --metcon-start: #ef4444;
+      --metcon-end: #dc2626;
+      --cooldown-start: #22c55e;
+      --cooldown-end: #16a34a;
+      --default-start: #8b5cf6;
+      --default-end: #7c3aed;
+      --font-scale: 1;
+    }
+
+    body {
+      font-family: 'Heebo', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow: hidden;
+      direction: rtl;
+    }
+
+    /* ── Top Bar ── */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.4rem 2rem;
+      background: linear-gradient(135deg, #111 0%, #1a1a1a 100%);
+      border-bottom: 1px solid #222;
+      position: relative;
+      z-index: 10;
+    }
+
+    .top-bar .clock {
+      font-size: calc(2.2rem * var(--font-scale));
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .top-bar .date-display {
+      font-size: calc(1.1rem * var(--font-scale));
+      color: var(--text-dim);
+      font-weight: 300;
+    }
+
+    .top-bar .logo {
+      font-size: calc(1.6rem * var(--font-scale));
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--metcon-start), var(--warmup-start));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .top-bar .settings-btn {
+      background: none;
+      border: 1px solid #333;
+      color: var(--text-dim);
+      font-size: 1.4rem;
+      cursor: pointer;
+      padding: 0.4rem 0.6rem;
+      border-radius: 8px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .top-bar .settings-btn:hover {
+      color: var(--text);
+      border-color: #555;
+      background: #1a1a1a;
+    }
+
+    .refresh-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      display: inline-block;
+      transition: opacity 0.3s;
+    }
+
+    .refresh-dot.fetching {
+      animation: pulse 0.6s ease-in-out infinite;
+    }
+
+    /* ── Tab Selector ── */
+    .tab-bar {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.6rem 2rem;
+      background: #0e0e0e;
+      border-bottom: 1px solid #1a1a1a;
+      overflow-x: auto;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      padding: 0.5rem 1.2rem;
+      border: 1px solid #333;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text-dim);
+      font-family: 'Heebo', sans-serif;
+      font-size: calc(0.95rem * var(--font-scale));
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      border-color: #555;
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--metcon-start), var(--warmup-start));
+      border-color: transparent;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    /* ── Main Content ── */
+    .main-content {
+      display: grid;
+      padding: 0.8rem 1.5rem;
+      height: calc(100vh - 80px);
+      gap: 0.6rem;
+    }
+
+    .main-content.has-tabs {
+      height: calc(100vh - 130px);
+    }
+
+    /* ── Workout Row ── */
+    .workout-row {
+      display: flex;
+      gap: 0.6rem;
+      min-height: 0;
+      animation: cardIn 0.5s ease-out both;
+    }
+
+    .workout-row:nth-child(1) { animation-delay: 0.05s; }
+    .workout-row:nth-child(2) { animation-delay: 0.15s; }
+
+    .row-label {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      transform: rotate(180deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: calc(1.3rem * var(--font-scale));
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 0.5rem 0.3rem;
+      border-radius: 12px;
+      color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      min-width: 2.5rem;
+      flex-shrink: 0;
+    }
+
+    .row-label.warmup { background: linear-gradient(to top, var(--warmup-start), var(--warmup-end)); }
+    .row-label.skill { background: linear-gradient(to top, var(--skill-start), var(--skill-end)); }
+    .row-label.metcon { background: linear-gradient(to top, var(--metcon-start), var(--metcon-end)); }
+    .row-label.cooldown { background: linear-gradient(to top, var(--cooldown-start), var(--cooldown-end)); }
+    .row-label.default { background: linear-gradient(to top, var(--default-start), var(--default-end)); }
+
+    .row-cells {
+      display: flex;
+      gap: 0.6rem;
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* ── Workout Card (cell within row) ── */
+    .workout-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .workout-card.safety-card {
+      flex: 0 0 180px;
+      max-width: 220px;
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-header {
+      padding: 0.5rem 1rem;
+      font-size: calc(1.1rem * var(--font-scale));
+      font-weight: 900;
+      color: #fff;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      position: relative;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .card-header.warmup { background: linear-gradient(135deg, var(--warmup-start), var(--warmup-end)); }
+    .card-header.skill { background: linear-gradient(135deg, var(--skill-start), var(--skill-end)); }
+    .card-header.metcon { background: linear-gradient(135deg, var(--metcon-start), var(--metcon-end)); }
+    .card-header.cooldown { background: linear-gradient(135deg, var(--cooldown-start), var(--cooldown-end)); }
+    .card-header.default { background: linear-gradient(135deg, var(--default-start), var(--default-end)); }
+
+    .card-body {
+      flex: 1;
+      padding: 0.6rem 1rem;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #333 transparent;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .card-body.rtl-content {
+      direction: rtl;
+      text-align: right;
+    }
+
+    .card-body::-webkit-scrollbar { width: 4px; }
+    .card-body::-webkit-scrollbar-track { background: transparent; }
+    .card-body::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
+    .exercise-line {
+      font-size: calc(1.15rem * var(--font-scale));
+      line-height: 1.7;
+      padding: 0.2rem 0;
+      color: var(--text);
+      border-bottom: 1px solid #1e1e1e;
+      unicode-bidi: plaintext;
+      text-align: start;
+    }
+
+    .exercise-line:last-child { border-bottom: none; }
+
+    .exercise-line.sub-header {
+      font-weight: 700;
+      font-size: calc(1.25rem * var(--font-scale));
+      color: #fff;
+      margin-top: 0.6rem;
+      padding-bottom: 0.3rem;
+      border-bottom: 2px solid #333;
+    }
+
+    .exercise-line .rep-number {
+      font-weight: 900;
+      color: var(--warmup-start);
+      font-size: 110%;
+    }
+
+    .exercise-line .time-badge {
+      display: inline-block;
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--metcon-start);
+      padding: 0.1rem 0.5rem;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 90%;
+    }
+
+    .exercise-line.spacer {
+      height: 0.5rem;
+      border: none;
+    }
+
+    /* ── Settings Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 20px;
+      padding: 2rem;
+      width: 90%;
+      max-width: 550px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal h2 {
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+
+    .form-group {
+      margin-bottom: 1.2rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      margin-bottom: 0.4rem;
+    }
+
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 0.7rem 1rem;
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 10px;
+      color: var(--text);
+      font-family: 'Heebo', sans-serif;
+      font-size: 1rem;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: var(--skill-start);
+    }
+
+    .form-group .hint {
+      font-size: 0.75rem;
+      color: #555;
+      margin-top: 0.3rem;
+    }
+
+    .form-group input[type="range"] {
+      padding: 0;
+      accent-color: var(--metcon-start);
+    }
+
+    .range-value {
+      display: inline-block;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-inline-start: 0.5rem;
+    }
+
+    .tabs-manager {
+      background: #111;
+      border: 1px solid #262626;
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .tabs-manager h3 {
+      font-size: 1rem;
+      margin-bottom: 0.6rem;
+      color: var(--text-dim);
+    }
+
+    .tabs-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .tabs-list .tab-chip {
+      background: #222;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 0.3rem 0.7rem;
+      font-size: 0.85rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .tabs-list .tab-chip .remove-tab {
+      cursor: pointer;
+      color: var(--metcon-start);
+      font-weight: 700;
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .add-tab-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .add-tab-row input {
+      flex: 1;
+    }
+
+    .btn {
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Heebo', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--metcon-start), var(--warmup-start));
+      color: #fff;
+    }
+
+    .btn-primary:hover { filter: brightness(1.1); }
+
+    .btn-secondary {
+      background: #222;
+      color: var(--text);
+      border: 1px solid #333;
+    }
+
+    .btn-secondary:hover { background: #2a2a2a; }
+
+    .modal-actions {
+      display: flex;
+      gap: 0.8rem;
+      justify-content: center;
+      margin-top: 1.5rem;
+    }
+
+    /* ── Empty / Error States ── */
+    .state-message {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: calc(100vh - 80px);
+      text-align: center;
+      gap: 1rem;
+    }
+
+    .state-message .icon {
+      font-size: 4rem;
+    }
+
+    .state-message h2 {
+      font-size: 1.8rem;
+      font-weight: 700;
+    }
+
+    .state-message p {
+      color: var(--text-dim);
+      font-size: 1.1rem;
+      max-width: 500px;
+      line-height: 1.6;
+    }
+
+    /* ── Fade transition ── */
+    .fade-enter {
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .main-content {
+        flex-direction: column;
+        overflow-y: auto;
+        height: auto;
+        min-height: calc(100vh - 120px);
+      }
+
+      .workout-card {
+        min-height: 200px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div>
+      <div class="clock" id="clock">00:00:00</div>
+      <div class="date-display" id="dateDisplay"></div>
+    </div>
+    <div class="logo" id="gymName">WOD BOARD</div>
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <span class="refresh-dot" id="refreshDot" title="מחובר"></span>
+      <button class="settings-btn" id="settingsBtn" title="הגדרות">⚙</button>
+    </div>
+  </div>
+
+  <!-- Tab Bar (hidden until tabs exist) -->
+  <div class="tab-bar" id="tabBar" style="display:none;"></div>
+
+  <!-- Main Content Area -->
+  <div class="main-content" id="mainContent">
+    <div class="state-message" id="emptyState">
+      <div class="icon">🏋️</div>
+      <h2>WOD Board</h2>
+      <p>לחץ על ⚙ כדי להגדיר את כתובת הגוגל שיט ולהתחיל להציג את תוכנית האימון</p>
+      <button class="btn btn-primary" onclick="openSettings()">הגדרות</button>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <h2>⚙ הגדרות</h2>
+
+      <div class="form-group">
+        <label>קישור לגוגל שיט</label>
+        <input type="text" id="inputSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..." dir="ltr">
+        <div class="hint">הדבק את הקישור המלא לגיליון. וודא שהגיליון מפורסם (File → Share → Publish to web)</div>
+      </div>
+
+      <div class="tabs-manager">
+        <h3>תוכניות / טאבים</h3>
+        <div class="tabs-list" id="tabsList"></div>
+        <div class="add-tab-row">
+          <input type="text" id="inputNewTab" placeholder="שם הטאב (כמו שמופיע בגיליון)" dir="auto">
+          <button class="btn btn-secondary" onclick="addTab()">הוסף</button>
+        </div>
+        <div class="hint" style="margin-top:0.4rem;">הוסף את שמות הטאבים מהגיליון. אם לא תוסיף, ייטען הטאב הראשון.</div>
+      </div>
+
+      <div class="form-group">
+        <label>שם החדר / לוגו</label>
+        <input type="text" id="inputGymName" placeholder="WOD BOARD" dir="auto">
+      </div>
+
+      <div class="form-group">
+        <label>
+          רענון אוטומטי (שניות)
+          <span class="range-value" id="refreshValue">30</span>
+        </label>
+        <input type="range" id="inputRefresh" min="5" max="120" value="30" oninput="document.getElementById('refreshValue').textContent=this.value">
+      </div>
+
+      <div class="form-group">
+        <label>
+          גודל פונט
+          <span class="range-value" id="fontValue">100%</span>
+        </label>
+        <input type="range" id="inputFontSize" min="60" max="160" value="100" oninput="document.getElementById('fontValue').textContent=this.value+'%'">
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="saveAndClose()">שמור</button>
+        <button class="btn btn-secondary" onclick="closeSettings()">ביטול</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ════════════════════════════════════════
+    // State
+    // ════════════════════════════════════════
+    let settings = loadSettings();
+    let currentTab = '';
+    let lastDataJSON = '';
+    let refreshTimer = null;
+
+    const SECTION_THEMES = [
+      { keywords: ['חימום', 'warm', 'חמום'], cls: 'warmup' },
+      { keywords: ['סקיל', 'skill', 'טכניקה', 'technique'], cls: 'skill' },
+      { keywords: ['כוח', 'strength', 'סטרנגט'], cls: 'skill' },
+      { keywords: ['מטקון', 'metcon', 'wod', 'קונדישן', 'conditioning'], cls: 'metcon' },
+      { keywords: ['שחרור', 'cooldown', 'cool down', 'מתיחות', 'stretch'], cls: 'cooldown' },
+    ];
+
+    // ════════════════════════════════════════
+    // Settings persistence
+    // ════════════════════════════════════════
+    function loadSettings() {
+      const defaults = { sheetId: '', tabs: [], gymName: 'WOD BOARD', refreshInterval: 30, fontSize: 100 };
+      try {
+        return { ...defaults, ...JSON.parse(localStorage.getItem('wodboard') || '{}') };
+      } catch { return defaults; }
+    }
+
+    function saveSettings(s) {
+      localStorage.setItem('wodboard', JSON.stringify(s));
+    }
+
+    function extractSheetId(url) {
+      const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      return m ? m[1] : url.trim();
+    }
+
+    // ════════════════════════════════════════
+    // Settings UI
+    // ════════════════════════════════════════
+    function openSettings() {
+      document.getElementById('inputSheetUrl').value = settings.sheetId
+        ? `https://docs.google.com/spreadsheets/d/${settings.sheetId}/edit`
+        : '';
+      document.getElementById('inputGymName').value = settings.gymName || '';
+      document.getElementById('inputRefresh').value = settings.refreshInterval || 30;
+      document.getElementById('refreshValue').textContent = settings.refreshInterval || 30;
+      document.getElementById('inputFontSize').value = settings.fontSize || 100;
+      document.getElementById('fontValue').textContent = (settings.fontSize || 100) + '%';
+      renderTabChips();
+      document.getElementById('settingsModal').classList.add('open');
+    }
+
+    function closeSettings() {
+      document.getElementById('settingsModal').classList.remove('open');
+    }
+
+    function renderTabChips() {
+      const container = document.getElementById('tabsList');
+      container.innerHTML = (settings.tabs || []).map((t, i) =>
+        `<span class="tab-chip">${t} <span class="remove-tab" onclick="removeTab(${i})">✕</span></span>`
+      ).join('');
+    }
+
+    function addTab() {
+      const input = document.getElementById('inputNewTab');
+      const name = input.value.trim();
+      if (!name) return;
+      if (!settings.tabs) settings.tabs = [];
+      if (!settings.tabs.includes(name)) {
+        settings.tabs.push(name);
+        renderTabChips();
+      }
+      input.value = '';
+    }
+
+    function removeTab(index) {
+      settings.tabs.splice(index, 1);
+      renderTabChips();
+    }
+
+    function saveAndClose() {
+      const url = document.getElementById('inputSheetUrl').value;
+      settings.sheetId = extractSheetId(url);
+      settings.gymName = document.getElementById('inputGymName').value.trim() || 'WOD BOARD';
+      settings.refreshInterval = parseInt(document.getElementById('inputRefresh').value) || 30;
+      settings.fontSize = parseInt(document.getElementById('inputFontSize').value) || 100;
+      saveSettings(settings);
+      closeSettings();
+      applySettings();
+      startApp();
+    }
+
+    function applySettings() {
+      document.documentElement.style.setProperty('--font-scale', (settings.fontSize / 100).toFixed(2));
+      document.getElementById('gymName').textContent = settings.gymName || 'WOD BOARD';
+    }
+
+    // ════════════════════════════════════════
+    // Data fetching
+    // ════════════════════════════════════════
+    async function fetchSheetData(sheetId, tabName) {
+      let url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+      if (tabName) url += `&sheet=${encodeURIComponent(tabName)}`;
+
+      const dot = document.getElementById('refreshDot');
+      dot.classList.add('fetching');
+
+      // Use JSONP (script tag injection) to bypass CORS when opened from file://
+      return new Promise((resolve) => {
+        const callbackName = '_sheetCb_' + Date.now();
+        const script = document.createElement('script');
+
+        const cleanup = () => {
+          delete window[callbackName];
+          if (window.google && window.google.visualization && window.google.visualization.Query) {
+            delete window.google.visualization.Query.setResponse;
+          }
+          script.remove();
+          dot.classList.remove('fetching');
+        };
+
+        // The gviz endpoint calls google.visualization.Query.setResponse(data)
+        window.google = window.google || {};
+        window.google.visualization = window.google.visualization || {};
+        window.google.visualization.Query = window.google.visualization.Query || {};
+        window.google.visualization.Query.setResponse = function(data) {
+          cleanup();
+          try {
+            dot.style.background = '#22c55e';
+            resolve(parseTableData(data.table));
+          } catch (err) {
+            console.error('Parse error:', err);
+            dot.style.background = '#ef4444';
+            resolve(null);
+          }
+        };
+
+        script.onerror = () => {
+          cleanup();
+          console.error('JSONP fetch error');
+          dot.style.background = '#ef4444';
+          resolve(null);
+        };
+
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          if (document.contains(script)) {
+            cleanup();
+            dot.style.background = '#ef4444';
+            resolve(null);
+          }
+        }, 10000);
+
+        script.src = url;
+        document.head.appendChild(script);
+      });
+    }
+
+    function parseTableData(table) {
+      if (!table || !table.rows || table.rows.length === 0) return { headers: [], rows: [] };
+
+      const cols = table.cols || [];
+
+      // Headers come from cols labels or from the first row
+      let headers = cols.map(c => (c.label || '').trim());
+      let dataRows = table.rows;
+
+      // If cols have no labels, use first row as headers
+      const hasLabels = headers.some(h => h.length > 0);
+      if (!hasLabels && dataRows.length > 0) {
+        headers = dataRows[0].c.map(cell => (cell && cell.v ? String(cell.v).trim() : ''));
+        dataRows = dataRows.slice(1);
+      }
+
+      const rows = [];
+      for (const row of dataRows) {
+        const label = row.c && row.c[0] && row.c[0].v ? String(row.c[0].v).trim() : '';
+        if (!label) continue;
+
+        const cells = [];
+        for (let colIdx = 1; colIdx < headers.length; colIdx++) {
+          const cell = row.c && row.c[colIdx];
+          const val = cell && cell.v ? String(cell.v).trim() : '';
+          const lines = val ? val.split(/\n/).map(l => l.trim()).filter(l => l.length > 0) : [];
+          cells.push({ header: headers[colIdx], lines });
+        }
+        rows.push({ label, cells });
+      }
+
+      return { headers: headers.slice(1), rows };
+    }
+
+    // ════════════════════════════════════════
+    // Text parsing & rendering
+    // ════════════════════════════════════════
+    function detectSectionTheme(title) {
+      const lower = title.toLowerCase();
+      for (const theme of SECTION_THEMES) {
+        if (theme.keywords.some(kw => lower.includes(kw))) return theme.cls;
+      }
+      return 'default';
+    }
+
+    function parseLine(text) {
+      // Detect sub-headers (lines ending with : or all-caps Hebrew)
+      if (/^[A-Z\s]{4,}:?$/.test(text) || /^.{2,}:$/.test(text)) {
+        return { type: 'sub-header', html: escapeHtml(text) };
+      }
+
+      // Empty separator
+      if (text === '---' || text === '—') {
+        return { type: 'spacer', html: '' };
+      }
+
+      let html = escapeHtml(text);
+
+      // Highlight numbers at start of line (reps)
+      html = html.replace(/^(\d+[\-x×]?\d*)\s/, '<span class="rep-number">$1</span> ');
+
+      // Highlight time patterns
+      html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
+      html = html.replace(/\b(EMOM|AMRAP|FOR TIME|E2MOM|TABATA|RFT)\b/gi, '<span class="time-badge">$1</span>');
+
+      return { type: 'exercise', html };
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    const SAFETY_KEYWORDS = ['בטיחות', 'דגשים', 'safety', 'notes', 'הערות'];
+
+    function isSafetyColumn(header) {
+      const lower = header.toLowerCase();
+      return SAFETY_KEYWORDS.some(kw => lower.includes(kw));
+    }
+
+    function renderWorkout(data) {
+      const container = document.getElementById('mainContent');
+
+      if (!data || !data.rows || data.rows.length === 0) {
+        container.innerHTML = `
+          <div class="state-message">
+            <div class="icon">📋</div>
+            <h2>אין נתונים</h2>
+            <p>לא נמצאו נתונים בטאב שנבחר. וודא שהגיליון מפורסם ושם הטאב תקין.</p>
+          </div>`;
+        return;
+      }
+
+      // Distribute row heights proportionally based on content length
+      const rowWeights = data.rows.map(row => {
+        const totalLines = row.cells.reduce((sum, cell) => sum + Math.max(cell.lines.length, 0), 0);
+        return Math.max(totalLines, 1);
+      });
+      const totalWeight = rowWeights.reduce((a, b) => a + b, 0);
+      container.style.gridTemplateRows = rowWeights.map(w => `${(w / totalWeight * 100).toFixed(1)}fr`).join(' ');
+
+      const rowsHTML = data.rows.map(row => {
+        const theme = detectSectionTheme(row.label);
+
+        const cardsHTML = row.cells.map(cell => {
+          if (cell.lines.length === 0) return '';
+
+          const safety = isSafetyColumn(cell.header);
+          const allText = cell.lines.join(' ');
+          const hebrewChars = (allText.match(/[\u0590-\u05FF]/g) || []).length;
+          const isRtl = hebrewChars > allText.length * 0.3;
+
+          const linesHTML = cell.lines.map(line => {
+            const parsed = parseLine(line);
+            return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
+          }).join('');
+
+          return `
+            <div class="workout-card${safety ? ' safety-card' : ''}">
+              <div class="card-header ${safety ? 'warmup' : theme}">${escapeHtml(cell.header)}</div>
+              <div class="card-body${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>
+            </div>`;
+        }).join('');
+
+        return `
+          <div class="workout-row">
+            <div class="row-label ${theme}">${escapeHtml(row.label)}</div>
+            <div class="row-cells">${cardsHTML}</div>
+          </div>`;
+      }).join('');
+
+      const newJSON = JSON.stringify(data);
+      if (newJSON !== lastDataJSON) {
+        lastDataJSON = newJSON;
+        container.innerHTML = rowsHTML;
+        container.classList.add('fade-enter');
+        setTimeout(() => container.classList.remove('fade-enter'), 500);
+      }
+    }
+
+    // ════════════════════════════════════════
+    // Tab bar
+    // ════════════════════════════════════════
+    function renderTabBar() {
+      const bar = document.getElementById('tabBar');
+      const tabs = settings.tabs || [];
+
+      if (tabs.length <= 1) {
+        bar.style.display = 'none';
+        document.getElementById('mainContent').classList.remove('has-tabs');
+        currentTab = tabs[0] || '';
+        return;
+      }
+
+      bar.style.display = 'flex';
+      document.getElementById('mainContent').classList.add('has-tabs');
+
+      if (!currentTab || !tabs.includes(currentTab)) {
+        currentTab = tabs[0];
+      }
+
+      bar.innerHTML = tabs.map(t =>
+        `<button class="tab-btn ${t === currentTab ? 'active' : ''}" onclick="switchTab('${escapeHtml(t)}')">${escapeHtml(t)}</button>`
+      ).join('');
+    }
+
+    function switchTab(tabName) {
+      currentTab = tabName;
+      lastDataJSON = ''; // Force re-render
+      renderTabBar();
+      fetchAndRender();
+    }
+
+    // ════════════════════════════════════════
+    // Clock
+    // ════════════════════════════════════════
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').textContent = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      document.getElementById('dateDisplay').textContent = now.toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    // ════════════════════════════════════════
+    // Main app loop
+    // ════════════════════════════════════════
+    async function fetchAndRender() {
+      if (!settings.sheetId) return;
+      const data = await fetchSheetData(settings.sheetId, currentTab);
+      if (data) renderWorkout(data);
+    }
+
+    function startApp() {
+      applySettings();
+      renderTabBar();
+
+      if (refreshTimer) clearInterval(refreshTimer);
+
+      if (settings.sheetId) {
+        document.getElementById('emptyState')?.remove();
+        fetchAndRender();
+        refreshTimer = setInterval(fetchAndRender, (settings.refreshInterval || 30) * 1000);
+      }
+    }
+
+    // ════════════════════════════════════════
+    // Event listeners
+    // ════════════════════════════════════════
+    document.getElementById('settingsBtn').addEventListener('click', openSettings);
+
+    document.getElementById('settingsModal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeSettings();
+    });
+
+    document.getElementById('inputNewTab').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') addTab();
+    });
+
+    // Keyboard shortcut: Escape to close modal, S to open settings
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeSettings();
+      if (e.key === 's' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') openSettings();
+    });
+
+    // ════════════════════════════════════════
+    // Init
+    // ════════════════════════════════════════
+    updateClock();
+    setInterval(updateClock, 1000);
+    startApp();
+  </script>
+</body>
+</html>
