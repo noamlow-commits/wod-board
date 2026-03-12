@@ -51,12 +51,24 @@ function doPost(e) {
     data.rx || 'Rx'
   ]]);
 
+  // Auto-purge rows older than 30 days
+  try {
+    purgeOldRows_(sheet);
+  } catch (err) {
+    // Don't fail the POST if purge fails
+  }
+
   return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doGet(e) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Results');
+
+  // Handle clear action — delete today's scores
+  if (e.parameter.action === 'clear') {
+    return handleClear_(e, sheet);
+  }
 
   if (!sheet) {
     var json = JSON.stringify({ results: [] });
@@ -124,4 +136,76 @@ function doGet(e) {
   }
   return ContentService.createTextOutput(json)
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ═══════════════════════════════════════════════════════
+// Helper: Clear today's scores
+// ═══════════════════════════════════════════════════════
+function handleClear_(e, sheet) {
+  var deleted = 0;
+
+  if (sheet) {
+    var tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone() || 'Asia/Jerusalem';
+    var targetDate = e.parameter.date || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+    var data = sheet.getDataRange().getValues();
+
+    // Collect rows to delete (iterate bottom-up to preserve indices)
+    var rowsToDelete = [];
+    for (var i = 1; i < data.length; i++) {
+      var rowDate = data[i][4];
+      try {
+        rowDate = Utilities.formatDate(new Date(rowDate), tz, 'yyyy-MM-dd');
+      } catch (err) {
+        rowDate = String(rowDate).slice(0, 10);
+      }
+      if (rowDate === targetDate) {
+        rowsToDelete.push(i + 1); // Sheet rows are 1-based, +1 for header
+      }
+    }
+
+    // Delete from bottom up
+    for (var j = rowsToDelete.length - 1; j >= 0; j--) {
+      sheet.deleteRow(rowsToDelete[j]);
+      deleted++;
+    }
+  }
+
+  var json = JSON.stringify({ status: 'ok', deleted: deleted });
+  var callback = e.parameter.callback;
+  if (callback) {
+    return ContentService.createTextOutput(callback + '(' + json + ')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService.createTextOutput(json)
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ═══════════════════════════════════════════════════════
+// Helper: Purge rows older than 30 days
+// ═══════════════════════════════════════════════════════
+function purgeOldRows_(sheet) {
+  var tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone() || 'Asia/Jerusalem';
+  var cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+  var cutoffStr = Utilities.formatDate(cutoff, tz, 'yyyy-MM-dd');
+
+  var data = sheet.getDataRange().getValues();
+  var rowsToDelete = [];
+
+  for (var i = 1; i < data.length; i++) {
+    var rowDate = data[i][4];
+    try {
+      rowDate = Utilities.formatDate(new Date(rowDate), tz, 'yyyy-MM-dd');
+    } catch (err) {
+      rowDate = String(rowDate).slice(0, 10);
+    }
+    if (rowDate < cutoffStr) {
+      rowsToDelete.push(i + 1);
+    }
+  }
+
+  // Delete from bottom up
+  for (var j = rowsToDelete.length - 1; j >= 0; j--) {
+    sheet.deleteRow(rowsToDelete[j]);
+  }
 }

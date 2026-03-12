@@ -927,6 +927,15 @@
         </div>
       </div>
 
+      <div style="border-top:1px solid #333;margin:1.5rem 0;padding-top:1rem;">
+        <h3 style="font-size:1.1rem;margin-bottom:0.8rem;color:#ef4444;">🗑 ניהול נתונים</h3>
+        <div class="form-group" style="display:flex;align-items:center;gap:1rem;">
+          <button class="btn btn-secondary" onclick="clearTodayScores()" style="background:#dc2626;border-color:#dc2626;color:#fff;">נקה תוצאות היום</button>
+          <span class="hint" style="margin:0;">מוחק את כל התוצאות של היום מהגיליון. שורות ישנות (מעל 30 יום) נמחקות אוטומטית.</span>
+        </div>
+        <div id="clearStatus" style="color:#4ade80;font-size:0.85rem;margin-top:0.4rem;display:none;"></div>
+      </div>
+
       <div class="modal-actions">
         <button class="btn btn-primary" onclick="saveAndClose()">שמור</button>
         <button class="btn btn-secondary" onclick="closeSettings()">ביטול</button>
@@ -1187,6 +1196,51 @@
     // ════════════════════════════════════════
     // Scoreboard Fetch & Render
     // ════════════════════════════════════════
+    function clearTodayScores() {
+      if (!settings.appsScriptUrl) {
+        alert('לא הוגדרה כתובת Apps Script');
+        return;
+      }
+      if (!confirm('למחוק את כל התוצאות של היום?')) return;
+
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const cbName = '_clearCb_' + Date.now();
+      const url = `${settings.appsScriptUrl}?action=clear&date=${today}&callback=${cbName}`;
+
+      const statusEl = document.getElementById('clearStatus');
+      statusEl.style.display = 'block';
+      statusEl.textContent = 'מוחק...';
+      statusEl.style.color = '#facc15';
+
+      const script = document.createElement('script');
+      window[cbName] = function(data) {
+        delete window[cbName];
+        script.remove();
+        if (data && data.status === 'ok') {
+          statusEl.textContent = `נמחקו ${data.deleted} תוצאות`;
+          statusEl.style.color = '#4ade80';
+          renderScoreboard([]);
+        } else {
+          statusEl.textContent = 'שגיאה במחיקה';
+          statusEl.style.color = '#ef4444';
+        }
+        setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+      };
+      script.onerror = () => {
+        delete window[cbName];
+        script.remove();
+        statusEl.textContent = 'שגיאת תקשורת';
+        statusEl.style.color = '#ef4444';
+        setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+      };
+      setTimeout(() => {
+        if (window[cbName]) { delete window[cbName]; script.remove(); }
+      }, 10000);
+      script.src = url;
+      document.body.appendChild(script);
+    }
+
     function fetchScoreboard() {
       if (!settings.appsScriptUrl) return;
 
