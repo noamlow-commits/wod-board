@@ -232,6 +232,39 @@
     .history-item .h-rx.scaled { background: rgba(245,158,11,0.15); color: var(--accent2); }
     .history-item .h-pr { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px; background: rgba(245,158,11,0.2); color: var(--accent2); font-weight: 700; margin-right: 0.3rem; }
 
+    /* Quick lift panel after WOD submit */
+    .quick-lift-panel {
+      margin-top: 1.2rem;
+      border: 1px solid rgba(59,130,246,0.3);
+      border-radius: 12px;
+      background: rgba(59,130,246,0.05);
+      overflow: hidden;
+    }
+
+    .quick-lift-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.7rem 1rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--blue);
+    }
+
+    .quick-lift-arrow {
+      transition: transform 0.2s;
+      font-size: 0.8rem;
+    }
+
+    .quick-lift-arrow.open {
+      transform: rotate(180deg);
+    }
+
+    #quickLiftBody {
+      padding: 0 1rem 1rem;
+    }
+
     .view-board { text-align: center; margin-top: 0.5rem; }
     .view-board a { color: var(--text-dim); font-size: 0.85rem; text-decoration: none; }
     .view-board a:hover { color: var(--text); }
@@ -311,6 +344,39 @@
       </div>
 
       <button class="submit-btn wod-btn" onclick="submitWod()">שלח תוצאה</button>
+
+      <!-- Quick lift add (appears after WOD submit) -->
+      <div id="quickLiftPanel" class="quick-lift-panel" style="display:none;">
+        <div class="quick-lift-header" onclick="toggleQuickLift()">
+          <span>🏋️ רוצה לשמור גם הרמה מהאימון?</span>
+          <span class="quick-lift-arrow" id="quickLiftArrow">▼</span>
+        </div>
+        <div id="quickLiftBody" style="display:none;">
+          <label style="font-size:0.85rem;color:var(--text-dim);font-weight:700;margin-bottom:0.3rem;display:block;">תרגיל</label>
+          <div class="exercise-grid" id="quickExerciseGrid" style="margin-bottom:0.8rem;"></div>
+
+          <div id="quickLiftPrev" class="prev-result" style="display:none;"></div>
+
+          <div style="display:flex;gap:0.8rem;align-items:center;direction:ltr;margin-bottom:0.8rem;">
+            <div style="flex:1;">
+              <label style="font-size:0.8rem;color:var(--text-dim);font-weight:700;">משקל</label>
+              <input type="number" id="quickLiftWeight" min="0" max="999" step="0.5" placeholder="0" inputmode="decimal"
+                style="width:100%;text-align:center;font-size:1.5rem;font-weight:900;font-family:'Barlow',sans-serif;padding:0.5rem;background:#111;border:1px solid #333;border-radius:10px;color:var(--text);">
+            </div>
+            <div class="weight-unit" style="flex-direction:column;margin-top:1rem;">
+              <button class="active" onclick="selectQuickUnit(this,'kg')">KG</button>
+              <button onclick="selectQuickUnit(this,'lbs')">LBS</button>
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:0.8rem;color:var(--text-dim);font-weight:700;">חזרות</label>
+              <input type="number" id="quickLiftReps" min="1" max="99" value="1" inputmode="numeric"
+                style="width:100%;text-align:center;font-size:1.5rem;font-weight:900;font-family:'Barlow',sans-serif;padding:0.5rem;background:#111;border:1px solid #333;border-radius:10px;color:var(--text);">
+            </div>
+          </div>
+
+          <button class="submit-btn lift-btn" onclick="submitQuickLift()" style="font-size:1rem;padding:0.7rem;">שמור הרמה</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -807,6 +873,11 @@
         saveToHistory(payload, type, isPR);
         renderHistory();
 
+        // Show quick lift panel after WOD submit
+        if (type === 'wod') {
+          showQuickLiftPanel();
+        }
+
         // Refresh PR display
         if (type === 'lift' && selectedExercise) showLiftPR(selectedExercise);
         if (type === 'benchmark' && selectedBenchmark) showBenchmarkPR(selectedBenchmark.name);
@@ -882,6 +953,71 @@
           ${h.rx ? `<span class="h-rx ${h.rx === 'Rx' ? 'rx' : 'scaled'}">${h.rx}</span>` : ''}
         </div>`;
       }).join('');
+    }
+
+    // ═══════════════════════════════
+    // Quick Lift (after WOD submit)
+    // ═══════════════════════════════
+    let quickLiftExercise = '';
+    let quickLiftUnit = 'kg';
+
+    function showQuickLiftPanel() {
+      const panel = document.getElementById('quickLiftPanel');
+      panel.style.display = 'block';
+      // Render exercise grid in quick panel
+      const grid = document.getElementById('quickExerciseGrid');
+      grid.innerHTML = EXERCISES.map(ex =>
+        `<button class="exercise-btn" data-qex="${ex.name}" onclick="selectQuickExercise('${ex.name}')">${ex.name}</button>`
+      ).join('');
+    }
+
+    function toggleQuickLift() {
+      const body = document.getElementById('quickLiftBody');
+      const arrow = document.getElementById('quickLiftArrow');
+      const isHidden = body.style.display === 'none';
+      body.style.display = isHidden ? 'block' : 'none';
+      arrow.classList.toggle('open', isHidden);
+    }
+
+    function selectQuickExercise(name) {
+      quickLiftExercise = name;
+      document.querySelectorAll('#quickExerciseGrid .exercise-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector(`#quickExerciseGrid .exercise-btn[data-qex="${name}"]`).classList.add('active');
+      // Show PR for this exercise
+      const el = document.getElementById('quickLiftPrev');
+      const key = name + '|lift';
+      const pr = myPRs[key];
+      if (pr) {
+        el.innerHTML = `השיא שלך: <strong>${pr.best}</strong> <span style="color:var(--text-dim);font-size:0.8rem;">(${pr.date})</span>`;
+        el.style.display = 'block';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
+    function selectQuickUnit(btn, unit) {
+      quickLiftUnit = unit;
+      btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    async function submitQuickLift() {
+      const name = getName(); if (!name) return;
+      if (!quickLiftExercise) { showToast('בחר תרגיל', 'error'); return; }
+      const weight = parseFloat(document.getElementById('quickLiftWeight').value) || 0;
+      if (weight === 0) { showToast('הכנס משקל', 'error'); return; }
+      const reps = parseInt(document.getElementById('quickLiftReps').value) || 1;
+      if (!API_URL) { showToast('API URL missing', 'error'); return; }
+
+      const payload = {
+        action: 'lift', name, exercise: quickLiftExercise,
+        weight, reps, unit: quickLiftUnit,
+        workoutDate: localToday()
+      };
+
+      await doSubmit(payload, 'lift');
+      // Hide the quick panel after successful submit
+      document.getElementById('quickLiftPanel').style.display = 'none';
     }
 
     // ═══════════════════════════════
