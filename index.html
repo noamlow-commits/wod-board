@@ -719,25 +719,21 @@
     /* QR code overlay */
     .qr-overlay {
       position: fixed;
-      bottom: 0.5rem;
-      right: 0.5rem;
+      bottom: 0.8rem;
+      right: 0.8rem;
       background: #fff;
-      border-radius: 5px;
-      padding: 2px;
-      box-shadow: 0 1px 8px rgba(0,0,0,0.4);
+      border-radius: 6px;
+      padding: 6px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.5);
       z-index: 50;
-      opacity: 0.7;
-      transition: opacity 0.3s;
-    }
-
-    .qr-overlay:hover {
       opacity: 1;
     }
 
     .qr-overlay img {
-      width: 64px;
-      height: 64px;
+      width: 120px;
+      height: 120px;
       display: block;
+      image-rendering: pixelated;
     }
 
     .qr-overlay.hidden {
@@ -1207,7 +1203,7 @@
           baseUrl = 'https://noamlow-commits.github.io/wod-board';
         }
         const scoreUrl = `${baseUrl}/score.html?api=${encodeURIComponent(settings.appsScriptUrl)}`;
-        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(scoreUrl)}`;
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=4&data=${encodeURIComponent(scoreUrl)}`;
         document.getElementById('qrImg').src = qrApiUrl;
         qr.classList.remove('hidden');
       } else {
