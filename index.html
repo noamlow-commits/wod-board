@@ -542,6 +542,200 @@
       50% { opacity: 0.3; }
     }
 
+    /* ── Display Mode System ── */
+    .main-content.mode-split {
+      flex-direction: row;
+    }
+
+    .main-content.mode-split #wodArea {
+      flex: 6;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .main-content.mode-split #scoreboardArea {
+      flex: 4;
+      min-width: 0;
+      border-inline-start: 1px solid #222;
+      padding-inline-start: 0.8rem;
+    }
+
+    .main-content.mode-wod #scoreboardArea { display: none; }
+    .main-content.mode-scoreboard #wodArea { display: none; }
+    .main-content.mode-scoreboard #scoreboardArea { flex: 1; }
+
+    /* ── Scoreboard ── */
+    .scoreboard-wrap {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .scoreboard-header {
+      font-family: 'Barlow', sans-serif;
+      font-size: calc(1.6rem * var(--font-scale));
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      text-align: center;
+      padding: 0.5rem 0;
+      background: linear-gradient(135deg, var(--metcon-start), var(--warmup-start));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      flex-shrink: 0;
+    }
+
+    .scoreboard-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Barlow', 'Heebo', sans-serif;
+      flex: 1;
+    }
+
+    .scoreboard-table th {
+      font-size: calc(0.85rem * var(--font-scale));
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.4rem 0.6rem;
+      border-bottom: 2px solid #333;
+      text-align: left;
+    }
+
+    .scoreboard-table td {
+      font-size: calc(1.1rem * var(--font-scale));
+      padding: 0.5rem 0.6rem;
+      border-bottom: 1px solid #1e1e1e;
+      vertical-align: middle;
+    }
+
+    .scoreboard-table .rank-cell {
+      font-weight: 900;
+      text-align: center;
+      width: 2.5rem;
+      font-size: calc(1.2rem * var(--font-scale));
+    }
+
+    .scoreboard-table .rank-1 .rank-cell { color: #ffd700; }
+    .scoreboard-table .rank-2 .rank-cell { color: #c0c0c0; }
+    .scoreboard-table .rank-3 .rank-cell { color: #cd7f32; }
+
+    .scoreboard-table .name-cell {
+      font-weight: 600;
+      unicode-bidi: plaintext;
+    }
+
+    .scoreboard-table .score-cell {
+      font-weight: 900;
+      font-family: 'Barlow', sans-serif;
+      font-size: calc(1.3rem * var(--font-scale));
+      color: var(--accent2, #f59e0b);
+    }
+
+    .scoreboard-table .rx-cell {
+      font-size: calc(0.75rem * var(--font-scale));
+      font-weight: 700;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    .rx-tag-rx { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .rx-tag-scaled { background: rgba(245,158,11,0.15); color: #f59e0b; }
+
+    .score-row-enter {
+      animation: scoreSlideIn 0.4s ease-out;
+    }
+
+    @keyframes scoreSlideIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .scoreboard-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-dim);
+      text-align: center;
+      gap: 0.5rem;
+    }
+
+    .scoreboard-empty .empty-icon {
+      font-size: 2.5rem;
+    }
+
+    /* QR code overlay */
+    .qr-overlay {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: #fff;
+      border-radius: 12px;
+      padding: 0.5rem;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+      z-index: 50;
+      text-align: center;
+      transition: opacity 0.3s;
+    }
+
+    .qr-overlay img {
+      width: 140px;
+      height: 140px;
+      display: block;
+    }
+
+    .qr-overlay .qr-label {
+      font-size: 0.7rem;
+      color: #333;
+      font-weight: 700;
+      margin-top: 0.2rem;
+      font-family: 'Heebo', sans-serif;
+    }
+
+    .qr-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Mode indicator in top bar */
+    .mode-indicator {
+      display: flex;
+      gap: 0.3rem;
+      align-items: center;
+    }
+
+    .mode-dot {
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid #333;
+      background: transparent;
+      color: var(--text-dim);
+      font-family: 'Barlow', sans-serif;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+
+    .mode-dot:hover {
+      border-color: #555;
+      color: var(--text);
+    }
+
+    .mode-dot.active {
+      border-color: var(--warmup-start);
+      color: var(--warmup-start);
+      background: rgba(245, 158, 11, 0.1);
+    }
+
     /* ── Responsive ── */
     @media (max-width: 900px) {
       .main-content {
@@ -549,6 +743,10 @@
         overflow-y: auto;
         height: auto;
         min-height: calc(100vh - 120px);
+      }
+
+      .main-content.mode-split {
+        flex-direction: column;
       }
 
       .workout-card {
@@ -570,6 +768,12 @@
       <span class="logo-text">CrossFit Gush Etzion</span>
     </div>
     <div style="display:flex;align-items:center;gap:1rem;">
+      <div class="mode-indicator" id="modeIndicator">
+        <button class="mode-dot active" data-mode="wod" onclick="setDisplayMode('wod')" title="WOD only">WOD</button>
+        <button class="mode-dot" data-mode="split" onclick="setDisplayMode('split')" title="WOD + Board">SPLIT</button>
+        <button class="mode-dot" data-mode="scoreboard" onclick="setDisplayMode('scoreboard')" title="Scoreboard only">BOARD</button>
+        <button class="mode-dot" data-mode="auto" onclick="setDisplayMode('auto')" title="Auto rotate">AUTO</button>
+      </div>
       <span class="refresh-dot" id="refreshDot" title="מחובר"></span>
       <button class="settings-btn" id="fullscreenBtn" title="מסך מלא">⛶</button>
       <button class="settings-btn" id="settingsBtn" title="הגדרות">⚙</button>
@@ -580,13 +784,32 @@
   <div class="tab-bar" id="tabBar" style="display:none;"></div>
 
   <!-- Main Content Area -->
-  <div class="main-content" id="mainContent">
-    <div class="state-message" id="emptyState">
-      <div class="icon">🏋️</div>
-      <h2>WOD Board</h2>
-      <p>לחץ על ⚙ כדי להגדיר את כתובת הגוגל שיט ולהתחיל להציג את תוכנית האימון</p>
-      <button class="btn btn-primary" onclick="openSettings()">הגדרות</button>
+  <div class="main-content mode-wod" id="mainContent">
+    <div id="wodArea">
+      <div class="state-message" id="emptyState">
+        <div class="icon">🏋️</div>
+        <h2>WOD Board</h2>
+        <p>לחץ על ⚙ כדי להגדיר את כתובת הגוגל שיט ולהתחיל להציג את תוכנית האימון</p>
+        <button class="btn btn-primary" onclick="openSettings()">הגדרות</button>
+      </div>
     </div>
+    <div id="scoreboardArea">
+      <div class="scoreboard-wrap">
+        <div class="scoreboard-header">Results</div>
+        <div id="scoreboardContent">
+          <div class="scoreboard-empty">
+            <div class="empty-icon">📊</div>
+            <p>ממתין לתוצאות...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Code Overlay -->
+  <div class="qr-overlay hidden" id="qrOverlay">
+    <img id="qrImg" src="" alt="QR Code">
+    <div class="qr-label">סרוק לרישום תוצאה</div>
   </div>
 
   <!-- Settings Modal -->
@@ -631,6 +854,30 @@
         <input type="range" id="inputFontSize" min="60" max="200" value="100" oninput="document.getElementById('fontValue').textContent=this.value+'%'">
       </div>
 
+      <div style="border-top:1px solid #333;margin:1.5rem 0;padding-top:1rem;">
+        <h3 style="font-size:1.1rem;margin-bottom:1rem;color:var(--warmup-start);">📊 לוח תוצאות</h3>
+
+        <div class="form-group">
+          <label>כתובת Apps Script</label>
+          <input type="text" id="inputAppsScript" placeholder="https://script.google.com/macros/s/.../exec" dir="ltr">
+          <div class="hint">הכתובת מ-Google Apps Script שמחובר לגוגל שיט. ראה הוראות בתחתית.</div>
+        </div>
+
+        <div class="form-group">
+          <label>
+            מרווח רוטציה אוטומטית (שניות)
+            <span class="range-value" id="autoRotateValue">15</span>
+          </label>
+          <input type="range" id="inputAutoRotate" min="5" max="60" value="15" oninput="document.getElementById('autoRotateValue').textContent=this.value">
+          <div class="hint">רלוונטי רק במצב AUTO — כמה שניות להציג כל מסך</div>
+        </div>
+
+        <div class="form-group" style="display:flex;align-items:center;gap:0.8rem;">
+          <input type="checkbox" id="inputShowQR" checked style="width:auto;accent-color:var(--metcon-start);">
+          <label for="inputShowQR" style="margin:0;">הצג QR Code על המסך</label>
+        </div>
+      </div>
+
       <div class="modal-actions">
         <button class="btn btn-primary" onclick="saveAndClose()">שמור</button>
         <button class="btn btn-secondary" onclick="closeSettings()">ביטול</button>
@@ -645,7 +892,12 @@
     let settings = loadSettings();
     let currentTab = '';
     let lastDataJSON = '';
+    let lastScoreJSON = '';
     let refreshTimer = null;
+    let scoreRefreshTimer = null;
+    let autoRotateTimer = null;
+    let displayMode = 'wod';
+    let autoRotateState = 'wod'; // toggles between 'wod' and 'scoreboard'
 
     const SECTION_THEMES = [
       { keywords: ['חימום', 'warm', 'חמום'], cls: 'warmup' },
@@ -659,7 +911,7 @@
     // Settings persistence
     // ════════════════════════════════════════
     function loadSettings() {
-      const defaults = { sheetId: '', tabs: [], gymName: 'CrossFit Gush Etzion', refreshInterval: 30, fontSize: 100 };
+      const defaults = { sheetId: '', tabs: [], gymName: 'CrossFit Gush Etzion', refreshInterval: 30, fontSize: 100, appsScriptUrl: '', autoRotateInterval: 15, showQR: true };
       try {
         return { ...defaults, ...JSON.parse(localStorage.getItem('wodboard') || '{}') };
       } catch { return defaults; }
@@ -686,6 +938,10 @@
       document.getElementById('refreshValue').textContent = settings.refreshInterval || 30;
       document.getElementById('inputFontSize').value = settings.fontSize || 100;
       document.getElementById('fontValue').textContent = (settings.fontSize || 100) + '%';
+      document.getElementById('inputAppsScript').value = settings.appsScriptUrl || '';
+      document.getElementById('inputAutoRotate').value = settings.autoRotateInterval || 15;
+      document.getElementById('autoRotateValue').textContent = settings.autoRotateInterval || 15;
+      document.getElementById('inputShowQR').checked = settings.showQR !== false;
       renderTabChips();
       document.getElementById('settingsModal').classList.add('open');
     }
@@ -724,6 +980,9 @@
       settings.gymName = document.getElementById('inputGymName').value.trim() || 'CrossFit Gush Etzion';
       settings.refreshInterval = parseInt(document.getElementById('inputRefresh').value) || 30;
       settings.fontSize = parseInt(document.getElementById('inputFontSize').value) || 100;
+      settings.appsScriptUrl = document.getElementById('inputAppsScript').value.trim();
+      settings.autoRotateInterval = parseInt(document.getElementById('inputAutoRotate').value) || 15;
+      settings.showQR = document.getElementById('inputShowQR').checked;
       saveSettings(settings);
       closeSettings();
       applySettings();
@@ -740,7 +999,8 @@
     // Auto-fit: find the largest font scale that doesn't cause overflow
     function autoFitFontSize() {
       const container = document.getElementById('mainContent');
-      if (!container.children.length) return;
+      const wodArea = document.getElementById('wodArea');
+      if (!wodArea || !wodArea.children.length) return;
 
       const maxScale = (settings.fontSize || 100) / 100;
       let lo = 0.4, hi = Math.max(maxScale, 2.0);
@@ -797,6 +1057,157 @@
           r.style.flex = `${heights[i]} 1 0px`;
         });
       }
+    }
+
+    // ════════════════════════════════════════
+    // Display Mode System
+    // ════════════════════════════════════════
+    function setDisplayMode(mode) {
+      displayMode = mode;
+      const container = document.getElementById('mainContent');
+      container.classList.remove('mode-wod', 'mode-scoreboard', 'mode-split', 'mode-auto');
+
+      // Stop auto-rotate timer
+      if (autoRotateTimer) { clearInterval(autoRotateTimer); autoRotateTimer = null; }
+
+      if (mode === 'auto') {
+        autoRotateState = 'wod';
+        container.classList.add('mode-wod');
+        autoRotateTimer = setInterval(() => {
+          autoRotateState = autoRotateState === 'wod' ? 'scoreboard' : 'wod';
+          container.classList.remove('mode-wod', 'mode-scoreboard');
+          container.classList.add(`mode-${autoRotateState}`);
+          requestAnimationFrame(() => autoFitFontSize());
+        }, (settings.autoRotateInterval || 15) * 1000);
+      } else {
+        container.classList.add(`mode-${mode}`);
+      }
+
+      // Update mode indicator buttons
+      document.querySelectorAll('.mode-dot').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+      });
+
+      // Show/hide QR based on mode + setting
+      updateQR();
+
+      // Re-fit font for new layout
+      requestAnimationFrame(() => autoFitFontSize());
+    }
+
+    function updateQR() {
+      const qr = document.getElementById('qrOverlay');
+      const shouldShow = settings.showQR && settings.appsScriptUrl && displayMode !== 'wod';
+
+      if (shouldShow) {
+        const baseUrl = window.location.href.replace(/index\.html$/, '').replace(/\/$/, '');
+        const scoreUrl = `${baseUrl}/score.html?api=${encodeURIComponent(settings.appsScriptUrl)}`;
+        const qrApiUrl = `https://chart.googleapis.com/chart?cht=qr&chs=280x280&chl=${encodeURIComponent(scoreUrl)}&choe=UTF-8`;
+        document.getElementById('qrImg').src = qrApiUrl;
+        qr.classList.remove('hidden');
+      } else {
+        qr.classList.add('hidden');
+      }
+    }
+
+    // ════════════════════════════════════════
+    // Scoreboard Fetch & Render
+    // ════════════════════════════════════════
+    function fetchScoreboard() {
+      if (!settings.appsScriptUrl) return;
+
+      const today = new Date().toISOString().slice(0, 10);
+      const url = `${settings.appsScriptUrl}?date=${today}&callback=_scoreCb_${Date.now()}`;
+      const callbackName = url.match(/callback=([^&]+)/)[1];
+
+      const script = document.createElement('script');
+
+      window[callbackName] = function(data) {
+        delete window[callbackName];
+        script.remove();
+        if (data && data.results) {
+          renderScoreboard(data.results);
+        }
+      };
+
+      script.onerror = () => {
+        delete window[callbackName];
+        script.remove();
+      };
+
+      setTimeout(() => {
+        if (window[callbackName]) {
+          delete window[callbackName];
+          script.remove();
+        }
+      }, 8000);
+
+      script.src = url;
+      document.head.appendChild(script);
+    }
+
+    function renderScoreboard(results) {
+      const container = document.getElementById('scoreboardContent');
+
+      if (!results || results.length === 0) {
+        const newJSON = '[]';
+        if (newJSON !== lastScoreJSON) {
+          lastScoreJSON = newJSON;
+          container.innerHTML = `
+            <div class="scoreboard-empty">
+              <div class="empty-icon">📊</div>
+              <p>ממתין לתוצאות...</p>
+            </div>`;
+        }
+        return;
+      }
+
+      // Deduplicate: keep last entry per athlete name
+      const byName = {};
+      for (const r of results) {
+        byName[r.name] = r;
+      }
+      let sorted = Object.values(byName);
+
+      // Sort based on score type
+      const type = sorted[0].scoreType;
+      if (type === 'time') {
+        // Ascending (fastest first)
+        sorted.sort((a, b) => a.rawValue - b.rawValue);
+      } else {
+        // Descending (highest first)
+        sorted.sort((a, b) => b.rawValue - a.rawValue);
+      }
+
+      const newJSON = JSON.stringify(sorted);
+      if (newJSON === lastScoreJSON) return;
+      lastScoreJSON = newJSON;
+
+      const rowsHTML = sorted.map((r, i) => {
+        const rank = i + 1;
+        const rankClass = rank <= 3 ? ` rank-${rank}` : '';
+        const rxClass = (r.rx || 'Rx') === 'Rx' ? 'rx-tag-rx' : 'rx-tag-scaled';
+        return `
+          <tr class="score-row-enter${rankClass}">
+            <td class="rank-cell">${rank}</td>
+            <td class="name-cell" dir="auto">${escapeHtml(r.name)}</td>
+            <td class="score-cell">${escapeHtml(r.score)}</td>
+            <td><span class="rx-cell ${rxClass}">${escapeHtml(r.rx || 'Rx')}</span></td>
+          </tr>`;
+      }).join('');
+
+      container.innerHTML = `
+        <table class="scoreboard-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>ATHLETE</th>
+              <th>SCORE</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>${rowsHTML}</tbody>
+        </table>`;
     }
 
     // ════════════════════════════════════════
@@ -956,7 +1367,7 @@
     }
 
     function renderWorkout(data) {
-      const container = document.getElementById('mainContent');
+      const container = document.getElementById('wodArea');
 
       if (!data || !data.rows || data.rows.length === 0) {
         container.innerHTML = `
@@ -1110,12 +1521,22 @@
       renderTabBar();
 
       if (refreshTimer) clearInterval(refreshTimer);
+      if (scoreRefreshTimer) clearInterval(scoreRefreshTimer);
 
       if (settings.sheetId) {
         document.getElementById('emptyState')?.remove();
         fetchAndRender();
         refreshTimer = setInterval(fetchAndRender, (settings.refreshInterval || 30) * 1000);
       }
+
+      // Start scoreboard refresh if configured
+      if (settings.appsScriptUrl) {
+        fetchScoreboard();
+        scoreRefreshTimer = setInterval(fetchScoreboard, 5000);
+      }
+
+      // Apply display mode
+      setDisplayMode(displayMode);
     }
 
     // ════════════════════════════════════════
@@ -1147,13 +1568,31 @@
     // Re-fit font on resize
     window.addEventListener('resize', () => autoFitFontSize());
 
-    // Keyboard shortcut: Escape to close modal, S to open settings
+    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { closeSettings(); if (document.fullscreenElement) document.exitFullscreen(); }
-      if (e.key === 's' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') openSettings();
-      if (e.key === 'f' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {
+      const notInput = document.activeElement.tagName !== 'INPUT';
+      if (e.key === 's' && !e.ctrlKey && !e.metaKey && notInput) openSettings();
+      if (e.key === 'f' && !e.ctrlKey && !e.metaKey && notInput) {
         if (!document.fullscreenElement) document.documentElement.requestFullscreen();
         else document.exitFullscreen();
+      }
+      // Display mode shortcuts
+      if (notInput && !e.ctrlKey && !e.metaKey) {
+        if (e.key === 'd') {
+          const modes = ['wod', 'split', 'scoreboard', 'auto'];
+          const next = modes[(modes.indexOf(displayMode) + 1) % modes.length];
+          setDisplayMode(next);
+        }
+        if (e.key === '1') setDisplayMode('wod');
+        if (e.key === '2') setDisplayMode('split');
+        if (e.key === '3') setDisplayMode('scoreboard');
+        if (e.key === '4') setDisplayMode('auto');
+        if (e.key === 'q') {
+          settings.showQR = !settings.showQR;
+          saveSettings(settings);
+          updateQR();
+        }
       }
     });
 
