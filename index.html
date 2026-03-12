@@ -644,8 +644,8 @@
 
     /* Smaller QR in SPLIT mode */
     body.split-active .qr-overlay img {
-      width: 90px;
-      height: 90px;
+      width: 80px;
+      height: 80px;
     }
 
     .main-content.mode-wod #scoreboardArea { display: none; }
@@ -937,15 +937,16 @@
       right: 0.8rem;
       background: #fff;
       border-radius: 6px;
-      padding: 6px;
+      padding: 5px;
       box-shadow: 0 2px 12px rgba(0,0,0,0.5);
       z-index: 50;
       opacity: 1;
+      transition: top 0.4s ease, bottom 0.4s ease, left 0.4s ease, right 0.4s ease;
     }
 
     .qr-overlay img {
-      width: 120px;
-      height: 120px;
+      width: 100px;
+      height: 100px;
       display: block;
       image-rendering: pixelated;
     }
@@ -1436,9 +1437,71 @@
         const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=4&data=${encodeURIComponent(scoreUrl)}`;
         document.getElementById('qrImg').src = qrApiUrl;
         qr.classList.remove('hidden');
+        // Smart reposition after render
+        requestAnimationFrame(() => repositionQR());
       } else {
         qr.classList.add('hidden');
       }
+    }
+
+    // Smart QR repositioning: find the corner with least text overlap
+    function repositionQR() {
+      const qr = document.getElementById('qrOverlay');
+      if (qr.classList.contains('hidden')) return;
+
+      const margin = 8;
+      const qrRect = qr.getBoundingClientRect();
+      const qrW = qrRect.width;
+      const qrH = qrRect.height;
+      const winW = window.innerWidth;
+      const winH = window.innerHeight;
+
+      // 4 candidate positions: bottom-right, bottom-left, top-right, top-left
+      const candidates = [
+        { label: 'br', top: winH - qrH - margin, left: winW - qrW - margin },
+        { label: 'bl', top: winH - qrH - margin, left: margin },
+        { label: 'tr', top: margin + 60, left: winW - qrW - margin }, // 60px below top bar
+        { label: 'tl', top: margin + 60, left: margin },
+      ];
+
+      // Collect bounding rects of all visible text elements
+      const textEls = document.querySelectorAll(
+        '.scoreboard-table td, .scoreboard-table th, .scoreboard-header, ' +
+        '.lift-row, .lifts-header, .workout-card, .card-body, .exercise-line, ' +
+        '.section-title, .top-bar .clock, .top-bar .logo'
+      );
+
+      const textRects = [];
+      textEls.forEach(el => {
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) textRects.push(r);
+      });
+
+      // Score each candidate by overlap area with text elements
+      let bestPos = candidates[0];
+      let bestOverlap = Infinity;
+
+      for (const pos of candidates) {
+        const qrBox = { left: pos.left, top: pos.top, right: pos.left + qrW, bottom: pos.top + qrH };
+        let totalOverlap = 0;
+
+        for (const tr of textRects) {
+          const overlapX = Math.max(0, Math.min(qrBox.right, tr.right) - Math.max(qrBox.left, tr.left));
+          const overlapY = Math.max(0, Math.min(qrBox.bottom, tr.bottom) - Math.max(qrBox.top, tr.top));
+          totalOverlap += overlapX * overlapY;
+        }
+
+        if (totalOverlap < bestOverlap) {
+          bestOverlap = totalOverlap;
+          bestPos = pos;
+        }
+      }
+
+      // Apply position
+      qr.style.top = bestPos.top + 'px';
+      qr.style.left = bestPos.left + 'px';
+      qr.style.bottom = 'auto';
+      qr.style.right = 'auto';
     }
 
     // ════════════════════════════════════════
@@ -1582,6 +1645,7 @@
           ${prBadge}
         </div>`;
       }).join('');
+      requestAnimationFrame(() => repositionQR());
     }
 
     const SCORE_TYPE_LABELS = { time: 'FOR TIME', amrap: 'AMRAP', reps: 'REPS', weight: 'WEIGHT' };
@@ -1678,6 +1742,9 @@
 
       // Dynamic layout: adjust scoreboard panel size based on result count
       adjustSplitLayout(athleteOrder.length);
+
+      // Reposition QR to avoid overlapping content
+      requestAnimationFrame(() => repositionQR());
     }
 
     function adjustSplitLayout(resultCount) {
@@ -2050,7 +2117,7 @@
     });
 
     // Re-fit font on resize
-    window.addEventListener('resize', () => autoFitFontSize());
+    window.addEventListener('resize', () => { autoFitFontSize(); repositionQR(); });
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
