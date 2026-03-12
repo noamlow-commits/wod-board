@@ -727,7 +727,14 @@ const BADGE_DEFS = [
 // ═══════════════════════════════════════════════════════
 (function init() {
   const urlParams = new URLSearchParams(window.location.search);
+  // Try all possible sources for the API URL
   API_URL = urlParams.get('api') || localStorage.getItem('wodboard-api') || '';
+  if (!API_URL) {
+    try {
+      var wbSettings = JSON.parse(localStorage.getItem('wodboard') || '{}');
+      API_URL = wbSettings.appsScriptUrl || '';
+    } catch(e) {}
+  }
 
   if (API_URL) {
     localStorage.setItem('wodboard-api', API_URL);

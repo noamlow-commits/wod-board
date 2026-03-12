@@ -525,7 +525,10 @@
     let myPRs = {}; // { "exercise|type": { best, bestRaw, reps, date } }
 
     const urlParams = new URLSearchParams(window.location.search);
-    const API_URL = urlParams.get('api') || localStorage.getItem('wodboard-api') || '';
+    let API_URL = urlParams.get('api') || localStorage.getItem('wodboard-api') || '';
+    if (!API_URL) {
+      try { API_URL = JSON.parse(localStorage.getItem('wodboard') || '{}').appsScriptUrl || ''; } catch(e) {}
+    }
 
     // ═══════════════════════════════
     // Init

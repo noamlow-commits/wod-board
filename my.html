@@ -1196,6 +1196,9 @@ let leaderboardGenderFilter = '';
 (function init() {
   const urlParams = new URLSearchParams(window.location.search);
   API_URL = urlParams.get('api') || localStorage.getItem('wodboard-api') || '';
+  if (!API_URL) {
+    try { API_URL = JSON.parse(localStorage.getItem('wodboard') || '{}').appsScriptUrl || ''; } catch(e) {}
+  }
 
   // Save API to both localStorage keys for cross-page sync
   if (API_URL) {
