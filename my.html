@@ -1742,10 +1742,10 @@ function renderBadges() {
   // Show top 5 earned badges as compact pills
   row.innerHTML = myBadges.slice(0, 6).map(b => {
     let tier = 'bronze';
-    const n = (b.name + ' ' + (b.desc || '')).toLowerCase();
-    if (n.includes('עילית') || n.includes('מועדון 1') || n.includes('מועדון 8') || n.includes('מועדון 7')) tier = 'gold';
-    else if (n.includes('rx ready') || n.includes('מועדון')) tier = 'silver';
-    else if (n.includes('מתחזק') || n.includes('מתחזקת')) tier = 'bronze';
+    const d = (b.desc || '').toLowerCase();
+    if (d.includes('עילית')) tier = 'gold';
+    else if (d.includes('rx ready')) tier = 'silver';
+    else if (d.includes('מתחזק') || d.includes('מתחזקת')) tier = 'bronze';
     else tier = 'bronze';
     return `<span class="badge-pill badge-${tier}" title="${esc(b.desc)}">${esc(b.icon || '🏅')} ${esc(b.shortName || b.name)}</span>`;
   }).join('') + (myBadges.length > 6 ? '<span class="badge-pill badge-bronze">+' + (myBadges.length - 6) + '</span>' : '');

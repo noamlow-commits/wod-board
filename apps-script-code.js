@@ -1244,6 +1244,16 @@ function handleGetBadges_(e) {
   // Calculate live + persist any new ones
   var earned = calculateBadgesForAthlete_(name);
 
+  // Get athlete gender for filtering possible badges
+  var athleteGender = '';
+  var athletesSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Athletes');
+  if (athletesSheet) {
+    var aData = athletesSheet.getDataRange().getValues();
+    for (var a = 1; a < aData.length; a++) {
+      if (aData[a][0] === name) { athleteGender = aData[a][1] || ''; break; }
+    }
+  }
+
   // Also get manually awarded badges from sheet
   var badgesSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Badges');
   var manual = [];
