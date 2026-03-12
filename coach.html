@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Coach Panel - CrossFit Gush Etzion</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a0a0a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;900&family=Heebo:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0a0a0a;
+      --card-bg: #141414;
+      --card-border: #2a2a2a;
+      --text: #f0f0f0;
+      --text-dim: #888;
+      --accent: #ef4444;
+      --accent2: #f59e0b;
+      --success: #22c55e;
+      --blue: #3b82f6;
+      --purple: #a855f7;
+      --gold: #f59e0b;
+    }
+
+    body {
+      font-family: 'Heebo', 'Barlow', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    /* ── Header ── */
+    .app-header {
+      background: linear-gradient(135deg, #111, #1a1a1a);
+      border-bottom: 1px solid #222;
+      padding: 0.8rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .app-header .logo {
+      font-family: 'Barlow', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, var(--purple), var(--blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-links {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .header-links a, .header-links button {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.8rem;
+      padding: 0.3rem 0.5rem;
+      border: 1px solid #333;
+      border-radius: 6px;
+      transition: all 0.2s;
+      background: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .header-links a:hover, .header-links button:hover { color: var(--text); border-color: #555; }
+
+    /* ── Login ── */
+    .login-screen {
+      max-width: 360px;
+      margin: 4rem auto;
+      padding: 2rem 1rem;
+      text-align: center;
+    }
+
+    .login-screen h2 { font-size: 1.3rem; margin-bottom: 0.5rem; }
+    .login-screen p { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+    .login-screen input {
+      width: 100%;
+      padding: 0.8rem;
+      font-size: 1.1rem;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: var(--card-bg);
+      color: var(--text);
+      text-align: center;
+      font-family: inherit;
+    }
+
+    .login-screen .login-btn {
+      margin-top: 1rem;
+      width: 100%;
+      padding: 0.8rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--purple), var(--blue));
+      color: #fff;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .login-error { color: var(--accent); font-size: 0.85rem; margin-top: 0.5rem; display: none; }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #222;
+      background: #111;
+      position: sticky;
+      top: 52px;
+      z-index: 99;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 0.7rem 0.5rem;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .tab-btn.active {
+      color: var(--purple);
+      border-bottom-color: var(--purple);
+    }
+
+    .tab-panel { display: none; padding: 1rem; }
+    .tab-panel.active { display: block; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 0.8rem;
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 0.6rem;
+      font-weight: 600;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      border: none;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--purple), var(--blue));
+      color: #fff;
+    }
+
+    .btn-danger {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-sm {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.8rem;
+    }
+
+    .btn-outline {
+      background: none;
+      border: 1px solid #444;
+      color: var(--text-dim);
+    }
+
+    .btn-outline:hover { border-color: var(--text); color: var(--text); }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+    }
+
+    /* ── Form ── */
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      color: var(--text-dim);
+    }
+
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      padding: 0.6rem;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #1a1a1a;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+
+    .form-group textarea { resize: vertical; min-height: 60px; }
+
+    .form-row {
+      display: flex;
+      gap: 0.8rem;
+    }
+
+    .form-row .form-group { flex: 1; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .modal-overlay.show { display: flex; }
+
+    .modal {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      max-width: 440px;
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    .modal h3 {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+      margin-top: 1rem;
+    }
+
+    /* ── Challenge Card ── */
+    .challenge-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 0.8rem;
+    }
+
+    .challenge-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.5rem;
+    }
+
+    .challenge-title {
+      font-weight: 900;
+      font-size: 1rem;
+    }
+
+    .challenge-status {
+      padding: 0.15rem 0.5rem;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+
+    .status-active { background: rgba(34,197,94,0.2); color: var(--success); }
+    .status-ended { background: rgba(136,136,136,0.2); color: var(--text-dim); }
+
+    .challenge-meta {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-bottom: 0.5rem;
+    }
+
+    .challenge-actions {
+      display: flex;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+    }
+
+    /* ── Athlete Row ── */
+    .athlete-row {
+      display: flex;
+      align-items: center;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid #1e1e1e;
+      gap: 0.6rem;
+    }
+
+    .athlete-row:last-child { border-bottom: none; }
+
+    .athlete-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--purple), var(--blue));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+      color: #fff;
+    }
+
+    .athlete-info { flex: 1; min-width: 0; }
+    .athlete-name-text { font-weight: 700; font-size: 0.95rem; }
+    .athlete-stats-text { font-size: 0.75rem; color: var(--text-dim); }
+
+    /* ── Badge Grid ── */
+    .badge-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .badge-item {
+      padding: 0.3rem 0.6rem;
+      border-radius: 20px;
+      background: rgba(168,85,247,0.15);
+      border: 1px solid rgba(168,85,247,0.3);
+      font-size: 0.8rem;
+    }
+
+    /* ── Loading / Empty ── */
+    .loading { text-align: center; padding: 2rem; color: var(--text-dim); }
+    .spinner {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 3px solid #333;
+      border-top-color: var(--purple);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state { text-align: center; padding: 2rem; color: var(--text-dim); }
+    .empty-state .icon { font-size: 2rem; margin-bottom: 0.5rem; }
+
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--success);
+      color: #fff;
+      padding: 0.7rem 1.5rem;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      z-index: 300;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .toast.show { opacity: 1; }
+
+    /* ── Leaderboard inside challenge ── */
+    .mini-lb { margin-top: 0.5rem; }
+    .mini-lb-row {
+      display: flex;
+      align-items: center;
+      padding: 0.3rem 0;
+      font-size: 0.85rem;
+    }
+    .mini-lb-rank {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 0.7rem;
+      margin-left: 0.5rem;
+      flex-shrink: 0;
+    }
+    .mini-lb-rank.gold { background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; }
+    .mini-lb-rank.silver { background: linear-gradient(135deg, #94a3b8, #64748b); color: #000; }
+    .mini-lb-rank.bronze { background: linear-gradient(135deg, #b45309, #92400e); color: #fff; }
+    .mini-lb-rank.other { background: #222; color: var(--text-dim); }
+    .mini-lb-name { flex: 1; }
+    .mini-lb-val { font-weight: 700; direction: ltr; }
+
+    @media (min-width: 600px) {
+      .tab-panel { max-width: 560px; margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="app-header">
+  <div class="logo">COACH PANEL</div>
+  <div class="header-links">
+    <a href="my.html">פרופיל</a>
+    <a href="score.html">הזנה</a>
+    <a href="index.html">לוח</a>
+    <button onclick="logout()" id="logoutBtn" style="display:none;">יציאה</button>
+  </div>
+</div>
+
+<!-- Login Screen -->
+<div id="loginScreen" class="login-screen">
+  <h2>🔒 כניסת מאמן</h2>
+  <p>הזן את סיסמת המאמן כדי לנהל את המערכת</p>
+  <input type="password" id="passwordInput" placeholder="סיסמה..." onkeydown="if(event.key==='Enter')tryLogin()">
+  <button class="login-btn" onclick="tryLogin()">כניסה</button>
+  <div class="login-error" id="loginError">סיסמה שגויה</div>
+</div>
+
+<!-- Coach Dashboard (hidden until login) -->
+<div id="coachDashboard" style="display:none;">
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="challenges">🎯 אתגרים</button>
+    <button class="tab-btn" data-tab="athletes">👥 ספורטאים</button>
+    <button class="tab-btn" data-tab="badges">🏅 באדג'ים</button>
+  </div>
+
+  <!-- Tab: Challenges -->
+  <div class="tab-panel active" id="panel-challenges">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h3 style="font-size:1rem;">ניהול אתגרים</h3>
+      <button class="btn btn-primary" onclick="openCreateChallenge()">+ אתגר חדש</button>
+    </div>
+    <div id="challengesList">
+      <div class="loading"><div class="spinner"></div><div>טוען...</div></div>
+    </div>
+  </div>
+
+  <!-- Tab: Athletes -->
+  <div class="tab-panel" id="panel-athletes">
+    <h3 style="font-size:1rem;margin-bottom:1rem;">כל הספורטאים</h3>
+    <div id="athletesList">
+      <div class="loading"><div class="spinner"></div><div>טוען...</div></div>
+    </div>
+  </div>
+
+  <!-- Tab: Badges -->
+  <div class="tab-panel" id="panel-badges">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h3 style="font-size:1rem;">ניהול באדג'ים</h3>
+      <div style="display:flex;gap:0.4rem;">
+        <button class="btn btn-outline btn-sm" onclick="recalcBadges()">חשב מחדש</button>
+        <button class="btn btn-primary btn-sm" onclick="openAwardBadge()">הענק באדג'</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">באדג'ים אוטומטיים</div>
+      <div id="badgeDefinitions"></div>
+    </div>
+    <div id="badgesByAthlete">
+      <div class="loading"><div class="spinner"></div><div>טוען...</div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Create Challenge Modal -->
+<div class="modal-overlay" id="challengeModal">
+  <div class="modal">
+    <h3 id="challengeModalTitle">אתגר חדש</h3>
+    <input type="hidden" id="editChallengeId">
+
+    <div class="form-group">
+      <label>שם האתגר</label>
+      <input type="text" id="chTitle" placeholder="לדוגמה: אתגר סקוואט מרץ">
+    </div>
+
+    <div class="form-group">
+      <label>תיאור</label>
+      <textarea id="chDesc" placeholder="מה האתגר?"></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>סוג</label>
+        <select id="chType" onchange="onChallengeTypeChange()">
+          <option value="exercise_pr">שיא בתרגיל</option>
+          <option value="attendance">נוכחות</option>
+          <option value="custom">מספר שיאים</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>משך</label>
+        <select id="chDuration">
+          <option value="weekly">שבועי</option>
+          <option value="biweekly">דו-שבועי</option>
+          <option value="monthly">חודשי</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group" id="metricGroup">
+      <label>תרגיל</label>
+      <select id="chMetric">
+        <option value="Back Squat">Back Squat</option>
+        <option value="Front Squat">Front Squat</option>
+        <option value="Deadlift">Deadlift</option>
+        <option value="Clean">Clean</option>
+        <option value="Clean & Jerk">Clean & Jerk</option>
+        <option value="Snatch">Snatch</option>
+        <option value="Power Clean">Power Clean</option>
+        <option value="Power Snatch">Power Snatch</option>
+        <option value="Push Press">Push Press</option>
+        <option value="Shoulder Press">Shoulder Press</option>
+        <option value="Bench Press">Bench Press</option>
+        <option value="Thruster">Thruster</option>
+        <option value="Overhead Squat">Overhead Squat</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>תאריך התחלה</label>
+        <input type="date" id="chStart">
+      </div>
+      <div class="form-group">
+        <label>תאריך סיום</label>
+        <input type="date" id="chEnd">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>יעד (אופציונלי)</label>
+      <input type="number" id="chTarget" placeholder="לדוגמה: 100">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('challengeModal')">ביטול</button>
+      <button class="btn btn-primary" onclick="saveChallenge()">שמירה</button>
+    </div>
+  </div>
+</div>
+
+<!-- Award Badge Modal -->
+<div class="modal-overlay" id="badgeModal">
+  <div class="modal">
+    <h3>הענקת באדג' ידנית</h3>
+
+    <div class="form-group">
+      <label>שם הספורטאי</label>
+      <input type="text" id="awardAthlete" placeholder="שם...">
+    </div>
+
+    <div class="form-group">
+      <label>שם הבאדג'</label>
+      <input type="text" id="awardBadgeName" placeholder="לדוגמה: אלוף החודש 🏆">
+    </div>
+
+    <div class="form-group">
+      <label>תיאור</label>
+      <input type="text" id="awardBadgeDesc" placeholder="על מה הבאדג'?">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('badgeModal')">ביטול</button>
+      <button class="btn btn-primary" onclick="awardBadge()">הענק</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════
+let API_URL = '';
+let coachKey = '';
+let allChallenges = [];
+let allAthletes = [];
+
+// Badge definitions (mirror of server)
+const BADGE_DEFS = [
+  { id: 'first_pr', name: 'שיא ראשון! 🎯', desc: 'שברת את השיא האישי הראשון שלך' },
+  { id: 'prs_5', name: '5 שיאים 🌟', desc: '5 שיאים אישיים' },
+  { id: 'prs_10', name: '10 שיאים ⭐', desc: '10 שיאים אישיים' },
+  { id: 'prs_20', name: '20 שיאים 💫', desc: '20 שיאים אישיים' },
+  { id: 'squat_100', name: 'מועדון 100 ק"ג סקוואט 🏋️', desc: 'Back Squat מעל 100 ק"ג' },
+  { id: 'squat_140', name: 'מועדון 140 ק"ג סקוואט 💪', desc: 'Back Squat מעל 140 ק"ג' },
+  { id: 'deadlift_140', name: 'מועדון 140 ק"ג מתים 🔥', desc: 'Deadlift מעל 140 ק"ג' },
+  { id: 'deadlift_180', name: 'מועדון 180 ק"ג מתים 👑', desc: 'Deadlift מעל 180 ק"ג' },
+  { id: 'clean_100', name: 'מועדון 100 ק"ג קלין 🎖️', desc: 'Clean מעל 100 ק"ג' },
+  { id: 'snatch_80', name: "מועדון 80 ק\"ג סנאצ' 🏅", desc: 'Snatch מעל 80 ק"ג' },
+  { id: 'bench_100', name: 'מועדון 100 ק"ג לחיצת חזה 💎', desc: 'Bench Press מעל 100 ק"ג' }
+];
+
+// ═══════════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════════
+(function init() {
+  const urlParams = new URLSearchParams(window.location.search);
+  API_URL = urlParams.get('api') || localStorage.getItem('wodboard-api') || '';
+
+  if (API_URL) localStorage.setItem('wodboard-api', API_URL);
+
+  coachKey = localStorage.getItem('wodboard-coach-key') || '';
+
+  if (coachKey && API_URL) {
+    verifyAndEnter();
+  }
+
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  // Set default dates
+  const today = new Date();
+  document.getElementById('chStart').value = today.toISOString().slice(0, 10);
+  const endDate = new Date(today);
+  endDate.setMonth(endDate.getMonth() + 1);
+  document.getElementById('chEnd').value = endDate.toISOString().slice(0, 10);
+
+  // Render badge definitions
+  renderBadgeDefinitions();
+})();
+
+async function verifyAndEnter() {
+  try {
+    const res = await jsonpGet({ action: 'coachLogin', password: coachKey });
+    if (res.valid) {
+      enterCoach();
+    } else {
+      coachKey = '';
+      localStorage.removeItem('wodboard-coach-key');
+    }
+  } catch(e) {}
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    const id = p.id.replace('panel-', '');
+    p.classList.toggle('active', id === tab);
+    p.style.display = id === tab ? 'block' : 'none';
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// Login
+// ═══════════════════════════════════════════════════════
+async function tryLogin() {
+  const pw = document.getElementById('passwordInput').value.trim();
+  if (!pw) return;
+
+  if (!API_URL) {
+    showToast('אין חיבור לשרת. ודא שה-URL נכון.');
+    return;
+  }
+
+  try {
+    const res = await jsonpGet({ action: 'coachLogin', password: pw });
+    if (res.valid) {
+      coachKey = pw;
+      localStorage.setItem('wodboard-coach-key', pw);
+      enterCoach();
+    } else {
+      document.getElementById('loginError').style.display = 'block';
+    }
+  } catch (err) {
+    showToast('שגיאה בהתחברות');
+  }
+}
+
+function enterCoach() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('coachDashboard').style.display = 'block';
+  document.getElementById('logoutBtn').style.display = 'inline-block';
+  loadChallenges();
+  loadAthletes();
+}
+
+function logout() {
+  coachKey = '';
+  localStorage.removeItem('wodboard-coach-key');
+  document.getElementById('coachDashboard').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'block';
+  document.getElementById('logoutBtn').style.display = 'none';
+  document.getElementById('passwordInput').value = '';
+}
+
+// ═══════════════════════════════════════════════════════
+// JSONP + POST helpers
+// ═══════════════════════════════════════════════════════
+function jsonpGet(params) {
+  return new Promise((resolve, reject) => {
+    if (!API_URL) { reject('No API URL'); return; }
+    const cbName = 'cb_' + Math.random().toString(36).slice(2);
+    const url = API_URL + '?' + new URLSearchParams({ ...params, callback: cbName }).toString();
+    window[cbName] = (data) => { resolve(data); delete window[cbName]; script.remove(); };
+    const script = document.createElement('script');
+    script.src = url;
+    script.onerror = () => { reject('Network error'); delete window[cbName]; script.remove(); };
+    document.body.appendChild(script);
+    setTimeout(() => { if (window[cbName]) { reject('Timeout'); delete window[cbName]; script.remove(); } }, 15000);
+  });
+}
+
+function postData(payload) {
+  return new Promise((resolve) => {
+    if (!API_URL) { resolve({ status: 'error' }); return; }
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = API_URL;
+    form.target = 'postFrame';
+    form.style.display = 'none';
+    const input = document.createElement('input');
+    input.name = 'payload';
+    input.value = JSON.stringify(payload);
+    form.appendChild(input);
+
+    let iframe = document.getElementById('postFrame');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.name = 'postFrame';
+      iframe.id = 'postFrame';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+    form.remove();
+    setTimeout(() => resolve({ status: 'ok' }), 2000);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// Challenges
+// ═══════════════════════════════════════════════════════
+async function loadChallenges() {
+  try {
+    const res = await jsonpGet({ action: 'getAllChallenges', coachKey });
+    allChallenges = res.challenges || [];
+    renderChallenges();
+  } catch(e) {
+    document.getElementById('challengesList').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠️</div>שגיאה בטעינה</div>';
+  }
+}
+
+function renderChallenges() {
+  const el = document.getElementById('challengesList');
+  if (allChallenges.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">🎯</div>אין אתגרים עדיין. צור אתגר חדש!</div>';
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  let html = '';
+
+  allChallenges.forEach(ch => {
+    const isActive = ch.status === 'active' && ch.endDate >= today;
+    const statusClass = isActive ? 'status-active' : 'status-ended';
+    const statusText = isActive ? 'פעיל' : (ch.status === 'ended' ? 'הסתיים' : ch.status);
+    const durationText = { weekly: 'שבועי', biweekly: 'דו-שבועי', monthly: 'חודשי' }[ch.duration] || ch.duration;
+    const typeText = { exercise_pr: 'שיא בתרגיל', attendance: 'נוכחות', custom: 'מספר שיאים' }[ch.type] || ch.type;
+
+    html += `<div class="challenge-card">
+      <div class="challenge-header">
+        <div class="challenge-title">${esc(ch.title)}</div>
+        <span class="challenge-status ${statusClass}">${statusText}</span>
+      </div>
+      <div class="challenge-meta">
+        ${typeText} • ${durationText} • ${esc(ch.startDate)} — ${esc(ch.endDate)}
+        ${ch.metric ? ' • ' + esc(ch.metric) : ''}
+      </div>
+      ${ch.description ? `<div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem;">${esc(ch.description)}</div>` : ''}
+      <div id="lb_${ch.id}" class="mini-lb"></div>
+      <div class="challenge-actions">
+        ${isActive ? `<button class="btn btn-outline btn-sm" onclick="showChallengeLB('${esc(ch.id)}')">לידרבורד</button>` : ''}
+        <button class="btn btn-outline btn-sm" onclick="editChallenge('${esc(ch.id)}')">עריכה</button>
+        ${isActive ? `<button class="btn btn-outline btn-sm" onclick="endChallenge('${esc(ch.id)}')">סיים</button>` : ''}
+        <button class="btn btn-danger btn-sm" onclick="deleteChallenge('${esc(ch.id)}')">מחק</button>
+      </div>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+function openCreateChallenge() {
+  document.getElementById('challengeModalTitle').textContent = 'אתגר חדש';
+  document.getElementById('editChallengeId').value = '';
+  document.getElementById('chTitle').value = '';
+  document.getElementById('chDesc').value = '';
+  document.getElementById('chType').value = 'exercise_pr';
+  document.getElementById('chDuration').value = 'monthly';
+  document.getElementById('chTarget').value = '';
+  onChallengeTypeChange();
+  document.getElementById('challengeModal').classList.add('show');
+}
+
+function editChallenge(id) {
+  const ch = allChallenges.find(c => c.id === id);
+  if (!ch) return;
+
+  document.getElementById('challengeModalTitle').textContent = 'עריכת אתגר';
+  document.getElementById('editChallengeId').value = id;
+  document.getElementById('chTitle').value = ch.title;
+  document.getElementById('chDesc').value = ch.description || '';
+  document.getElementById('chType').value = ch.type;
+  document.getElementById('chDuration').value = ch.duration;
+  document.getElementById('chStart').value = ch.startDate;
+  document.getElementById('chEnd').value = ch.endDate;
+  document.getElementById('chMetric').value = ch.metric || 'Back Squat';
+  document.getElementById('chTarget').value = ch.targetValue || '';
+  onChallengeTypeChange();
+  document.getElementById('challengeModal').classList.add('show');
+}
+
+function onChallengeTypeChange() {
+  const type = document.getElementById('chType').value;
+  document.getElementById('metricGroup').style.display = type === 'exercise_pr' ? 'block' : 'none';
+}
+
+async function saveChallenge() {
+  const editId = document.getElementById('editChallengeId').value;
+  const payload = {
+    action: editId ? 'updateChallenge' : 'createChallenge',
+    coachKey,
+    title: document.getElementById('chTitle').value.trim(),
+    description: document.getElementById('chDesc').value.trim(),
+    type: document.getElementById('chType').value,
+    duration: document.getElementById('chDuration').value,
+    startDate: document.getElementById('chStart').value,
+    endDate: document.getElementById('chEnd').value,
+    metric: document.getElementById('chType').value === 'exercise_pr' ? document.getElementById('chMetric').value : '',
+    targetValue: document.getElementById('chTarget').value
+  };
+
+  if (!payload.title) { showToast('הזן שם לאתגר'); return; }
+  if (!payload.endDate) { showToast('הזן תאריך סיום'); return; }
+
+  if (editId) payload.id = editId;
+
+  await postData(payload);
+  closeModal('challengeModal');
+  showToast(editId ? 'אתגר עודכן!' : 'אתגר נוצר!');
+
+  // Reload after POST settles
+  setTimeout(() => loadChallenges(), 3000);
+}
+
+async function endChallenge(id) {
+  await postData({ action: 'updateChallenge', coachKey, id, status: 'ended' });
+  showToast('אתגר הסתיים');
+  setTimeout(() => loadChallenges(), 3000);
+}
+
+async function deleteChallenge(id) {
+  if (!confirm('למחוק את האתגר?')) return;
+  await postData({ action: 'deleteChallenge', coachKey, id });
+  showToast('אתגר נמחק');
+  setTimeout(() => loadChallenges(), 3000);
+}
+
+async function showChallengeLB(challengeId) {
+  const el = document.getElementById('lb_' + challengeId);
+  if (!el) return;
+  el.innerHTML = '<div class="loading" style="padding:0.5rem;"><div class="spinner"></div></div>';
+
+  try {
+    const res = await jsonpGet({ action: 'getChallengeLeaderboard', challengeId });
+    const lb = res.leaderboard || [];
+    if (lb.length === 0) {
+      el.innerHTML = '<div style="font-size:0.8rem;color:var(--text-dim);padding:0.3rem;">אין משתתפים עדיין</div>';
+      return;
+    }
+
+    let html = '';
+    lb.forEach((entry, idx) => {
+      const rankClass = idx === 0 ? 'gold' : idx === 1 ? 'silver' : idx === 2 ? 'bronze' : 'other';
+      html += `<div class="mini-lb-row">
+        <div class="mini-lb-rank ${rankClass}">${idx + 1}</div>
+        <div class="mini-lb-name">${esc(entry.name)}</div>
+        <div class="mini-lb-val">${esc(entry.display)}</div>
+      </div>`;
+    });
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div style="font-size:0.8rem;color:var(--accent);">שגיאה</div>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// Athletes
+// ═══════════════════════════════════════════════════════
+async function loadAthletes() {
+  try {
+    const res = await jsonpGet({ action: 'getAllAthletes', coachKey });
+    allAthletes = res.athletes || [];
+    renderAthletes();
+  } catch(e) {
+    document.getElementById('athletesList').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠️</div>שגיאה בטעינה</div>';
+  }
+}
+
+function renderAthletes() {
+  const el = document.getElementById('athletesList');
+  if (allAthletes.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">👥</div>אין ספורטאים עדיין</div>';
+    return;
+  }
+
+  let html = `<div class="card"><div class="card-title">${allAthletes.length} ספורטאים</div>`;
+  allAthletes.forEach(a => {
+    const initial = a.name ? a.name.charAt(0) : '?';
+    html += `<div class="athlete-row">
+      <div class="athlete-avatar">${esc(initial)}</div>
+      <div class="athlete-info">
+        <div class="athlete-name-text">${esc(a.name)}</div>
+        <div class="athlete-stats-text">${a.prs} שיאים • ${a.lifts} הרמות • ${a.lastActive ? 'פעיל: ' + esc(String(a.lastActive).slice(0,10)) : ''}</div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════
+// Badges
+// ═══════════════════════════════════════════════════════
+function renderBadgeDefinitions() {
+  let html = '<div class="badge-grid">';
+  BADGE_DEFS.forEach(b => {
+    html += `<div class="badge-item" title="${esc(b.desc)}">${esc(b.name)}</div>`;
+  });
+  html += '</div>';
+  document.getElementById('badgeDefinitions').innerHTML = html;
+}
+
+async function recalcBadges() {
+  showToast('מחשב באדג\'ים...');
+  try {
+    const res = await jsonpGet({ action: 'recalcBadges', coachKey });
+    showToast(`חושב מחדש ל-${res.recalculated} ספורטאים. ${res.newBadges} באדג'ים חדשים!`);
+  } catch(e) {
+    showToast('שגיאה');
+  }
+}
+
+function openAwardBadge() {
+  document.getElementById('awardAthlete').value = '';
+  document.getElementById('awardBadgeName').value = '';
+  document.getElementById('awardBadgeDesc').value = '';
+  document.getElementById('badgeModal').classList.add('show');
+}
+
+async function awardBadge() {
+  const name = document.getElementById('awardAthlete').value.trim();
+  const badge = document.getElementById('awardBadgeName').value.trim();
+  const desc = document.getElementById('awardBadgeDesc').value.trim();
+  if (!name || !badge) { showToast('מלא שם ובאדג\''); return; }
+
+  await postData({ action: 'awardBadge', coachKey, athleteName: name, badgeName: badge, description: desc });
+  closeModal('badgeModal');
+  showToast('באדג\' הוענק ל-' + name + '!');
+}
+
+// ═══════════════════════════════════════════════════════
+// UI helpers
+// ═══════════════════════════════════════════════════════
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('show');
+  });
+});
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

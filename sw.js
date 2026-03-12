@@ -1,9 +1,10 @@
-const CACHE_NAME = 'cf-gush-v1';
+const CACHE_NAME = 'cf-gush-v2';
 const URLS_TO_CACHE = [
   './',
   './my.html',
   './score.html',
   './index.html',
+  './coach.html',
   './manifest.json',
   './logo.png'
 ];

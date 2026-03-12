@@ -426,6 +426,101 @@
       font-weight: 700;
     }
 
+    /* ── Badges Row ── */
+    .badges-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.4rem;
+      margin-top: 0.8rem;
+    }
+
+    .badge-pill {
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+      background: rgba(245,158,11,0.15);
+      border: 1px solid rgba(245,158,11,0.3);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    /* ── Challenge Cards ── */
+    .challenge-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 0.8rem;
+    }
+
+    .challenge-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.4rem;
+    }
+
+    .challenge-title {
+      font-weight: 900;
+      font-size: 1rem;
+    }
+
+    .challenge-badge {
+      padding: 0.15rem 0.5rem;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+
+    .type-exercise { background: rgba(59,130,246,0.2); color: var(--blue); }
+    .type-attendance { background: rgba(34,197,94,0.2); color: var(--success); }
+    .type-custom { background: rgba(168,85,247,0.2); color: var(--purple); }
+
+    .challenge-desc {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 0.5rem;
+    }
+
+    .challenge-timer {
+      font-size: 0.8rem;
+      color: var(--accent2);
+      margin-bottom: 0.5rem;
+    }
+
+    .challenge-lb {
+      margin-top: 0.5rem;
+    }
+
+    .ch-lb-row {
+      display: flex;
+      align-items: center;
+      padding: 0.3rem 0;
+      font-size: 0.85rem;
+    }
+
+    .ch-lb-rank {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 0.7rem;
+      margin-left: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .ch-lb-rank.gold { background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; }
+    .ch-lb-rank.silver { background: linear-gradient(135deg, #94a3b8, #64748b); color: #000; }
+    .ch-lb-rank.bronze { background: linear-gradient(135deg, #b45309, #92400e); color: #fff; }
+    .ch-lb-rank.other { background: #222; color: var(--text-dim); }
+
+    .ch-lb-name { flex: 1; }
+    .ch-lb-name.is-me { color: var(--accent); font-weight: 700; }
+    .ch-lb-val { font-weight: 900; direction: ltr; }
+
     /* ── Loading ── */
     .loading {
       text-align: center;
@@ -469,6 +564,7 @@
   <div class="header-links">
     <a href="score.html" id="linkScore">הזנת תוצאה</a>
     <a href="index.html" id="linkBoard">לוח</a>
+    <a href="coach.html" id="linkCoach">מאמן</a>
   </div>
 </div>
 
@@ -496,11 +592,13 @@
       <div class="stat-label">תגובות קיבלתי</div>
     </div>
   </div>
+  <div class="badges-row" id="badgesRow" style="display:none;"></div>
 </div>
 
 <!-- Tabs -->
 <div class="tabs" id="tabsBar" style="display:none;">
-  <button class="tab-btn active" data-tab="history">📊 ההיסטוריה שלי</button>
+  <button class="tab-btn active" data-tab="history">📊 היסטוריה</button>
+  <button class="tab-btn" data-tab="challenges">🎯 אתגרים</button>
   <button class="tab-btn" data-tab="leaderboard">🏆 לידרבורד</button>
   <button class="tab-btn" data-tab="feed">🔥 פיד</button>
 </div>
@@ -509,6 +607,13 @@
 <div class="tab-panel active" id="panel-history" style="display:none;">
   <div id="historyContent">
     <div class="loading"><div class="spinner"></div><div>טוען נתונים...</div></div>
+  </div>
+</div>
+
+<!-- Tab: Challenges -->
+<div class="tab-panel" id="panel-challenges" style="display:none;">
+  <div id="challengesContent">
+    <div class="loading"><div class="spinner"></div><div>טוען אתגרים...</div></div>
   </div>
 </div>
 
@@ -540,6 +645,8 @@ let leaderboardData = {};
 let leaderboardExercises = [];
 let feedData = [];
 let myReactedKeys = {};
+let myBadges = [];
+let activeChallenges = [];
 
 // ═══════════════════════════════════════════════════════
 // Init
@@ -552,6 +659,7 @@ let myReactedKeys = {};
   if (API_URL) {
     document.getElementById('linkScore').href = 'score.html?api=' + encodeURIComponent(API_URL);
     document.getElementById('linkBoard').href = 'index.html';
+    document.getElementById('linkCoach').href = 'coach.html?api=' + encodeURIComponent(API_URL);
   }
 
   myName = localStorage.getItem('wodboard-athlete-name') || '';
@@ -587,6 +695,8 @@ function enterApp() {
   document.getElementById('panel-history').style.display = 'block';
 
   loadMyData();
+  loadBadges();
+  loadChallenges();
   loadLeaderboard();
   loadFeed();
 }
@@ -971,6 +1081,120 @@ async function react(toName, exercise, date, btn) {
     });
   } catch (err) {
     // Already saved locally, will show as reacted
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// Load Badges
+// ═══════════════════════════════════════════════════════
+async function loadBadges() {
+  try {
+    const res = await jsonpGet({ action: 'getBadges', name: myName });
+    myBadges = res.badges || [];
+    renderBadges();
+  } catch(e) {}
+}
+
+function renderBadges() {
+  const row = document.getElementById('badgesRow');
+  if (myBadges.length === 0) { row.style.display = 'none'; return; }
+
+  row.style.display = 'flex';
+  row.innerHTML = myBadges.map(b => `<span class="badge-pill" title="${esc(b.desc)}">${esc(b.name)}</span>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// Load Challenges
+// ═══════════════════════════════════════════════════════
+async function loadChallenges() {
+  try {
+    const res = await jsonpGet({ action: 'getChallenges' });
+    activeChallenges = res.challenges || [];
+    renderChallenges();
+  } catch(e) {
+    document.getElementById('challengesContent').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠️</div><div class="msg">שגיאה בטעינת אתגרים</div></div>';
+  }
+}
+
+function renderChallenges() {
+  const container = document.getElementById('challengesContent');
+
+  if (activeChallenges.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">🎯</div><div class="msg">אין אתגרים פעילים כרגע</div></div>';
+    return;
+  }
+
+  let html = '';
+  activeChallenges.forEach(ch => {
+    const typeClass = ch.type === 'exercise_pr' ? 'type-exercise' : ch.type === 'attendance' ? 'type-attendance' : 'type-custom';
+    const typeText = { exercise_pr: 'שיא בתרגיל', attendance: 'נוכחות', custom: 'מספר שיאים' }[ch.type] || ch.type;
+    const daysLeft = Math.max(0, Math.ceil((new Date(ch.endDate) - new Date()) / (1000*60*60*24)));
+
+    html += `<div class="challenge-card">
+      <div class="challenge-header">
+        <div class="challenge-title">${esc(ch.title)}</div>
+        <span class="challenge-badge ${typeClass}">${typeText}</span>
+      </div>
+      ${ch.description ? `<div class="challenge-desc">${esc(ch.description)}</div>` : ''}
+      ${ch.metric ? `<div class="challenge-desc">תרגיל: <strong>${esc(ch.metric)}</strong></div>` : ''}
+      <div class="challenge-timer">⏱️ ${daysLeft === 0 ? 'יום אחרון!' : daysLeft + ' ימים נותרו'} • עד ${esc(ch.endDate)}</div>
+      <div class="challenge-lb" id="chLb_${ch.id}">
+        <div class="loading" style="padding:0.5rem;"><div class="spinner"></div></div>
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+
+  // Load leaderboards for each challenge
+  activeChallenges.forEach(ch => loadChallengeLB(ch.id));
+}
+
+async function loadChallengeLB(challengeId) {
+  const el = document.getElementById('chLb_' + challengeId);
+  if (!el) return;
+
+  try {
+    const res = await jsonpGet({ action: 'getChallengeLeaderboard', challengeId });
+    const lb = res.leaderboard || [];
+
+    if (lb.length === 0) {
+      el.innerHTML = '<div style="font-size:0.8rem;color:var(--text-dim);padding:0.3rem;">אין משתתפים עדיין — הזן תוצאות!</div>';
+      return;
+    }
+
+    // Find my rank
+    let myRank = -1;
+    for (let i = 0; i < lb.length; i++) {
+      if (lb[i].name === myName) { myRank = i; break; }
+    }
+
+    let html = '<div style="font-size:0.8rem;font-weight:700;color:var(--text-dim);margin-bottom:0.3rem;">לידרבורד</div>';
+    // Show top 5 + me if I'm not in top 5
+    const showCount = Math.min(5, lb.length);
+    for (let i = 0; i < showCount; i++) {
+      const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : 'other';
+      const isMe = lb[i].name === myName;
+      html += `<div class="ch-lb-row">
+        <div class="ch-lb-rank ${rankClass}">${i + 1}</div>
+        <div class="ch-lb-name ${isMe ? 'is-me' : ''}">${esc(lb[i].name)}</div>
+        <div class="ch-lb-val">${esc(lb[i].display)}</div>
+      </div>`;
+    }
+
+    if (myRank >= showCount) {
+      html += '<div style="text-align:center;color:var(--text-dim);font-size:0.7rem;">···</div>';
+      html += `<div class="ch-lb-row">
+        <div class="ch-lb-rank other">${myRank + 1}</div>
+        <div class="ch-lb-name is-me">${esc(myName)}</div>
+        <div class="ch-lb-val">${esc(lb[myRank].display)}</div>
+      </div>`;
+    }
+
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '';
   }
 }
 

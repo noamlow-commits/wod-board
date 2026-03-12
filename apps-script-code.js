@@ -20,6 +20,12 @@
 // - Benchmarks  — benchmark WOD results (permanent)
 // - PRs         — one row per athlete×exercise, updated on PR (permanent)
 // - Reactions   — emoji reactions on PRs/lifts (permanent)
+// - Challenges  — coach-created challenges (permanent)
+// - Badges      — earned badges per athlete (permanent)
+//
+// COACH SETUP:
+// Run this once in Apps Script console to set coach password:
+//   PropertiesService.getScriptProperties().setProperty('COACH_PASSWORD', 'your-password-here');
 //
 // ═══════════════════════════════════════════════════════
 
@@ -68,6 +74,22 @@ function getReactionsSheet_() {
   return ensureTab_('Reactions', ['Timestamp', 'FromName', 'ToName', 'Exercise', 'Type', 'Emoji', 'Date']);
 }
 
+function getChallengesSheet_() {
+  return ensureTab_('Challenges', ['ID', 'Title', 'Description', 'Type', 'Duration', 'StartDate', 'EndDate', 'Metric', 'TargetValue', 'CreatedBy', 'CreatedAt', 'Status']);
+}
+
+function getBadgesSheet_() {
+  return ensureTab_('Badges', ['Timestamp', 'AthleteName', 'BadgeID', 'BadgeName', 'Description', 'EarnedDate', 'Data']);
+}
+
+// ═══════════════════════════════════════════════════════
+// Coach authentication
+// ═══════════════════════════════════════════════════════
+function verifyCoach_(password) {
+  var stored = PropertiesService.getScriptProperties().getProperty('COACH_PASSWORD');
+  return stored && password === stored;
+}
+
 // ═══════════════════════════════════════════════════════
 // POST handler
 // ═══════════════════════════════════════════════════════
@@ -89,6 +111,18 @@ function doPost(e) {
   }
   if (action === 'reaction') {
     return handleReactionPost_(data);
+  }
+  if (action === 'createChallenge') {
+    return handleCreateChallenge_(data);
+  }
+  if (action === 'updateChallenge') {
+    return handleUpdateChallenge_(data);
+  }
+  if (action === 'deleteChallenge') {
+    return handleDeleteChallenge_(data);
+  }
+  if (action === 'awardBadge') {
+    return handleAwardBadge_(data);
   }
   // Default: daily WOD score (existing behavior)
   return handleScorePost_(data);
@@ -145,6 +179,9 @@ function handleLiftPost_(data) {
     data.workoutDate || todayStr_()
   ]]);
 
+  // Auto-check badges after PR
+  if (isPR) checkBadgesAfterPR_(data.name);
+
   return jsonResponse_({ status: 'ok', isPR: isPR, est1RM: est1RM });
 }
 
@@ -170,6 +207,9 @@ function handleBenchmarkPost_(data) {
     isPR ? 'TRUE' : 'FALSE',
     data.workoutDate || todayStr_()
   ]]);
+
+  // Auto-check badges after PR
+  if (isPR) checkBadgesAfterPR_(data.name);
 
   return jsonResponse_({ status: 'ok', isPR: isPR });
 }
@@ -233,6 +273,13 @@ function doGet(e) {
   if (action === 'feed') return handleFeed_(e);
   if (action === 'leaderboard') return handleLeaderboard_(e);
   if (action === 'allprs') return handleAllPRs_(e);
+  if (action === 'coachLogin') return handleCoachLogin_(e);
+  if (action === 'getChallenges') return handleGetChallenges_(e);
+  if (action === 'getAllChallenges') return handleGetAllChallenges_(e);
+  if (action === 'getChallengeLeaderboard') return handleChallengeLeaderboard_(e);
+  if (action === 'getBadges') return handleGetBadges_(e);
+  if (action === 'getAllAthletes') return handleGetAllAthletes_(e);
+  if (action === 'recalcBadges') return handleRecalcBadges_(e);
 
   // Default: return today's WOD scores (existing behavior)
   return handleGetScores_(e);
@@ -669,6 +716,425 @@ function purgeOldRows_(sheet) {
   for (var j = rowsToDelete.length - 1; j >= 0; j--) {
     sheet.deleteRow(rowsToDelete[j]);
   }
+}
+
+// ═══════════════════════════════════════════════════════
+// Coach Login
+// ═══════════════════════════════════════════════════════
+function handleCoachLogin_(e) {
+  var password = e.parameter.password || '';
+  var valid = verifyCoach_(password);
+  return respondWithCallback_(e, { valid: valid });
+}
+
+// ═══════════════════════════════════════════════════════
+// Challenge CRUD
+// ═══════════════════════════════════════════════════════
+function handleCreateChallenge_(data) {
+  if (!verifyCoach_(data.coachKey)) return jsonResponse_({ status: 'error', message: 'Unauthorized' });
+
+  var sheet = getChallengesSheet_();
+  var id = 'ch_' + new Date().getTime();
+  var newRow = sheet.getLastRow() + 1;
+  sheet.getRange(newRow, 1, 1, 12).setNumberFormat('@').setValues([[
+    id,
+    data.title || '',
+    data.description || '',
+    data.type || 'exercise_pr',       // exercise_pr | attendance | custom
+    data.duration || 'monthly',       // weekly | biweekly | monthly
+    data.startDate || todayStr_(),
+    data.endDate || '',
+    data.metric || '',                // exercise name or custom metric
+    String(data.targetValue || ''),
+    data.createdBy || 'Coach',
+    new Date().toISOString(),
+    'active'
+  ]]);
+
+  return jsonResponse_({ status: 'ok', id: id });
+}
+
+function handleUpdateChallenge_(data) {
+  if (!verifyCoach_(data.coachKey)) return jsonResponse_({ status: 'error', message: 'Unauthorized' });
+
+  var sheet = getChallengesSheet_();
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (rows[i][0] === data.id) {
+      var r = i + 1;
+      if (data.title) sheet.getRange(r, 2).setValue(data.title);
+      if (data.description) sheet.getRange(r, 3).setValue(data.description);
+      if (data.type) sheet.getRange(r, 4).setValue(data.type);
+      if (data.duration) sheet.getRange(r, 5).setValue(data.duration);
+      if (data.startDate) sheet.getRange(r, 6).setValue(data.startDate);
+      if (data.endDate) sheet.getRange(r, 7).setValue(data.endDate);
+      if (data.metric) sheet.getRange(r, 8).setValue(data.metric);
+      if (data.targetValue !== undefined) sheet.getRange(r, 9).setValue(String(data.targetValue));
+      if (data.status) sheet.getRange(r, 12).setValue(data.status);
+      return jsonResponse_({ status: 'ok' });
+    }
+  }
+  return jsonResponse_({ status: 'error', message: 'Challenge not found' });
+}
+
+function handleDeleteChallenge_(data) {
+  if (!verifyCoach_(data.coachKey)) return jsonResponse_({ status: 'error', message: 'Unauthorized' });
+
+  var sheet = getChallengesSheet_();
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (rows[i][0] === data.id) {
+      sheet.getRange(i + 1, 12).setValue('deleted');
+      return jsonResponse_({ status: 'ok' });
+    }
+  }
+  return jsonResponse_({ status: 'error', message: 'Challenge not found' });
+}
+
+// --- Get active challenges (public) ---
+function handleGetChallenges_(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Challenges');
+  var challenges = [];
+  var today = todayStr_();
+
+  if (sheet) {
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][11] === 'active' && data[i][6] >= today) {
+        challenges.push({
+          id: data[i][0], title: data[i][1], description: data[i][2],
+          type: data[i][3], duration: data[i][4],
+          startDate: data[i][5], endDate: data[i][6],
+          metric: data[i][7], targetValue: data[i][8]
+        });
+      }
+    }
+  }
+
+  return respondWithCallback_(e, { challenges: challenges });
+}
+
+// --- Get ALL challenges (coach only) ---
+function handleGetAllChallenges_(e) {
+  if (!verifyCoach_(e.parameter.coachKey)) return respondWithCallback_(e, { error: 'Unauthorized' });
+
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Challenges');
+  var challenges = [];
+
+  if (sheet) {
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][11] !== 'deleted') {
+        challenges.push({
+          id: data[i][0], title: data[i][1], description: data[i][2],
+          type: data[i][3], duration: data[i][4],
+          startDate: data[i][5], endDate: data[i][6],
+          metric: data[i][7], targetValue: data[i][8],
+          createdBy: data[i][9], createdAt: data[i][10], status: data[i][11]
+        });
+      }
+    }
+  }
+
+  return respondWithCallback_(e, { challenges: challenges });
+}
+
+// --- Challenge Leaderboard ---
+function handleChallengeLeaderboard_(e) {
+  var challengeId = e.parameter.challengeId || '';
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Challenges');
+  if (!sheet) return respondWithCallback_(e, { leaderboard: [] });
+
+  // Find challenge
+  var challenge = null;
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === challengeId) {
+      challenge = { type: data[i][3], startDate: data[i][5], endDate: data[i][6], metric: data[i][7] };
+      break;
+    }
+  }
+  if (!challenge) return respondWithCallback_(e, { leaderboard: [] });
+
+  var leaderboard = [];
+
+  if (challenge.type === 'exercise_pr') {
+    // Rank by best PR for the exercise within date range
+    var prsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('PRs');
+    var liftsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Lifts');
+    var athleteBest = {};
+
+    if (liftsSheet) {
+      var lData = liftsSheet.getDataRange().getValues();
+      for (var j = 1; j < lData.length; j++) {
+        var lDate = String(lData[j][8]).slice(0, 10);
+        if (lData[j][2] === challenge.metric && lDate >= challenge.startDate && lDate <= challenge.endDate) {
+          var est = Number(lData[j][6]) || 0;
+          var name = lData[j][1];
+          if (!athleteBest[name] || est > athleteBest[name].value) {
+            athleteBest[name] = { value: est, display: lData[j][3] + ' ' + lData[j][5] + ' x' + lData[j][4], date: lDate };
+          }
+        }
+      }
+    }
+
+    var names = Object.keys(athleteBest);
+    names.sort(function(a, b) { return athleteBest[b].value - athleteBest[a].value; });
+    for (var k = 0; k < names.length; k++) {
+      leaderboard.push({ name: names[k], value: athleteBest[names[k]].value, display: athleteBest[names[k]].display, date: athleteBest[names[k]].date });
+    }
+
+  } else if (challenge.type === 'attendance') {
+    // Count unique workout dates per athlete
+    var athleteDays = {};
+    var sheets = ['Lifts', 'Results', 'Benchmarks'];
+    var dateCols = { 'Lifts': 8, 'Results': 4, 'Benchmarks': 8 };
+
+    for (var s = 0; s < sheets.length; s++) {
+      var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheets[s]);
+      if (!sh) continue;
+      var sData = sh.getDataRange().getValues();
+      var dateCol = dateCols[sheets[s]];
+      for (var r = 1; r < sData.length; r++) {
+        var rDate = String(sData[r][dateCol]).slice(0, 10);
+        if (rDate >= challenge.startDate && rDate <= challenge.endDate) {
+          var aName = sData[r][1];
+          if (!athleteDays[aName]) athleteDays[aName] = {};
+          athleteDays[aName][rDate] = true;
+        }
+      }
+    }
+
+    var aNames = Object.keys(athleteDays);
+    aNames.sort(function(a, b) { return Object.keys(athleteDays[b]).length - Object.keys(athleteDays[a]).length; });
+    for (var m = 0; m < aNames.length; m++) {
+      var days = Object.keys(athleteDays[aNames[m]]).length;
+      leaderboard.push({ name: aNames[m], value: days, display: days + ' ימים', date: '' });
+    }
+
+  } else {
+    // Custom: use PRs count in period
+    var allLifts = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Lifts');
+    var allBench = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Benchmarks');
+    var prCount = {};
+
+    if (allLifts) {
+      var ld = allLifts.getDataRange().getValues();
+      for (var li = 1; li < ld.length; li++) {
+        var liDate = String(ld[li][8]).slice(0, 10);
+        if (ld[li][7] === 'TRUE' && liDate >= challenge.startDate && liDate <= challenge.endDate) {
+          prCount[ld[li][1]] = (prCount[ld[li][1]] || 0) + 1;
+        }
+      }
+    }
+    if (allBench) {
+      var bd = allBench.getDataRange().getValues();
+      for (var bi = 1; bi < bd.length; bi++) {
+        var biDate = String(bd[bi][8]).slice(0, 10);
+        if (bd[bi][7] === 'TRUE' && biDate >= challenge.startDate && biDate <= challenge.endDate) {
+          prCount[bd[bi][1]] = (prCount[bd[bi][1]] || 0) + 1;
+        }
+      }
+    }
+
+    var pNames = Object.keys(prCount);
+    pNames.sort(function(a, b) { return prCount[b] - prCount[a]; });
+    for (var pi = 0; pi < pNames.length; pi++) {
+      leaderboard.push({ name: pNames[pi], value: prCount[pNames[pi]], display: prCount[pNames[pi]] + ' שיאים', date: '' });
+    }
+  }
+
+  return respondWithCallback_(e, { leaderboard: leaderboard, challengeId: challengeId });
+}
+
+// ═══════════════════════════════════════════════════════
+// Badges
+// ═══════════════════════════════════════════════════════
+var BADGE_DEFINITIONS = [
+  { id: 'first_pr', name: 'שיא ראשון! 🎯', desc: 'שברת את השיא האישי הראשון שלך', icon: '🎯',
+    check: function(prs) { return prs.length >= 1; } },
+  { id: 'prs_5', name: '5 שיאים 🌟', desc: '5 שיאים אישיים', icon: '🌟',
+    check: function(prs) { return prs.length >= 5; } },
+  { id: 'prs_10', name: '10 שיאים ⭐', desc: '10 שיאים אישיים', icon: '⭐',
+    check: function(prs) { return prs.length >= 10; } },
+  { id: 'prs_20', name: '20 שיאים 💫', desc: '20 שיאים אישיים', icon: '💫',
+    check: function(prs) { return prs.length >= 20; } },
+  { id: 'squat_100', name: 'מועדון 100 ק"ג סקוואט 🏋️', desc: 'Back Squat מעל 100 ק"ג', icon: '🏋️',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 100; }); } },
+  { id: 'squat_140', name: 'מועדון 140 ק"ג סקוואט 💪', desc: 'Back Squat מעל 140 ק"ג', icon: '💪',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 140; }); } },
+  { id: 'deadlift_140', name: 'מועדון 140 ק"ג מתים 🔥', desc: 'Deadlift מעל 140 ק"ג', icon: '🔥',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 140; }); } },
+  { id: 'deadlift_180', name: 'מועדון 180 ק"ג מתים 👑', desc: 'Deadlift מעל 180 ק"ג', icon: '👑',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 180; }); } },
+  { id: 'clean_100', name: 'מועדון 100 ק"ג קלין 🎖️', desc: 'Clean מעל 100 ק"ג', icon: '🎖️',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Clean' && p.bestRaw >= 100; }); } },
+  { id: 'snatch_80', name: 'מועדון 80 ק"ג סנאצ\' 🏅', desc: 'Snatch מעל 80 ק"ג', icon: '🏅',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Snatch' && p.bestRaw >= 80; }); } },
+  { id: 'bench_100', name: 'מועדון 100 ק"ג לחיצת חזה 💎', desc: 'Bench Press מעל 100 ק"ג', icon: '💎',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Bench Press' && p.bestRaw >= 100; }); } }
+];
+
+function calculateBadgesForAthlete_(athleteName) {
+  var prsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('PRs');
+  var prs = [];
+  if (prsSheet) {
+    var data = prsSheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === athleteName) {
+        prs.push({ exercise: data[i][1], type: data[i][2], bestRaw: Number(data[i][4]) || 0 });
+      }
+    }
+  }
+
+  var earned = [];
+  for (var j = 0; j < BADGE_DEFINITIONS.length; j++) {
+    if (BADGE_DEFINITIONS[j].check(prs)) {
+      earned.push({ id: BADGE_DEFINITIONS[j].id, name: BADGE_DEFINITIONS[j].name, desc: BADGE_DEFINITIONS[j].desc, icon: BADGE_DEFINITIONS[j].icon });
+    }
+  }
+  return earned;
+}
+
+function persistNewBadges_(athleteName) {
+  var earned = calculateBadgesForAthlete_(athleteName);
+  var badgesSheet = getBadgesSheet_();
+  var existing = badgesSheet.getDataRange().getValues();
+  var existingIds = {};
+  for (var i = 1; i < existing.length; i++) {
+    if (existing[i][1] === athleteName) existingIds[existing[i][2]] = true;
+  }
+
+  var newBadges = [];
+  for (var j = 0; j < earned.length; j++) {
+    if (!existingIds[earned[j].id]) {
+      var newRow = badgesSheet.getLastRow() + 1;
+      badgesSheet.getRange(newRow, 1, 1, 7).setNumberFormat('@').setValues([[
+        new Date().toISOString(), athleteName, earned[j].id, earned[j].name, earned[j].desc, todayStr_(), ''
+      ]]);
+      newBadges.push(earned[j]);
+    }
+  }
+  return newBadges;
+}
+
+// --- Get badges for athlete ---
+function handleGetBadges_(e) {
+  var name = e.parameter.name || '';
+  // Calculate live + persist any new ones
+  var earned = calculateBadgesForAthlete_(name);
+
+  // Also get manually awarded badges from sheet
+  var badgesSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Badges');
+  var manual = [];
+  if (badgesSheet) {
+    var data = badgesSheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][1] === name) {
+        // Check if it's a manual badge (not in BADGE_DEFINITIONS)
+        var isAuto = false;
+        for (var j = 0; j < BADGE_DEFINITIONS.length; j++) {
+          if (BADGE_DEFINITIONS[j].id === data[i][2]) { isAuto = true; break; }
+        }
+        if (!isAuto) {
+          manual.push({ id: data[i][2], name: data[i][3], desc: data[i][4], icon: '🏅', earnedDate: data[i][5] });
+        }
+      }
+    }
+  }
+
+  var allBadges = earned.concat(manual);
+  return respondWithCallback_(e, { badges: allBadges, name: name });
+}
+
+// --- Manually award badge (coach) ---
+function handleAwardBadge_(data) {
+  if (!verifyCoach_(data.coachKey)) return jsonResponse_({ status: 'error', message: 'Unauthorized' });
+
+  var sheet = getBadgesSheet_();
+  var newRow = sheet.getLastRow() + 1;
+  var badgeId = 'manual_' + new Date().getTime();
+  sheet.getRange(newRow, 1, 1, 7).setNumberFormat('@').setValues([[
+    new Date().toISOString(), data.athleteName || '', badgeId,
+    data.badgeName || '', data.description || '', todayStr_(), data.data || ''
+  ]]);
+  return jsonResponse_({ status: 'ok', badgeId: badgeId });
+}
+
+// --- Recalculate badges for all athletes (coach) ---
+function handleRecalcBadges_(e) {
+  if (!verifyCoach_(e.parameter.coachKey)) return respondWithCallback_(e, { error: 'Unauthorized' });
+
+  var prsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('PRs');
+  if (!prsSheet) return respondWithCallback_(e, { recalculated: 0 });
+
+  var data = prsSheet.getDataRange().getValues();
+  var athletes = {};
+  for (var i = 1; i < data.length; i++) {
+    athletes[data[i][0]] = true;
+  }
+
+  var totalNew = 0;
+  var names = Object.keys(athletes);
+  for (var j = 0; j < names.length; j++) {
+    var newBadges = persistNewBadges_(names[j]);
+    totalNew += newBadges.length;
+  }
+
+  return respondWithCallback_(e, { recalculated: names.length, newBadges: totalNew });
+}
+
+// --- Get all athletes (coach) ---
+function handleGetAllAthletes_(e) {
+  if (!verifyCoach_(e.parameter.coachKey)) return respondWithCallback_(e, { error: 'Unauthorized' });
+
+  var athleteMap = {};
+
+  // Scan PRs
+  var prsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('PRs');
+  if (prsSheet) {
+    var pData = prsSheet.getDataRange().getValues();
+    for (var i = 1; i < pData.length; i++) {
+      var n = pData[i][0];
+      if (!athleteMap[n]) athleteMap[n] = { prs: 0, lifts: 0, lastActive: '' };
+      athleteMap[n].prs++;
+      if (pData[i][6] > athleteMap[n].lastActive) athleteMap[n].lastActive = pData[i][6];
+    }
+  }
+
+  // Scan Lifts for count
+  var liftsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Lifts');
+  if (liftsSheet) {
+    var lData = liftsSheet.getDataRange().getValues();
+    for (var j = 1; j < lData.length; j++) {
+      var ln = lData[j][1];
+      if (!athleteMap[ln]) athleteMap[ln] = { prs: 0, lifts: 0, lastActive: '' };
+      athleteMap[ln].lifts++;
+      var ld = String(lData[j][8]).slice(0, 10);
+      if (ld > athleteMap[ln].lastActive) athleteMap[ln].lastActive = ld;
+    }
+  }
+
+  var athletes = [];
+  var names = Object.keys(athleteMap);
+  for (var k = 0; k < names.length; k++) {
+    athletes.push({
+      name: names[k],
+      prs: athleteMap[names[k]].prs,
+      lifts: athleteMap[names[k]].lifts,
+      lastActive: athleteMap[names[k]].lastActive
+    });
+  }
+
+  athletes.sort(function(a, b) { return a.lastActive < b.lastActive ? 1 : -1; });
+  return respondWithCallback_(e, { athletes: athletes });
+}
+
+// ═══════════════════════════════════════════════════════
+// Auto-badge check on PR (called after lift/benchmark POST)
+// ═══════════════════════════════════════════════════════
+function checkBadgesAfterPR_(athleteName) {
+  try { persistNewBadges_(athleteName); } catch(err) {}
 }
 
 // ═══════════════════════════════════════════════════════
