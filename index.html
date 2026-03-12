@@ -691,28 +691,33 @@
     /* QR code overlay */
     .qr-overlay {
       position: fixed;
-      bottom: 1.5rem;
-      right: 1.5rem;
+      bottom: 0.8rem;
+      right: 0.8rem;
       background: #fff;
-      border-radius: 12px;
-      padding: 0.5rem;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+      border-radius: 8px;
+      padding: 0.3rem;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.5);
       z-index: 50;
       text-align: center;
       transition: opacity 0.3s;
+      opacity: 0.85;
+    }
+
+    .qr-overlay:hover {
+      opacity: 1;
     }
 
     .qr-overlay img {
-      width: 140px;
-      height: 140px;
+      width: 90px;
+      height: 90px;
       display: block;
     }
 
     .qr-overlay .qr-label {
-      font-size: 0.7rem;
+      font-size: 0.55rem;
       color: #333;
       font-weight: 700;
-      margin-top: 0.2rem;
+      margin-top: 0.1rem;
       font-family: 'Heebo', sans-serif;
     }
 
