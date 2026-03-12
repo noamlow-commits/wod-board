@@ -690,14 +690,16 @@
 
     /* QR code overlay */
     .qr-overlay {
-      display: flex;
-      align-items: center;
-      gap: 0.3rem;
+      position: fixed;
+      bottom: 0.5rem;
+      right: 0.5rem;
       background: #fff;
-      border-radius: 6px;
-      padding: 0.2rem;
+      border-radius: 5px;
+      padding: 2px;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.4);
+      z-index: 50;
+      opacity: 0.7;
       transition: opacity 0.3s;
-      opacity: 0.9;
     }
 
     .qr-overlay:hover {
@@ -705,13 +707,9 @@
     }
 
     .qr-overlay img {
-      width: 44px;
-      height: 44px;
+      width: 64px;
+      height: 64px;
       display: block;
-    }
-
-    .qr-overlay .qr-label {
-      display: none;
     }
 
     .qr-overlay.hidden {
@@ -789,10 +787,6 @@
         <button class="mode-dot" data-mode="auto" onclick="setDisplayMode('auto')" title="Auto rotate">AUTO</button>
       </div>
       <span class="refresh-dot" id="refreshDot" title="מחובר"></span>
-      <div class="qr-overlay hidden" id="qrOverlay">
-        <img id="qrImg" src="" alt="QR">
-        <div class="qr-label"></div>
-      </div>
       <button class="settings-btn" id="fullscreenBtn" title="מסך מלא">⛶</button>
       <button class="settings-btn" id="settingsBtn" title="הגדרות">⚙</button>
     </div>
@@ -824,6 +818,10 @@
     </div>
   </div>
 
+  <!-- QR Code floating overlay -->
+  <div class="qr-overlay hidden" id="qrOverlay">
+    <img id="qrImg" src="" alt="QR">
+  </div>
 
   <!-- Settings Modal -->
   <div class="modal-overlay" id="settingsModal">
