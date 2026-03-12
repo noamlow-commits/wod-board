@@ -232,10 +232,16 @@
       background: linear-gradient(135deg, #eab308, #ca8a04);
     }
 
+    .workout-card.safety-card .card-body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
     .workout-card.safety-card .exercise-line {
-      font-size: calc(1.25rem * var(--font-scale));
       font-weight: 700;
       color: #fde68a;
+      border-bottom-color: rgba(250, 204, 21, 0.15);
     }
 
     /* Merged spread: single list split across columns, looks like one card */
@@ -1068,6 +1074,23 @@
           r.style.flex = `${heights[i]} 1 0px`;
         });
       }
+
+      // Auto-scale safety card text to fill available space
+      document.querySelectorAll('.workout-card.safety-card .card-body').forEach(body => {
+        const lines = body.querySelectorAll('.exercise-line');
+        if (!lines.length) return;
+        const availH = body.clientHeight;
+        if (availH <= 0) return;
+        // Binary search for font size that fills the card
+        let sLo = 0.9, sHi = 3.0;
+        for (let j = 0; j < 10; j++) {
+          const mid = (sLo + sHi) / 2;
+          lines.forEach(l => l.style.fontSize = `calc(${mid}rem * var(--font-scale))`);
+          body.offsetHeight;
+          if (body.scrollHeight > availH + 2) { sHi = mid; } else { sLo = mid; }
+        }
+        lines.forEach(l => l.style.fontSize = `calc(${sLo.toFixed(3)}rem * var(--font-scale))`);
+      });
     }
 
     // ════════════════════════════════════════
@@ -1108,7 +1131,7 @@
 
     function updateQR() {
       const qr = document.getElementById('qrOverlay');
-      const shouldShow = settings.showQR && settings.appsScriptUrl && displayMode !== 'wod';
+      const shouldShow = settings.showQR && settings.appsScriptUrl;
 
       if (shouldShow) {
         // Always use GitHub Pages URL so QR works even when opened locally
