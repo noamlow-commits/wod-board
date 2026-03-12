@@ -453,14 +453,49 @@
 <div id="coachDashboard" style="display:none;">
 
   <!-- Tabs -->
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="challenges">🎯 אתגרים</button>
+  <div class="tabs" style="flex-wrap:wrap;">
+    <button class="tab-btn active" data-tab="wod">🏋️ WOD</button>
+    <button class="tab-btn" data-tab="challenges">🎯 אתגרים</button>
     <button class="tab-btn" data-tab="athletes">👥 ספורטאים</button>
+    <button class="tab-btn" data-tab="announcements">📢 הודעות</button>
     <button class="tab-btn" data-tab="badges">🏅 באדג'ים</button>
+    <button class="tab-btn" data-tab="data">📊 נתונים</button>
+  </div>
+
+  <!-- Tab: WOD -->
+  <div class="tab-panel active" id="panel-wod">
+    <h3 style="font-size:1rem;margin-bottom:1rem;">WOD היומי</h3>
+    <div class="card">
+      <div class="form-group">
+        <label>תאריך</label>
+        <input type="date" id="wodDate">
+      </div>
+      <div class="form-group">
+        <label>שם ה-WOD</label>
+        <input type="text" id="wodTitle" placeholder="לדוגמה: Fran / WOD #27">
+      </div>
+      <div class="form-group">
+        <label>סוג</label>
+        <select id="wodType">
+          <option value="AMRAP">AMRAP</option>
+          <option value="For Time">For Time</option>
+          <option value="EMOM">EMOM</option>
+          <option value="Tabata">Tabata</option>
+          <option value="Chipper">Chipper</option>
+          <option value="Strength">Strength</option>
+          <option value="Other">אחר</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>תיאור (כל שורה = שורה חדשה)</label>
+        <textarea id="wodDesc" rows="6" placeholder="21-15-9&#10;Thrusters (43/30 kg)&#10;Pull-ups"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="saveWOD()" style="width:100%;">שמור WOD</button>
+    </div>
   </div>
 
   <!-- Tab: Challenges -->
-  <div class="tab-panel active" id="panel-challenges">
+  <div class="tab-panel" id="panel-challenges">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
       <h3 style="font-size:1rem;">ניהול אתגרים</h3>
       <button class="btn btn-primary" onclick="openCreateChallenge()">+ אתגר חדש</button>
@@ -476,6 +511,40 @@
     <div id="athletesList">
       <div class="loading"><div class="spinner"></div><div>טוען...</div></div>
     </div>
+  </div>
+
+  <!-- Tab: Announcements -->
+  <div class="tab-panel" id="panel-announcements">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h3 style="font-size:1rem;">הודעות לספורטאים</h3>
+      <button class="btn btn-primary btn-sm" onclick="openAnnouncement()">+ הודעה חדשה</button>
+    </div>
+    <div id="announcementsList">
+      <div class="loading"><div class="spinner"></div><div>טוען...</div></div>
+    </div>
+  </div>
+
+  <!-- Tab: Data Management -->
+  <div class="tab-panel" id="panel-data">
+    <h3 style="font-size:1rem;margin-bottom:1rem;">ניהול נתונים</h3>
+    <div class="card">
+      <div class="form-row">
+        <div class="form-group">
+          <label>גיליון</label>
+          <select id="dataSheet" onchange="loadEntries()">
+            <option value="Lifts">הרמות</option>
+            <option value="Benchmarks">בנצ'מרקים</option>
+            <option value="Results">תוצאות יומיות</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>ספורטאי (ריק = הכל)</label>
+          <input type="text" id="dataAthlete" placeholder="שם..." onkeydown="if(event.key==='Enter')loadEntries()">
+        </div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="loadEntries()" style="width:100%;">טען נתונים</button>
+    </div>
+    <div id="entriesList" style="margin-top:0.8rem;"></div>
   </div>
 
   <!-- Tab: Badges -->
@@ -602,6 +671,29 @@
   </div>
 </div>
 
+<!-- Announcement Modal -->
+<div class="modal-overlay" id="announcementModal">
+  <div class="modal">
+    <h3>הודעה חדשה</h3>
+    <div class="form-group">
+      <label>כותרת</label>
+      <input type="text" id="annTitle" placeholder="כותרת ההודעה...">
+    </div>
+    <div class="form-group">
+      <label>תוכן ההודעה</label>
+      <textarea id="annMessage" rows="4" placeholder="הודעה לספורטאים..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>תאריך תפוגה (אופציונלי)</label>
+      <input type="date" id="annExpires">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('announcementModal')">ביטול</button>
+      <button class="btn btn-primary" onclick="saveAnnouncement()">פרסם</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -616,17 +708,18 @@ let allAthletes = [];
 
 // Badge definitions (mirror of server)
 const BADGE_DEFS = [
-  { id: 'first_pr', name: 'שיא ראשון! 🎯', desc: 'שברת את השיא האישי הראשון שלך' },
-  { id: 'prs_5', name: '5 שיאים 🌟', desc: '5 שיאים אישיים' },
-  { id: 'prs_10', name: '10 שיאים ⭐', desc: '10 שיאים אישיים' },
-  { id: 'prs_20', name: '20 שיאים 💫', desc: '20 שיאים אישיים' },
-  { id: 'squat_100', name: 'מועדון 100 ק"ג סקוואט 🏋️', desc: 'Back Squat מעל 100 ק"ג' },
-  { id: 'squat_140', name: 'מועדון 140 ק"ג סקוואט 💪', desc: 'Back Squat מעל 140 ק"ג' },
-  { id: 'deadlift_140', name: 'מועדון 140 ק"ג מתים 🔥', desc: 'Deadlift מעל 140 ק"ג' },
-  { id: 'deadlift_180', name: 'מועדון 180 ק"ג מתים 👑', desc: 'Deadlift מעל 180 ק"ג' },
-  { id: 'clean_100', name: 'מועדון 100 ק"ג קלין 🎖️', desc: 'Clean מעל 100 ק"ג' },
-  { id: 'snatch_80', name: "מועדון 80 ק\"ג סנאצ' 🏅", desc: 'Snatch מעל 80 ק"ג' },
-  { id: 'bench_100', name: 'מועדון 100 ק"ג לחיצת חזה 💎', desc: 'Bench Press מעל 100 ק"ג' }
+  { id: 'first_pr', name: 'שיא ראשון! 🎯', desc: 'שיא ראשון', g: 'כולם' },
+  { id: 'prs_5', name: '5 שיאים 🌟', desc: '5 שיאים', g: 'כולם' },
+  { id: 'prs_10', name: '10 שיאים ⭐', desc: '10 שיאים', g: 'כולם' },
+  { id: 'prs_20', name: '20 שיאים 💫', desc: '20 שיאים', g: 'כולם' },
+  { id: 'squat_100_m', name: 'סקוואט 100 🏋️', desc: 'גברים: Back Squat ≥100kg', g: '♂️' },
+  { id: 'squat_140_m', name: 'סקוואט 140 💪', desc: 'גברים: Back Squat ≥140kg', g: '♂️' },
+  { id: 'deadlift_140_m', name: 'מתים 140 🔥', desc: 'גברים: Deadlift ≥140kg', g: '♂️' },
+  { id: 'deadlift_180_m', name: 'מתים 180 👑', desc: 'גברים: Deadlift ≥180kg', g: '♂️' },
+  { id: 'squat_60_f', name: 'סקוואט 60 🏋️', desc: 'נשים: Back Squat ≥60kg', g: '♀️' },
+  { id: 'squat_90_f', name: 'סקוואט 90 💪', desc: 'נשים: Back Squat ≥90kg', g: '♀️' },
+  { id: 'deadlift_80_f', name: 'מתים 80 🔥', desc: 'נשים: Deadlift ≥80kg', g: '♀️' },
+  { id: 'deadlift_110_f', name: 'מתים 110 👑', desc: 'נשים: Deadlift ≥110kg', g: '♀️' }
 ];
 
 // ═══════════════════════════════════════════════════════
@@ -651,10 +744,17 @@ const BADGE_DEFS = [
 
   // Set default dates
   const today = new Date();
-  document.getElementById('chStart').value = today.toISOString().slice(0, 10);
+  const todayStr = today.toISOString().slice(0, 10);
+  document.getElementById('chStart').value = todayStr;
   const endDate = new Date(today);
   endDate.setMonth(endDate.getMonth() + 1);
   document.getElementById('chEnd').value = endDate.toISOString().slice(0, 10);
+  document.getElementById('wodDate').value = todayStr;
+  document.getElementById('wodDate').addEventListener('change', () => {
+    document.getElementById('wodTitle').value = '';
+    document.getElementById('wodDesc').value = '';
+    if (coachKey) loadTodayWOD();
+  });
 
   // Render badge definitions
   renderBadgeDefinitions();
@@ -713,6 +813,8 @@ function enterCoach() {
   document.getElementById('logoutBtn').style.display = 'inline-block';
   loadChallenges();
   loadAthletes();
+  loadAnnouncementsCoach();
+  loadTodayWOD();
 }
 
 function logout() {
@@ -949,19 +1051,38 @@ function renderAthletes() {
     return;
   }
 
-  let html = `<div class="card"><div class="card-title">${allAthletes.length} ספורטאים</div>`;
+  const men = allAthletes.filter(a => a.gender === 'M');
+  const women = allAthletes.filter(a => a.gender === 'F');
+  const unknown = allAthletes.filter(a => !a.gender);
+
+  let html = `<div class="card"><div class="card-title">${allAthletes.length} ספורטאים (♂️ ${men.length} • ♀️ ${women.length}${unknown.length ? ' • ❓ ' + unknown.length : ''})</div>`;
   allAthletes.forEach(a => {
     const initial = a.name ? a.name.charAt(0) : '?';
+    const gIcon = a.gender === 'M' ? '♂️' : a.gender === 'F' ? '♀️' : '❓';
     html += `<div class="athlete-row">
       <div class="athlete-avatar">${esc(initial)}</div>
       <div class="athlete-info">
-        <div class="athlete-name-text">${esc(a.name)}</div>
+        <div class="athlete-name-text">${gIcon} ${esc(a.name)}</div>
         <div class="athlete-stats-text">${a.prs} שיאים • ${a.lifts} הרמות • ${a.lastActive ? 'פעיל: ' + esc(String(a.lastActive).slice(0,10)) : ''}</div>
+      </div>
+      <div style="display:flex;gap:0.2rem;">
+        <button class="btn btn-outline btn-sm" onclick="setAthleteGender('${escAttr(a.name)}','M')" title="גבר" ${a.gender === 'M' ? 'style="border-color:var(--blue);color:var(--blue)"' : ''}>♂️</button>
+        <button class="btn btn-outline btn-sm" onclick="setAthleteGender('${escAttr(a.name)}','F')" title="אישה" ${a.gender === 'F' ? 'style="border-color:var(--accent);color:var(--accent)"' : ''}>♀️</button>
       </div>
     </div>`;
   });
   html += '</div>';
   el.innerHTML = html;
+}
+
+function escAttr(s) {
+  return esc(s).replace(/'/g, '&#39;');
+}
+
+async function setAthleteGender(name, gender) {
+  await postData({ action: 'updateAthlete', coachKey, name, gender });
+  showToast(name + ' → ' + (gender === 'M' ? 'גבר' : 'אישה'));
+  setTimeout(() => loadAthletes(), 2500);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -970,7 +1091,7 @@ function renderAthletes() {
 function renderBadgeDefinitions() {
   let html = '<div class="badge-grid">';
   BADGE_DEFS.forEach(b => {
-    html += `<div class="badge-item" title="${esc(b.desc)}">${esc(b.name)}</div>`;
+    html += `<div class="badge-item" title="${esc(b.desc)}">${b.g} ${esc(b.name)}</div>`;
   });
   html += '</div>';
   document.getElementById('badgeDefinitions').innerHTML = html;
@@ -1002,6 +1123,140 @@ async function awardBadge() {
   await postData({ action: 'awardBadge', coachKey, athleteName: name, badgeName: badge, description: desc });
   closeModal('badgeModal');
   showToast('באדג\' הוענק ל-' + name + '!');
+}
+
+// ═══════════════════════════════════════════════════════
+// WOD Management
+// ═══════════════════════════════════════════════════════
+async function loadTodayWOD() {
+  try {
+    const date = document.getElementById('wodDate').value;
+    const res = await jsonpGet({ action: 'getWOD', date });
+    if (res.wod) {
+      document.getElementById('wodTitle').value = res.wod.title || '';
+      document.getElementById('wodDesc').value = res.wod.description || '';
+      document.getElementById('wodType').value = res.wod.type || 'AMRAP';
+    }
+  } catch(e) {}
+}
+
+async function saveWOD() {
+  const date = document.getElementById('wodDate').value;
+  const title = document.getElementById('wodTitle').value.trim();
+  const desc = document.getElementById('wodDesc').value.trim();
+  const type = document.getElementById('wodType').value;
+  if (!title) { showToast('הזן שם ל-WOD'); return; }
+
+  await postData({ action: 'createWOD', coachKey, date, title, description: desc, type });
+  showToast('WOD נשמר! 🏋️');
+}
+
+// ═══════════════════════════════════════════════════════
+// Announcements Management
+// ═══════════════════════════════════════════════════════
+async function loadAnnouncementsCoach() {
+  try {
+    const res = await jsonpGet({ action: 'getAnnouncements' });
+    const anns = res.announcements || [];
+    const el = document.getElementById('announcementsList');
+
+    if (anns.length === 0) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">📢</div>אין הודעות פעילות</div>';
+      return;
+    }
+
+    let html = '';
+    anns.forEach(a => {
+      html += `<div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="font-weight:700;margin-bottom:0.2rem;">${esc(a.title)}</div>
+            <div style="font-size:0.85rem;color:var(--text-dim);white-space:pre-wrap;">${esc(a.message)}</div>
+            ${a.expiresAt ? '<div style="font-size:0.7rem;color:var(--text-dim);margin-top:0.3rem;">תפוגה: ' + esc(a.expiresAt) + '</div>' : ''}
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="deleteAnnouncement('${esc(a.id)}')">מחק</button>
+        </div>
+      </div>`;
+    });
+    el.innerHTML = html;
+  } catch(e) {
+    document.getElementById('announcementsList').innerHTML = '<div class="empty-state"><div class="icon">⚠️</div>שגיאה</div>';
+  }
+}
+
+function openAnnouncement() {
+  document.getElementById('annTitle').value = '';
+  document.getElementById('annMessage').value = '';
+  document.getElementById('annExpires').value = '';
+  document.getElementById('announcementModal').classList.add('show');
+}
+
+async function saveAnnouncement() {
+  const title = document.getElementById('annTitle').value.trim();
+  const message = document.getElementById('annMessage').value.trim();
+  const expiresAt = document.getElementById('annExpires').value;
+  if (!title || !message) { showToast('מלא כותרת ותוכן'); return; }
+
+  await postData({ action: 'createAnnouncement', coachKey, title, message, expiresAt });
+  closeModal('announcementModal');
+  showToast('הודעה פורסמה! 📢');
+  setTimeout(() => loadAnnouncementsCoach(), 3000);
+}
+
+async function deleteAnnouncement(id) {
+  if (!confirm('למחוק את ההודעה?')) return;
+  await postData({ action: 'deleteAnnouncement', coachKey, id });
+  showToast('הודעה נמחקה');
+  setTimeout(() => loadAnnouncementsCoach(), 3000);
+}
+
+// ═══════════════════════════════════════════════════════
+// Data Management
+// ═══════════════════════════════════════════════════════
+async function loadEntries() {
+  const sheet = document.getElementById('dataSheet').value;
+  const name = document.getElementById('dataAthlete').value.trim();
+  const el = document.getElementById('entriesList');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div><div>טוען...</div></div>';
+
+  try {
+    const params = { action: 'getEntries', coachKey, sheet, limit: '30' };
+    if (name) params.name = name;
+    const res = await jsonpGet(params);
+    const entries = res.entries || [];
+
+    if (entries.length === 0) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">📊</div>אין נתונים</div>';
+      return;
+    }
+
+    let html = '';
+    entries.forEach(entry => {
+      let display = '';
+      if (sheet === 'Lifts') {
+        display = `<strong>${esc(entry.Name)}</strong> — ${esc(entry.Exercise)}: ${entry.Weight}${entry.Unit} x${entry.Reps} (1RM: ${entry.Est1RM}) ${entry.IsPR === 'TRUE' ? '🏆' : ''} • ${String(entry.WorkoutDate).slice(0,10)}`;
+      } else if (sheet === 'Benchmarks') {
+        display = `<strong>${esc(entry.Name)}</strong> — ${esc(entry.WOD)}: ${esc(entry.Score)} ${entry.IsPR === 'TRUE' ? '🏆' : ''} • ${String(entry.WorkoutDate).slice(0,10)}`;
+      } else {
+        display = `<strong>${esc(entry.Name)}</strong> — ${esc(entry.Score)} • ${String(entry.WorkoutDate).slice(0,10)}`;
+      }
+
+      html += `<div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:0.85rem;flex:1;">${display}</div>
+        <button class="btn btn-danger btn-sm" onclick="deleteEntry('${esc(sheet)}',${entry._rowIndex})" style="flex-shrink:0;margin-right:0.5rem;">🗑️</button>
+      </div>`;
+    });
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div>שגיאה בטעינה</div>';
+  }
+}
+
+async function deleteEntry(sheet, rowIndex) {
+  if (!confirm('למחוק את הרשומה?')) return;
+  await postData({ action: 'deleteEntry', coachKey, sheet, rowIndex });
+  showToast('רשומה נמחקה');
+  setTimeout(() => loadEntries(), 3000);
 }
 
 // ═══════════════════════════════════════════════════════

@@ -22,6 +22,9 @@
 // - Reactions   — emoji reactions on PRs/lifts (permanent)
 // - Challenges  — coach-created challenges (permanent)
 // - Badges      — earned badges per athlete (permanent)
+// - Athletes    — registered athletes with gender (permanent)
+// - WODs        — daily WOD definitions by coach (permanent)
+// - Announcements — coach messages to athletes (permanent)
 //
 // COACH SETUP:
 // Run this once in Apps Script console to set coach password:
@@ -82,6 +85,18 @@ function getBadgesSheet_() {
   return ensureTab_('Badges', ['Timestamp', 'AthleteName', 'BadgeID', 'BadgeName', 'Description', 'EarnedDate', 'Data']);
 }
 
+function getAthletesSheet_() {
+  return ensureTab_('Athletes', ['Name', 'Gender', 'JoinDate', 'Status']);
+}
+
+function getWODsSheet_() {
+  return ensureTab_('WODs', ['Date', 'Title', 'Description', 'Type', 'CreatedBy', 'CreatedAt']);
+}
+
+function getAnnouncementsSheet_() {
+  return ensureTab_('Announcements', ['ID', 'Title', 'Message', 'CreatedBy', 'CreatedAt', 'ExpiresAt', 'Status']);
+}
+
 // ═══════════════════════════════════════════════════════
 // Coach authentication
 // ═══════════════════════════════════════════════════════
@@ -123,6 +138,24 @@ function doPost(e) {
   }
   if (action === 'awardBadge') {
     return handleAwardBadge_(data);
+  }
+  if (action === 'registerAthlete') {
+    return handleRegisterAthlete_(data);
+  }
+  if (action === 'updateAthlete') {
+    return handleUpdateAthlete_(data);
+  }
+  if (action === 'deleteEntry') {
+    return handleDeleteEntry_(data);
+  }
+  if (action === 'createWOD') {
+    return handleCreateWOD_(data);
+  }
+  if (action === 'createAnnouncement') {
+    return handleCreateAnnouncement_(data);
+  }
+  if (action === 'deleteAnnouncement') {
+    return handleDeleteAnnouncement_(data);
   }
   // Default: daily WOD score (existing behavior)
   return handleScorePost_(data);
@@ -280,6 +313,10 @@ function doGet(e) {
   if (action === 'getBadges') return handleGetBadges_(e);
   if (action === 'getAllAthletes') return handleGetAllAthletes_(e);
   if (action === 'recalcBadges') return handleRecalcBadges_(e);
+  if (action === 'getAthleteGender') return handleGetAthleteGender_(e);
+  if (action === 'getWOD') return handleGetWOD_(e);
+  if (action === 'getAnnouncements') return handleGetAnnouncements_(e);
+  if (action === 'getEntries') return handleGetEntries_(e);
 
   // Default: return today's WOD scores (existing behavior)
   return handleGetScores_(e);
@@ -596,15 +633,23 @@ function handleFeed_(e) {
 // ═══════════════════════════════════════════════════════
 function handleLeaderboard_(e) {
   var exercise = e.parameter.exercise || '';
+  var genderFilter = e.parameter.gender || ''; // 'M', 'F', or '' for all
   var prsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('PRs');
   var entries = [];
+
+  // Load gender map for filtering
+  var genderMap = genderFilter ? getGenderMap_() : {};
 
   if (prsSheet) {
     var data = prsSheet.getDataRange().getValues();
     for (var i = 1; i < data.length; i++) {
       if (data[i][2] === 'lift' && (!exercise || data[i][1] === exercise)) {
+        var athleteName = data[i][0];
+        // Filter by gender if requested
+        if (genderFilter && genderMap[athleteName] !== genderFilter) continue;
+
         entries.push({
-          name: data[i][0],
+          name: athleteName,
           exercise: data[i][1],
           best: data[i][3],
           bestRaw: Number(data[i][4]) || 0,
@@ -950,29 +995,50 @@ function handleChallengeLeaderboard_(e) {
 // ═══════════════════════════════════════════════════════
 // Badges
 // ═══════════════════════════════════════════════════════
+// Gender-aware badge thresholds
+// M = men's threshold, F = women's threshold (roughly 60-65% of men's)
 var BADGE_DEFINITIONS = [
-  { id: 'first_pr', name: 'שיא ראשון! 🎯', desc: 'שברת את השיא האישי הראשון שלך', icon: '🎯',
+  // Universal badges
+  { id: 'first_pr', name: 'שיא ראשון! 🎯', desc: 'שברת את השיא הראשון', icon: '🎯', gender: 'all',
     check: function(prs) { return prs.length >= 1; } },
-  { id: 'prs_5', name: '5 שיאים 🌟', desc: '5 שיאים אישיים', icon: '🌟',
+  { id: 'prs_5', name: '5 שיאים 🌟', desc: '5 שיאים אישיים', icon: '🌟', gender: 'all',
     check: function(prs) { return prs.length >= 5; } },
-  { id: 'prs_10', name: '10 שיאים ⭐', desc: '10 שיאים אישיים', icon: '⭐',
+  { id: 'prs_10', name: '10 שיאים ⭐', desc: '10 שיאים אישיים', icon: '⭐', gender: 'all',
     check: function(prs) { return prs.length >= 10; } },
-  { id: 'prs_20', name: '20 שיאים 💫', desc: '20 שיאים אישיים', icon: '💫',
+  { id: 'prs_20', name: '20 שיאים 💫', desc: '20 שיאים אישיים', icon: '💫', gender: 'all',
     check: function(prs) { return prs.length >= 20; } },
-  { id: 'squat_100', name: 'מועדון 100 ק"ג סקוואט 🏋️', desc: 'Back Squat מעל 100 ק"ג', icon: '🏋️',
+
+  // Men's strength clubs
+  { id: 'squat_100_m', name: 'מועדון 100 ק"ג סקוואט 🏋️', desc: 'Back Squat מעל 100 ק"ג (גברים)', icon: '🏋️', gender: 'M',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 100; }); } },
-  { id: 'squat_140', name: 'מועדון 140 ק"ג סקוואט 💪', desc: 'Back Squat מעל 140 ק"ג', icon: '💪',
+  { id: 'squat_140_m', name: 'מועדון 140 ק"ג סקוואט 💪', desc: 'Back Squat מעל 140 ק"ג (גברים)', icon: '💪', gender: 'M',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 140; }); } },
-  { id: 'deadlift_140', name: 'מועדון 140 ק"ג מתים 🔥', desc: 'Deadlift מעל 140 ק"ג', icon: '🔥',
+  { id: 'deadlift_140_m', name: 'מועדון 140 ק"ג מתים 🔥', desc: 'Deadlift מעל 140 ק"ג (גברים)', icon: '🔥', gender: 'M',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 140; }); } },
-  { id: 'deadlift_180', name: 'מועדון 180 ק"ג מתים 👑', desc: 'Deadlift מעל 180 ק"ג', icon: '👑',
+  { id: 'deadlift_180_m', name: 'מועדון 180 ק"ג מתים 👑', desc: 'Deadlift מעל 180 ק"ג (גברים)', icon: '👑', gender: 'M',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 180; }); } },
-  { id: 'clean_100', name: 'מועדון 100 ק"ג קלין 🎖️', desc: 'Clean מעל 100 ק"ג', icon: '🎖️',
+  { id: 'clean_100_m', name: 'מועדון 100 ק"ג קלין 🎖️', desc: 'Clean מעל 100 ק"ג (גברים)', icon: '🎖️', gender: 'M',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Clean' && p.bestRaw >= 100; }); } },
-  { id: 'snatch_80', name: 'מועדון 80 ק"ג סנאצ\' 🏅', desc: 'Snatch מעל 80 ק"ג', icon: '🏅',
+  { id: 'snatch_80_m', name: 'מועדון 80 ק"ג סנאצ\' 🏅', desc: 'Snatch מעל 80 ק"ג (גברים)', icon: '🏅', gender: 'M',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Snatch' && p.bestRaw >= 80; }); } },
-  { id: 'bench_100', name: 'מועדון 100 ק"ג לחיצת חזה 💎', desc: 'Bench Press מעל 100 ק"ג', icon: '💎',
-    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Bench Press' && p.bestRaw >= 100; }); } }
+  { id: 'bench_100_m', name: 'מועדון 100 ק"ג בנץ\' 💎', desc: 'Bench Press מעל 100 ק"ג (גברים)', icon: '💎', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Bench Press' && p.bestRaw >= 100; }); } },
+
+  // Women's strength clubs (adjusted thresholds)
+  { id: 'squat_60_f', name: 'מועדון 60 ק"ג סקוואט 🏋️', desc: 'Back Squat מעל 60 ק"ג (נשים)', icon: '🏋️', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 60; }); } },
+  { id: 'squat_90_f', name: 'מועדון 90 ק"ג סקוואט 💪', desc: 'Back Squat מעל 90 ק"ג (נשים)', icon: '💪', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 90; }); } },
+  { id: 'deadlift_80_f', name: 'מועדון 80 ק"ג מתים 🔥', desc: 'Deadlift מעל 80 ק"ג (נשים)', icon: '🔥', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 80; }); } },
+  { id: 'deadlift_110_f', name: 'מועדון 110 ק"ג מתים 👑', desc: 'Deadlift מעל 110 ק"ג (נשים)', icon: '👑', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 110; }); } },
+  { id: 'clean_60_f', name: 'מועדון 60 ק"ג קלין 🎖️', desc: 'Clean מעל 60 ק"ג (נשים)', icon: '🎖️', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Clean' && p.bestRaw >= 60; }); } },
+  { id: 'snatch_45_f', name: 'מועדון 45 ק"ג סנאצ\' 🏅', desc: 'Snatch מעל 45 ק"ג (נשים)', icon: '🏅', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Snatch' && p.bestRaw >= 45; }); } },
+  { id: 'bench_50_f', name: 'מועדון 50 ק"ג בנץ\' 💎', desc: 'Bench Press מעל 50 ק"ג (נשים)', icon: '💎', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Bench Press' && p.bestRaw >= 50; }); } }
 ];
 
 function calculateBadgesForAthlete_(athleteName) {
@@ -987,10 +1053,23 @@ function calculateBadgesForAthlete_(athleteName) {
     }
   }
 
+  // Get athlete gender
+  var athleteGender = '';
+  var athletesSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Athletes');
+  if (athletesSheet) {
+    var aData = athletesSheet.getDataRange().getValues();
+    for (var a = 1; a < aData.length; a++) {
+      if (aData[a][0] === athleteName) { athleteGender = aData[a][1] || ''; break; }
+    }
+  }
+
   var earned = [];
   for (var j = 0; j < BADGE_DEFINITIONS.length; j++) {
-    if (BADGE_DEFINITIONS[j].check(prs)) {
-      earned.push({ id: BADGE_DEFINITIONS[j].id, name: BADGE_DEFINITIONS[j].name, desc: BADGE_DEFINITIONS[j].desc, icon: BADGE_DEFINITIONS[j].icon });
+    var badge = BADGE_DEFINITIONS[j];
+    // Filter by gender: 'all' applies to everyone, 'M'/'F' only to matching
+    if (badge.gender !== 'all' && badge.gender !== athleteGender) continue;
+    if (badge.check(prs)) {
+      earned.push({ id: badge.id, name: badge.name, desc: badge.desc, icon: badge.icon });
     }
   }
   return earned;
@@ -1090,6 +1169,16 @@ function handleGetAllAthletes_(e) {
 
   var athleteMap = {};
 
+  // Load gender from Athletes sheet
+  var athletesSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Athletes');
+  var genderMap = {};
+  if (athletesSheet) {
+    var aData = athletesSheet.getDataRange().getValues();
+    for (var a = 1; a < aData.length; a++) {
+      genderMap[aData[a][0]] = aData[a][1] || '';
+    }
+  }
+
   // Scan PRs
   var prsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('PRs');
   if (prsSheet) {
@@ -1120,6 +1209,7 @@ function handleGetAllAthletes_(e) {
   for (var k = 0; k < names.length; k++) {
     athletes.push({
       name: names[k],
+      gender: genderMap[names[k]] || '',
       prs: athleteMap[names[k]].prs,
       lifts: athleteMap[names[k]].lifts,
       lastActive: athleteMap[names[k]].lastActive
@@ -1128,6 +1218,235 @@ function handleGetAllAthletes_(e) {
 
   athletes.sort(function(a, b) { return a.lastActive < b.lastActive ? 1 : -1; });
   return respondWithCallback_(e, { athletes: athletes });
+}
+
+// ═══════════════════════════════════════════════════════
+// Athlete Registration
+// ═══════════════════════════════════════════════════════
+function handleRegisterAthlete_(data) {
+  var sheet = getAthletesSheet_();
+  var name = data.name || '';
+  var gender = data.gender || '';
+  if (!name) return jsonResponse_({ status: 'error', message: 'Name required' });
+
+  // Check if already registered, update gender
+  var existing = sheet.getDataRange().getValues();
+  for (var i = 1; i < existing.length; i++) {
+    if (existing[i][0] === name) {
+      if (gender) sheet.getRange(i + 1, 2).setValue(gender);
+      return jsonResponse_({ status: 'ok', updated: true });
+    }
+  }
+
+  // New registration
+  var newRow = sheet.getLastRow() + 1;
+  sheet.getRange(newRow, 1, 1, 4).setNumberFormat('@').setValues([[
+    name, gender, todayStr_(), 'active'
+  ]]);
+  return jsonResponse_({ status: 'ok', updated: false });
+}
+
+function handleUpdateAthlete_(data) {
+  if (!verifyCoach_(data.coachKey)) return jsonResponse_({ status: 'error', message: 'Unauthorized' });
+
+  var sheet = getAthletesSheet_();
+  var existing = sheet.getDataRange().getValues();
+  for (var i = 1; i < existing.length; i++) {
+    if (existing[i][0] === data.name) {
+      if (data.gender) sheet.getRange(i + 1, 2).setValue(data.gender);
+      if (data.status) sheet.getRange(i + 1, 4).setValue(data.status);
+      return jsonResponse_({ status: 'ok' });
+    }
+  }
+  return jsonResponse_({ status: 'error', message: 'Athlete not found' });
+}
+
+function handleGetAthleteGender_(e) {
+  var name = e.parameter.name || '';
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Athletes');
+  var gender = '';
+  if (sheet) {
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === name) { gender = data[i][1]; break; }
+    }
+  }
+  return respondWithCallback_(e, { gender: gender, name: name });
+}
+
+// ═══════════════════════════════════════════════════════
+// WOD Management
+// ═══════════════════════════════════════════════════════
+function handleCreateWOD_(data) {
+  if (!verifyCoach_(data.coachKey)) return jsonResponse_({ status: 'error', message: 'Unauthorized' });
+
+  var sheet = getWODsSheet_();
+  var date = data.date || todayStr_();
+
+  // Check if WOD already exists for this date, update it
+  var existing = sheet.getDataRange().getValues();
+  for (var i = 1; i < existing.length; i++) {
+    if (String(existing[i][0]).slice(0, 10) === date) {
+      sheet.getRange(i + 1, 2).setValue(data.title || '');
+      sheet.getRange(i + 1, 3).setValue(data.description || '');
+      sheet.getRange(i + 1, 4).setValue(data.type || 'AMRAP');
+      return jsonResponse_({ status: 'ok', updated: true });
+    }
+  }
+
+  var newRow = sheet.getLastRow() + 1;
+  sheet.getRange(newRow, 1, 1, 6).setNumberFormat('@').setValues([[
+    date,
+    data.title || '',
+    data.description || '',
+    data.type || 'AMRAP',
+    data.createdBy || 'Coach',
+    new Date().toISOString()
+  ]]);
+  return jsonResponse_({ status: 'ok', updated: false });
+}
+
+function handleGetWOD_(e) {
+  var date = e.parameter.date || todayStr_();
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('WODs');
+  var wod = null;
+
+  if (sheet) {
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]).slice(0, 10) === date) {
+        wod = { date: data[i][0], title: data[i][1], description: data[i][2], type: data[i][3] };
+        break;
+      }
+    }
+  }
+
+  return respondWithCallback_(e, { wod: wod, date: date });
+}
+
+// ═══════════════════════════════════════════════════════
+// Announcements
+// ═══════════════════════════════════════════════════════
+function handleCreateAnnouncement_(data) {
+  if (!verifyCoach_(data.coachKey)) return jsonResponse_({ status: 'error', message: 'Unauthorized' });
+
+  var sheet = getAnnouncementsSheet_();
+  var id = 'ann_' + new Date().getTime();
+  var newRow = sheet.getLastRow() + 1;
+  sheet.getRange(newRow, 1, 1, 7).setNumberFormat('@').setValues([[
+    id,
+    data.title || '',
+    data.message || '',
+    data.createdBy || 'Coach',
+    new Date().toISOString(),
+    data.expiresAt || '',
+    'active'
+  ]]);
+  return jsonResponse_({ status: 'ok', id: id });
+}
+
+function handleDeleteAnnouncement_(data) {
+  if (!verifyCoach_(data.coachKey)) return jsonResponse_({ status: 'error', message: 'Unauthorized' });
+
+  var sheet = getAnnouncementsSheet_();
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (rows[i][0] === data.id) {
+      sheet.getRange(i + 1, 7).setValue('deleted');
+      return jsonResponse_({ status: 'ok' });
+    }
+  }
+  return jsonResponse_({ status: 'error', message: 'Not found' });
+}
+
+function handleGetAnnouncements_(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Announcements');
+  var announcements = [];
+  var today = todayStr_();
+
+  if (sheet) {
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][6] === 'active' && (!data[i][5] || data[i][5] >= today)) {
+        announcements.push({
+          id: data[i][0], title: data[i][1], message: data[i][2],
+          createdAt: data[i][4], expiresAt: data[i][5]
+        });
+      }
+    }
+  }
+
+  return respondWithCallback_(e, { announcements: announcements });
+}
+
+// ═══════════════════════════════════════════════════════
+// Coach Data Management — delete/edit entries
+// ═══════════════════════════════════════════════════════
+function handleDeleteEntry_(data) {
+  if (!verifyCoach_(data.coachKey)) return jsonResponse_({ status: 'error', message: 'Unauthorized' });
+
+  var sheetName = data.sheet || '';
+  var rowIndex = Number(data.rowIndex) || 0;
+  if (!sheetName || !rowIndex) return jsonResponse_({ status: 'error', message: 'Missing sheet or rowIndex' });
+
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  if (!sheet) return jsonResponse_({ status: 'error', message: 'Sheet not found' });
+
+  // Safety: don't delete header row
+  if (rowIndex <= 1) return jsonResponse_({ status: 'error', message: 'Cannot delete header' });
+  if (rowIndex > sheet.getLastRow()) return jsonResponse_({ status: 'error', message: 'Row not found' });
+
+  sheet.deleteRow(rowIndex);
+  return jsonResponse_({ status: 'ok' });
+}
+
+function handleGetEntries_(e) {
+  if (!verifyCoach_(e.parameter.coachKey)) return respondWithCallback_(e, { error: 'Unauthorized' });
+
+  var sheetName = e.parameter.sheet || 'Lifts';
+  var athleteName = e.parameter.name || '';
+  var limit = Number(e.parameter.limit) || 50;
+
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  if (!sheet) return respondWithCallback_(e, { entries: [] });
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var entries = [];
+
+  // Find name column (usually 1 for Lifts/Benchmarks/Results)
+  var nameCol = 1;
+  for (var h = 0; h < headers.length; h++) {
+    if (headers[h] === 'Name') { nameCol = h; break; }
+  }
+
+  for (var i = data.length - 1; i >= 1 && entries.length < limit; i--) {
+    if (!athleteName || data[i][nameCol] === athleteName) {
+      var row = {};
+      for (var j = 0; j < headers.length; j++) {
+        row[headers[j]] = data[i][j];
+      }
+      row._rowIndex = i + 1; // 1-based for deletion
+      entries.push(row);
+    }
+  }
+
+  return respondWithCallback_(e, { entries: entries, headers: headers, sheet: sheetName });
+}
+
+// ═══════════════════════════════════════════════════════
+// Gender-aware leaderboard helper
+// ═══════════════════════════════════════════════════════
+function getGenderMap_() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Athletes');
+  var map = {};
+  if (sheet) {
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      map[data[i][0]] = data[i][1] || '';
+    }
+  }
+  return map;
 }
 
 // ═══════════════════════════════════════════════════════

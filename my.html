@@ -426,6 +426,44 @@
       font-weight: 700;
     }
 
+    /* ── Level Bar ── */
+    .level-bar-container {
+      margin-top: 0.8rem;
+      text-align: center;
+    }
+
+    .level-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.3rem;
+    }
+
+    .level-name {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--gold);
+    }
+
+    .level-xp {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+
+    .level-bar {
+      height: 8px;
+      background: #1e1e1e;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .level-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--gold));
+      border-radius: 4px;
+      transition: width 1s ease;
+    }
+
     /* ── Badges Row ── */
     .badges-row {
       display: flex;
@@ -572,7 +610,11 @@
 <div id="nameEntry" class="name-entry" style="display:none;">
   <h2>👋 מה השם שלך?</h2>
   <input type="text" id="nameInput" placeholder="השם שלך..." autocomplete="off">
-  <button onclick="saveName()">כניסה</button>
+  <div style="display:flex;gap:0.5rem;margin-top:0.8rem;justify-content:center;">
+    <button id="genderM" onclick="selectGender('M')" style="flex:1;padding:0.6rem;border-radius:10px;border:2px solid #333;background:none;color:var(--text);font-size:1rem;cursor:pointer;font-family:inherit;transition:all 0.2s;">♂️ גבר</button>
+    <button id="genderF" onclick="selectGender('F')" style="flex:1;padding:0.6rem;border-radius:10px;border:2px solid #333;background:none;color:var(--text);font-size:1rem;cursor:pointer;font-family:inherit;transition:all 0.2s;">♀️ אישה</button>
+  </div>
+  <button onclick="saveName()" style="margin-top:0.8rem;">כניסה</button>
 </div>
 
 <!-- Welcome Banner -->
@@ -592,6 +634,13 @@
       <div class="stat-label">תגובות קיבלתי</div>
     </div>
   </div>
+  <div class="level-bar-container" id="levelBar" style="display:none;">
+    <div class="level-info">
+      <span class="level-name" id="levelName"></span>
+      <span class="level-xp" id="levelXP"></span>
+    </div>
+    <div class="level-bar"><div class="level-fill" id="levelFill" style="width:0%"></div></div>
+  </div>
   <div class="badges-row" id="badgesRow" style="display:none;"></div>
 </div>
 
@@ -605,6 +654,10 @@
 
 <!-- Tab: My History -->
 <div class="tab-panel active" id="panel-history" style="display:none;">
+  <!-- Announcements banner -->
+  <div id="announcementsBanner" style="display:none;"></div>
+  <!-- Today's WOD -->
+  <div id="todayWOD" style="display:none;"></div>
   <div id="historyContent">
     <div class="loading"><div class="spinner"></div><div>טוען נתונים...</div></div>
   </div>
@@ -619,6 +672,11 @@
 
 <!-- Tab: Leaderboard -->
 <div class="tab-panel" id="panel-leaderboard" style="display:none;">
+  <div style="display:flex;gap:0.3rem;margin-bottom:0.6rem;">
+    <button class="filter-chip active" id="gfAll" onclick="filterGender('', this)">הכל</button>
+    <button class="filter-chip" id="gfM" onclick="filterGender('M', this)">♂️ גברים</button>
+    <button class="filter-chip" id="gfF" onclick="filterGender('F', this)">♀️ נשים</button>
+  </div>
   <div class="exercise-filter" id="lbFilter"></div>
   <div id="leaderboardContent">
     <div class="loading"><div class="spinner"></div><div>טוען לידרבורד...</div></div>
@@ -647,6 +705,8 @@ let feedData = [];
 let myReactedKeys = {};
 let myBadges = [];
 let activeChallenges = [];
+let myGender = '';
+let leaderboardGenderFilter = '';
 
 // ═══════════════════════════════════════════════════════
 // Init
@@ -663,6 +723,7 @@ let activeChallenges = [];
   }
 
   myName = localStorage.getItem('wodboard-athlete-name') || '';
+  myGender = localStorage.getItem('wodboard-gender') || '';
 
   // Load reacted keys from localStorage
   try { myReactedKeys = JSON.parse(localStorage.getItem('wodboard-reacted') || '{}'); } catch(e) {}
@@ -679,11 +740,27 @@ let activeChallenges = [];
   });
 })();
 
+let selectedGender = '';
+function selectGender(g) {
+  selectedGender = g;
+  document.getElementById('genderM').style.borderColor = g === 'M' ? 'var(--accent)' : '#333';
+  document.getElementById('genderM').style.background = g === 'M' ? 'rgba(239,68,68,0.15)' : 'none';
+  document.getElementById('genderF').style.borderColor = g === 'F' ? 'var(--accent)' : '#333';
+  document.getElementById('genderF').style.background = g === 'F' ? 'rgba(239,68,68,0.15)' : 'none';
+}
+
 function saveName() {
   const name = document.getElementById('nameInput').value.trim();
   if (!name) return;
+  if (!selectedGender) { alert('בחר/י מגדר'); return; }
   myName = name;
+  myGender = selectedGender;
   localStorage.setItem('wodboard-athlete-name', name);
+  localStorage.setItem('wodboard-gender', selectedGender);
+
+  // Register on server
+  postData({ action: 'registerAthlete', name, gender: selectedGender });
+
   document.getElementById('nameEntry').style.display = 'none';
   enterApp();
 }
@@ -699,6 +776,8 @@ function enterApp() {
   loadChallenges();
   loadLeaderboard();
   loadFeed();
+  loadWOD();
+  loadAnnouncements();
 }
 
 function switchTab(tab) {
@@ -781,6 +860,9 @@ async function loadMyData() {
     // Update stats
     document.getElementById('statPRs').textContent = myPRs.length;
     document.getElementById('statLifts').textContent = myLifts.length;
+
+    // Calculate athlete level
+    updateLevel(myPRs.length, myLifts.length);
 
     renderHistory();
   } catch (err) {
@@ -887,7 +969,9 @@ function renderHistory() {
 // ═══════════════════════════════════════════════════════
 async function loadLeaderboard() {
   try {
-    const res = await jsonpGet({ action: 'leaderboard' });
+    const params = { action: 'leaderboard' };
+    if (leaderboardGenderFilter) params.gender = leaderboardGenderFilter;
+    const res = await jsonpGet(params);
     leaderboardData = res.leaderboard || {};
     leaderboardExercises = res.exercises || [];
 
@@ -1196,6 +1280,96 @@ async function loadChallengeLB(challengeId) {
   } catch(e) {
     el.innerHTML = '';
   }
+}
+
+// ═══════════════════════════════════════════════════════
+// Athlete Level System
+// ═══════════════════════════════════════════════════════
+function updateLevel(prs, lifts) {
+  const xp = prs * 10 + lifts * 2; // PRs worth more
+  const levels = [
+    { name: 'מתחיל', min: 0 },
+    { name: 'ספורטאי', min: 20 },
+    { name: 'מתקדם', min: 60 },
+    { name: 'חזק', min: 120 },
+    { name: 'מכונה', min: 200 },
+    { name: 'חיה', min: 350 },
+    { name: 'אלוף', min: 500 },
+    { name: 'אגדה 🔥', min: 800 }
+  ];
+
+  let currentLevel = levels[0];
+  let nextLevel = levels[1];
+  for (let i = 0; i < levels.length; i++) {
+    if (xp >= levels[i].min) {
+      currentLevel = levels[i];
+      nextLevel = levels[i + 1] || null;
+    }
+  }
+
+  const el = document.getElementById('levelBar');
+  el.style.display = 'block';
+  document.getElementById('levelName').textContent = currentLevel.name;
+
+  if (nextLevel) {
+    const progress = ((xp - currentLevel.min) / (nextLevel.min - currentLevel.min)) * 100;
+    document.getElementById('levelFill').style.width = Math.min(100, progress) + '%';
+    document.getElementById('levelXP').textContent = xp + ' / ' + nextLevel.min + ' XP';
+  } else {
+    document.getElementById('levelFill').style.width = '100%';
+    document.getElementById('levelXP').textContent = xp + ' XP — MAX!';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// Gender filter for leaderboard
+// ═══════════════════════════════════════════════════════
+function filterGender(gender, btn) {
+  document.querySelectorAll('#panel-leaderboard > div:first-child .filter-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  leaderboardGenderFilter = gender;
+  loadLeaderboard();
+}
+
+// ═══════════════════════════════════════════════════════
+// WOD of the Day
+// ═══════════════════════════════════════════════════════
+async function loadWOD() {
+  try {
+    const res = await jsonpGet({ action: 'getWOD' });
+    if (res.wod) {
+      const wod = res.wod;
+      const el = document.getElementById('todayWOD');
+      el.style.display = 'block';
+      el.innerHTML = `<div class="card" style="border-color:var(--accent);border-width:2px;">
+        <div class="card-title" style="color:var(--accent);">🏋️ WOD היום ${wod.type ? '• ' + esc(wod.type) : ''}</div>
+        <div style="font-weight:900;font-size:1.1rem;margin-bottom:0.3rem;">${esc(wod.title)}</div>
+        <div style="font-size:0.9rem;color:var(--text-dim);white-space:pre-wrap;">${esc(wod.description)}</div>
+      </div>`;
+    }
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════
+// Announcements
+// ═══════════════════════════════════════════════════════
+async function loadAnnouncements() {
+  try {
+    const res = await jsonpGet({ action: 'getAnnouncements' });
+    const anns = res.announcements || [];
+    if (anns.length === 0) return;
+
+    const el = document.getElementById('announcementsBanner');
+    el.style.display = 'block';
+    let html = '';
+    anns.forEach(a => {
+      html += `<div class="card" style="border-color:var(--gold);background:rgba(245,158,11,0.05);">
+        <div style="font-weight:900;font-size:0.95rem;color:var(--gold);margin-bottom:0.2rem;">📢 ${esc(a.title)}</div>
+        <div style="font-size:0.85rem;white-space:pre-wrap;">${esc(a.message)}</div>
+      </div>`;
+    });
+    el.innerHTML = html;
+  } catch(e) {}
 }
 
 // ═══════════════════════════════════════════════════════
