@@ -105,6 +105,12 @@ function verifyCoach_(password) {
   return stored && password === stored;
 }
 
+function verifyGymPin_(pin) {
+  var stored = PropertiesService.getScriptProperties().getProperty('GYM_PIN');
+  if (!stored) return true; // if no PIN set, allow all (backwards compatible)
+  return pin === stored;
+}
+
 // ═══════════════════════════════════════════════════════
 // POST handler
 // ═══════════════════════════════════════════════════════
@@ -172,6 +178,17 @@ function doPost(e) {
     }
     PropertiesService.getScriptProperties().setProperty('COACH_PASSWORD', data.newPassword);
     return jsonResponse_({ status: 'ok', message: 'Password changed' });
+  }
+  if (action === 'setGymPin') {
+    if (!verifyCoach_(data.coachKey || '')) {
+      return jsonResponse_({ status: 'error', message: 'Unauthorized' });
+    }
+    var newPin = String(data.pin || '');
+    if (newPin.length < 4) {
+      return jsonResponse_({ status: 'error', message: 'PIN must be at least 4 digits' });
+    }
+    PropertiesService.getScriptProperties().setProperty('GYM_PIN', newPin);
+    return jsonResponse_({ status: 'ok', message: 'Gym PIN set' });
   }
   // Default: daily WOD score (existing behavior)
   return handleScorePost_(data);
@@ -333,7 +350,16 @@ function doGet(e) {
   if (action === 'getAllAthletes') return handleGetAllAthletes_(e);
   if (action === 'recalcBadges') return handleRecalcBadges_(e);
   if (action === 'getAthleteGender') return handleGetAthleteGender_(e);
-  if (action === 'getWOD') return handleGetWOD_(e);
+  if (action === 'verifyPin') {
+    var pin = e.parameter.pin || '';
+    return respondWithCallback_(e, { valid: verifyGymPin_(pin) });
+  }
+  if (action === 'getWOD') {
+    if (!verifyGymPin_(e.parameter.pin || '')) {
+      return respondWithCallback_(e, { status: 'error', message: 'PIN required' });
+    }
+    return handleGetWOD_(e);
+  }
   if (action === 'getAnnouncements') return handleGetAnnouncements_(e);
   if (action === 'getEntries') return handleGetEntries_(e);
   if (action === 'checkAthlete') return handleCheckAthlete_(e);
@@ -1717,4 +1743,10 @@ function setCoachPassword(pw) {
   if (!pw) { Logger.log('Usage: setCoachPassword("your-password")'); return; }
   PropertiesService.getScriptProperties().setProperty('COACH_PASSWORD', pw);
   Logger.log('Coach password set successfully!');
+}
+
+function setGymPin(pin) {
+  if (!pin) { Logger.log('Usage: setGymPin("1234")'); return; }
+  PropertiesService.getScriptProperties().setProperty('GYM_PIN', String(pin));
+  Logger.log('Gym PIN set to: ' + pin);
 }
