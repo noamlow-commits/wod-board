@@ -589,6 +589,34 @@
       height: 100%;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+    }
+
+    #scoreboardContent {
+      flex: 1;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #333 transparent;
+    }
+
+    #scoreboardContent::-webkit-scrollbar { width: 4px; }
+    #scoreboardContent::-webkit-scrollbar-track { background: transparent; }
+    #scoreboardContent::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
+    .score-group-header {
+      font-family: 'Barlow', sans-serif;
+      font-size: calc(0.9rem * var(--font-scale));
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--metcon-start);
+      padding: 0.5rem 0.6rem 0.2rem;
+      border-bottom: 2px solid rgba(239, 68, 68, 0.3);
+      margin-top: 0.3rem;
+    }
+
+    .score-group-header:first-child {
+      margin-top: 0;
     }
 
     .scoreboard-header {
@@ -1193,6 +1221,9 @@
       document.head.appendChild(script);
     }
 
+    const SCORE_TYPE_LABELS = { time: 'FOR TIME', amrap: 'AMRAP', reps: 'REPS', weight: 'WEIGHT' };
+    const SCORE_TYPE_ORDER = ['time', 'amrap', 'reps', 'weight'];
+
     function renderScoreboard(results) {
       const container = document.getElementById('scoreboardContent');
 
@@ -1214,52 +1245,63 @@
         setDisplayMode('split');
       }
 
-      // Deduplicate: keep last entry per athlete name
-      const byName = {};
+      // Group by scoreType, then deduplicate by name within each group (keep last)
+      const groups = {};
       for (const r of results) {
-        byName[r.name] = r;
-      }
-      let sorted = Object.values(byName);
-
-      // Sort based on score type
-      const type = sorted[0].scoreType;
-      if (type === 'time') {
-        // Ascending (fastest first)
-        sorted.sort((a, b) => a.rawValue - b.rawValue);
-      } else {
-        // Descending (highest first)
-        sorted.sort((a, b) => b.rawValue - a.rawValue);
+        const t = r.scoreType || 'time';
+        if (!groups[t]) groups[t] = {};
+        groups[t][r.name] = r;
       }
 
-      const newJSON = JSON.stringify(sorted);
+      // Sort groups in consistent order, render each
+      const orderedTypes = SCORE_TYPE_ORDER.filter(t => groups[t]);
+      const multiGroup = orderedTypes.length > 1;
+
+      const newJSON = JSON.stringify(results);
       if (newJSON === lastScoreJSON) return;
       lastScoreJSON = newJSON;
 
-      const rowsHTML = sorted.map((r, i) => {
-        const rank = i + 1;
-        const rankClass = rank <= 3 ? ` rank-${rank}` : '';
-        const rxClass = (r.rx || 'Rx') === 'Rx' ? 'rx-tag-rx' : 'rx-tag-scaled';
-        return `
-          <tr class="score-row-enter${rankClass}">
-            <td class="rank-cell">${rank}</td>
-            <td class="name-cell" dir="auto">${escapeHtml(r.name)}</td>
-            <td class="score-cell">${escapeHtml(r.score)}</td>
-            <td><span class="rx-cell ${rxClass}">${escapeHtml(r.rx || 'Rx')}</span></td>
-          </tr>`;
-      }).join('');
+      let html = '';
+      for (const type of orderedTypes) {
+        let sorted = Object.values(groups[type]);
+        if (type === 'time') {
+          sorted.sort((a, b) => a.rawValue - b.rawValue);
+        } else {
+          sorted.sort((a, b) => b.rawValue - a.rawValue);
+        }
 
-      container.innerHTML = `
-        <table class="scoreboard-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>ATHLETE</th>
-              <th>SCORE</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>${rowsHTML}</tbody>
-        </table>`;
+        if (multiGroup) {
+          html += `<div class="score-group-header">${SCORE_TYPE_LABELS[type] || type.toUpperCase()}</div>`;
+        }
+
+        const rowsHTML = sorted.map((r, i) => {
+          const rank = i + 1;
+          const rankClass = rank <= 3 ? ` rank-${rank}` : '';
+          const rxClass = (r.rx || 'Rx') === 'Rx' ? 'rx-tag-rx' : 'rx-tag-scaled';
+          return `
+            <tr class="score-row-enter${rankClass}">
+              <td class="rank-cell">${rank}</td>
+              <td class="name-cell" dir="auto">${escapeHtml(r.name)}</td>
+              <td class="score-cell">${escapeHtml(String(r.score))}</td>
+              <td><span class="rx-cell ${rxClass}">${escapeHtml(r.rx || 'Rx')}</span></td>
+            </tr>`;
+        }).join('');
+
+        html += `
+          <table class="scoreboard-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>ATHLETE</th>
+                <th>SCORE</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>${rowsHTML}</tbody>
+          </table>`;
+      }
+
+      container.innerHTML = html;
     }
 
     // ════════════════════════════════════════
