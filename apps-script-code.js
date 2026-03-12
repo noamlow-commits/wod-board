@@ -65,16 +65,17 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  var dateFilter = e.parameter.date || new Date().toISOString().slice(0, 10);
+  var tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+  var dateFilter = e.parameter.date || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
   var data = sheet.getDataRange().getValues();
   var results = [];
 
   // Skip header row (i=0)
   for (var i = 1; i < data.length; i++) {
     var rowDate = data[i][4]; // WorkoutDate column
-    // Handle both string dates and Date objects
+    // Use spreadsheet timezone (not UTC) to avoid date shift
     if (rowDate instanceof Date) {
-      rowDate = rowDate.toISOString().slice(0, 10);
+      rowDate = Utilities.formatDate(rowDate, tz, 'yyyy-MM-dd');
     }
     if (String(rowDate) === dateFilter) {
       results.push({
