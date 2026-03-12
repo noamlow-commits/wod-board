@@ -1745,6 +1745,28 @@
           saveSettings(settings);
           updateQR();
         }
+        // Arrow keys: cycle display modes
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          const modes = ['wod', 'split', 'scoreboard', 'auto'];
+          const dir = e.key === 'ArrowRight' ? 1 : -1;
+          const next = modes[(modes.indexOf(displayMode) + dir + modes.length) % modes.length];
+          setDisplayMode(next);
+        }
+        // Delete / Backspace: clear today's scores
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          clearTodayScores();
+        }
+        // R: refresh now
+        if (e.key === 'r') {
+          lastDataJSON = '';
+          startApp();
+          fetchScoreboard();
+        }
+      }
+      // Enter: toggle fullscreen (works even from input)
+      if (e.key === 'Enter' && document.activeElement.tagName !== 'INPUT') {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
       }
     });
 
