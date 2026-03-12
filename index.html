@@ -1353,13 +1353,29 @@
     // ════════════════════════════════════════
     let settings = loadSettings();
 
-    // Accept ?api= parameter from other pages (my.html, score.html)
-    (function syncApiFromUrl() {
-      const urlApi = new URLSearchParams(window.location.search).get('api');
+    // Accept ?api=, ?sheet=, ?tab= parameters from URL
+    (function syncFromUrl() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlApi = urlParams.get('api');
+      const urlSheet = urlParams.get('sheet');
+      const urlTab = urlParams.get('tab');
+      let changed = false;
+
       if (urlApi && urlApi !== settings.appsScriptUrl) {
         settings.appsScriptUrl = urlApi;
-        saveSettings(settings);
+        changed = true;
       }
+      if (urlSheet && urlSheet !== settings.sheetId) {
+        settings.sheetId = urlSheet;
+        changed = true;
+      }
+      if (urlTab && (!settings.tabs || !settings.tabs.includes(urlTab))) {
+        if (!settings.tabs) settings.tabs = [];
+        settings.tabs.push(urlTab);
+        changed = true;
+      }
+      if (changed) saveSettings(settings);
+
       // Also sync to wodboard-api key used by my.html/score.html
       if (settings.appsScriptUrl) {
         localStorage.setItem('wodboard-api', settings.appsScriptUrl);
