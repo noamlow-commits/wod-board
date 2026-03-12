@@ -1120,9 +1120,9 @@ var BADGE_DEFINITIONS = [
   { id: 'squat_90_f', name: 'מועדון 90 סקוואט', shortName: 'סקוואט 90', desc: 'Back Squat 90 ק"ג — עילית (נשים)', icon: '👑', gender: 'F',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 90; }); } },
 
-  // -- Deadlift (F): 50 → 65 → 80 → 110 kg --
-  { id: 'deadlift_50_f', name: 'מתים 50 ק"ג', shortName: 'מתים 50', desc: 'Deadlift 50 ק"ג — צעד ראשון (נשים)', icon: '🌱', gender: 'F',
-    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 50; }); } },
+  // -- Deadlift (F): 40 → 65 → 80 → 110 kg --
+  { id: 'deadlift_40_f', name: 'מתים 40 ק"ג', shortName: 'מתים 40', desc: 'Deadlift 40 ק"ג — צעד ראשון (נשים)', icon: '🌱', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 40; }); } },
   { id: 'deadlift_65_f', name: 'מתים 65 ק"ג', shortName: 'מתים 65', desc: 'Deadlift 65 ק"ג — מתחזקת (נשים)', icon: '💪', gender: 'F',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 65; }); } },
   { id: 'deadlift_80_f', name: 'מועדון 80 מתים', shortName: 'מתים 80', desc: 'Deadlift 80 ק"ג — Rx Ready (נשים)', icon: '🔥', gender: 'F',
