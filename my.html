@@ -1256,9 +1256,44 @@ function selectGender(g) {
   document.getElementById('genderF').style.background = g === 'F' ? 'rgba(239,68,68,0.15)' : 'none';
 }
 
-function saveName() {
+async function saveName() {
   const name = document.getElementById('nameInput').value.trim();
   if (!name) return;
+
+  // Check if athlete already exists (recovery flow)
+  try {
+    const check = await jsonpGet({ action: 'checkAthlete', name: name });
+
+    if (check.found) {
+      // Exact match found — reconnect
+      const confirm = window.confirm(
+        'נמצא פרופיל קיים עבור "' + check.athlete.name + '" עם ' + check.prCount + ' שיאים.\n\nלהתחבר לפרופיל הקיים?'
+      );
+      if (confirm) {
+        myName = check.athlete.name;
+        myGender = check.athlete.gender || selectedGender || '';
+        localStorage.setItem('wodboard-athlete-name', myName);
+        localStorage.setItem('wodboard-gender', myGender);
+        document.getElementById('nameEntry').style.display = 'none';
+        enterApp();
+        return;
+      }
+    } else if (check.partialMatches && check.partialMatches.length > 0) {
+      // Partial matches — ask user
+      const names = check.partialMatches.map(function(m) { return m.name; }).join('\n');
+      const confirm = window.confirm(
+        'לא נמצא "' + name + '" אבל יש שמות דומים:\n\n' + names + '\n\nזה את/ה? (לחץ אישור ותקן את השם)'
+      );
+      if (confirm) {
+        document.getElementById('nameInput').value = check.partialMatches[0].name;
+        return; // Let user fix and try again
+      }
+    }
+  } catch(e) {
+    // Server unavailable — proceed with registration
+  }
+
+  // New registration
   if (!selectedGender) { alert('בחר/י מגדר'); return; }
   myName = name;
   myGender = selectedGender;

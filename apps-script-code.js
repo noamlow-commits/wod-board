@@ -317,6 +317,7 @@ function doGet(e) {
   if (action === 'getWOD') return handleGetWOD_(e);
   if (action === 'getAnnouncements') return handleGetAnnouncements_(e);
   if (action === 'getEntries') return handleGetEntries_(e);
+  if (action === 'checkAthlete') return handleCheckAthlete_(e);
 
   // Default: return today's WOD scores (existing behavior)
   return handleGetScores_(e);
@@ -1370,6 +1371,53 @@ function handleGetAllAthletes_(e) {
 }
 
 // ═══════════════════════════════════════════════════════
+// Check if athlete exists (for recovery/reconnect)
+// ═══════════════════════════════════════════════════════
+function handleCheckAthlete_(e) {
+  var name = (e.parameter.name || '').trim();
+  if (!name) return respondWithCallback_(e, { found: false });
+
+  // Search in Athletes sheet
+  var athletesSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Athletes');
+  var exactMatch = null;
+  var partialMatches = [];
+
+  if (athletesSheet) {
+    var data = athletesSheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      var athleteName = String(data[i][0] || '').trim();
+      if (athleteName === name) {
+        exactMatch = { name: athleteName, gender: data[i][1] || '' };
+        break;
+      }
+      // Partial match: one name contains the other
+      if (athleteName && (athleteName.indexOf(name) >= 0 || name.indexOf(athleteName) >= 0)) {
+        partialMatches.push({ name: athleteName, gender: data[i][1] || '' });
+      }
+    }
+  }
+
+  // Count PRs for the matched athlete
+  var prCount = 0;
+  if (exactMatch) {
+    var prsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('PRs');
+    if (prsSheet) {
+      var pData = prsSheet.getDataRange().getValues();
+      for (var j = 1; j < pData.length; j++) {
+        if (pData[j][0] === exactMatch.name) prCount++;
+      }
+    }
+  }
+
+  return respondWithCallback_(e, {
+    found: !!exactMatch,
+    athlete: exactMatch,
+    prCount: prCount,
+    partialMatches: partialMatches.slice(0, 5)
+  });
+}
+
+// ═══════════════════════════════════════════════════════
 // Athlete Registration
 // ═══════════════════════════════════════════════════════
 function handleRegisterAthlete_(data) {
@@ -1622,4 +1670,13 @@ function respondWithCallback_(e, obj) {
   }
   return ContentService.createTextOutput(json)
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ═══════════════════════════════════════════════════════
+// One-time setup: Run this function to set coach password
+// After running, you can delete it.
+// ═══════════════════════════════════════════════════════
+function setCoachPassword() {
+  PropertiesService.getScriptProperties().setProperty('COACH_PASSWORD', 'cfgush2026');
+  Logger.log('Coach password set successfully!');
 }
