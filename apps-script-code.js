@@ -19,6 +19,7 @@
 // - Lifts       — strength/oly lift entries (permanent)
 // - Benchmarks  — benchmark WOD results (permanent)
 // - PRs         — one row per athlete×exercise, updated on PR (permanent)
+// - Reactions   — emoji reactions on PRs/lifts (permanent)
 //
 // ═══════════════════════════════════════════════════════
 
@@ -63,6 +64,10 @@ function getPRsSheet_() {
   return ensureTab_('PRs', ['Name', 'Exercise', 'Type', 'Best', 'BestRaw', 'Reps', 'Date']);
 }
 
+function getReactionsSheet_() {
+  return ensureTab_('Reactions', ['Timestamp', 'FromName', 'ToName', 'Exercise', 'Type', 'Emoji', 'Date']);
+}
+
 // ═══════════════════════════════════════════════════════
 // POST handler
 // ═══════════════════════════════════════════════════════
@@ -81,6 +86,9 @@ function doPost(e) {
   }
   if (action === 'benchmark') {
     return handleBenchmarkPost_(data);
+  }
+  if (action === 'reaction') {
+    return handleReactionPost_(data);
   }
   // Default: daily WOD score (existing behavior)
   return handleScorePost_(data);
@@ -222,6 +230,9 @@ function doGet(e) {
   if (action === 'mybenchmarks') return handleMyBenchmarks_(e);
   if (action === 'todaylifts') return handleTodayLifts_(e);
   if (action === 'todaybenchmarks') return handleTodayBenchmarks_(e);
+  if (action === 'feed') return handleFeed_(e);
+  if (action === 'leaderboard') return handleLeaderboard_(e);
+  if (action === 'allprs') return handleAllPRs_(e);
 
   // Default: return today's WOD scores (existing behavior)
   return handleGetScores_(e);
@@ -426,6 +437,175 @@ function handleTodayBenchmarks_(e) {
   }
 
   return respondWithCallback_(e, { benchmarks: benchmarks, date: dateFilter });
+}
+
+// ═══════════════════════════════════════════════════════
+// Reaction POST handler
+// ═══════════════════════════════════════════════════════
+function handleReactionPost_(data) {
+  var sheet = getReactionsSheet_();
+  var from = data.fromName || '';
+  var to = data.toName || '';
+  var exercise = data.exercise || '';
+  var type = data.type || 'lift';
+  var emoji = data.emoji || '💪';
+  var date = data.date || todayStr_();
+
+  // Duplicate check: same from→to+exercise+date = already reacted
+  var existing = sheet.getDataRange().getValues();
+  for (var i = 1; i < existing.length; i++) {
+    if (existing[i][1] === from && existing[i][2] === to && existing[i][3] === exercise && existing[i][6] === date) {
+      return jsonResponse_({ status: 'already', message: 'כבר הגבת על זה' });
+    }
+  }
+
+  var newRow = sheet.getLastRow() + 1;
+  sheet.getRange(newRow, 1, 1, 7).setNumberFormat('@').setValues([[
+    new Date().toISOString(), from, to, exercise, type, emoji, date
+  ]]);
+
+  return jsonResponse_({ status: 'ok' });
+}
+
+// ═══════════════════════════════════════════════════════
+// Activity Feed — recent PRs with reaction counts
+// ═══════════════════════════════════════════════════════
+function handleFeed_(e) {
+  var prsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('PRs');
+  var reactSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Reactions');
+  var liftsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Lifts');
+  var benchSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Benchmarks');
+  var limit = Number(e.parameter.limit) || 30;
+
+  var feed = [];
+
+  // Collect recent lifts (last 100 rows as candidates)
+  if (liftsSheet) {
+    var lData = liftsSheet.getDataRange().getValues();
+    var start = Math.max(1, lData.length - 100);
+    for (var i = lData.length - 1; i >= start; i--) {
+      if (lData[i][7] === 'TRUE') { // isPR
+        feed.push({
+          name: lData[i][1],
+          exercise: lData[i][2],
+          display: lData[i][3] + ' ' + lData[i][5] + ' x' + lData[i][4],
+          type: 'lift',
+          date: String(lData[i][8]).slice(0, 10),
+          timestamp: lData[i][0]
+        });
+      }
+    }
+  }
+
+  // Collect recent benchmarks PRs
+  if (benchSheet) {
+    var bData = benchSheet.getDataRange().getValues();
+    var bStart = Math.max(1, bData.length - 100);
+    for (var j = bData.length - 1; j >= bStart; j--) {
+      if (bData[j][7] === 'TRUE') {
+        feed.push({
+          name: bData[j][1],
+          exercise: bData[j][2],
+          display: bData[j][3],
+          type: 'benchmark',
+          date: String(bData[j][8]).slice(0, 10),
+          timestamp: bData[j][0]
+        });
+      }
+    }
+  }
+
+  // Sort by timestamp descending, limit
+  feed.sort(function(a, b) { return a.timestamp < b.timestamp ? 1 : -1; });
+  feed = feed.slice(0, limit);
+
+  // Count reactions per item
+  var reactionMap = {};
+  if (reactSheet) {
+    var rData = reactSheet.getDataRange().getValues();
+    for (var k = 1; k < rData.length; k++) {
+      var key = rData[k][2] + '|' + rData[k][3] + '|' + rData[k][6]; // to|exercise|date
+      if (!reactionMap[key]) reactionMap[key] = { count: 0, emojis: [], fromNames: [] };
+      reactionMap[key].count++;
+      reactionMap[key].emojis.push(rData[k][5]);
+      reactionMap[key].fromNames.push(rData[k][1]);
+    }
+  }
+
+  // Attach reaction counts to feed items
+  for (var m = 0; m < feed.length; m++) {
+    var rKey = feed[m].name + '|' + feed[m].exercise + '|' + feed[m].date;
+    var reactions = reactionMap[rKey] || { count: 0, emojis: [], fromNames: [] };
+    feed[m].reactions = reactions.count;
+    feed[m].reactionEmojis = reactions.emojis;
+    feed[m].reactionFromNames = reactions.fromNames;
+  }
+
+  return respondWithCallback_(e, { feed: feed });
+}
+
+// ═══════════════════════════════════════════════════════
+// Leaderboard — top est1RM per exercise
+// ═══════════════════════════════════════════════════════
+function handleLeaderboard_(e) {
+  var exercise = e.parameter.exercise || '';
+  var prsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('PRs');
+  var entries = [];
+
+  if (prsSheet) {
+    var data = prsSheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][2] === 'lift' && (!exercise || data[i][1] === exercise)) {
+        entries.push({
+          name: data[i][0],
+          exercise: data[i][1],
+          best: data[i][3],
+          bestRaw: Number(data[i][4]) || 0,
+          reps: Number(data[i][5]) || 0,
+          date: data[i][6]
+        });
+      }
+    }
+  }
+
+  // Group by exercise, sort each by bestRaw descending
+  var byExercise = {};
+  var exercises = [];
+  for (var j = 0; j < entries.length; j++) {
+    var ex = entries[j].exercise;
+    if (!byExercise[ex]) { byExercise[ex] = []; exercises.push(ex); }
+    byExercise[ex].push(entries[j]);
+  }
+  for (var k = 0; k < exercises.length; k++) {
+    byExercise[exercises[k]].sort(function(a, b) { return b.bestRaw - a.bestRaw; });
+  }
+
+  return respondWithCallback_(e, { leaderboard: byExercise, exercises: exercises });
+}
+
+// ═══════════════════════════════════════════════════════
+// All PRs — for community view
+// ═══════════════════════════════════════════════════════
+function handleAllPRs_(e) {
+  var prsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('PRs');
+  var prs = [];
+
+  if (prsSheet) {
+    var data = prsSheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      prs.push({
+        name: data[i][0],
+        exercise: data[i][1],
+        type: data[i][2],
+        best: data[i][3],
+        bestRaw: Number(data[i][4]) || 0,
+        reps: Number(data[i][5]) || 0,
+        date: data[i][6]
+      });
+    }
+  }
+
+  return respondWithCallback_(e, { prs: prs });
 }
 
 // ═══════════════════════════════════════════════════════

@@ -275,6 +275,7 @@
   <div class="header">
     <div class="logo">CrossFit Gush Etzion</div>
     <div class="subtitle">רישום תוצאות</div>
+    <a href="my.html" id="linkProfile" style="display:inline-block;margin-top:0.5rem;color:#f59e0b;text-decoration:none;font-size:0.85rem;border:1px solid #333;padding:0.3rem 0.8rem;border-radius:20px;">📊 הפרופיל שלי</a>
   </div>
 
   <!-- Name (shared across all tracks) -->
@@ -537,6 +538,12 @@
       if (savedType) selectType(savedType);
 
       if (urlParams.get('api')) localStorage.setItem('wodboard-api', urlParams.get('api'));
+
+      // Pass API to profile link
+      if (API_URL) {
+        const profileLink = document.getElementById('linkProfile');
+        if (profileLink) profileLink.href = 'my.html?api=' + encodeURIComponent(API_URL);
+      }
 
       renderExerciseGrid();
       renderBenchmarkList();
