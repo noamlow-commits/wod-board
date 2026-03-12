@@ -28,7 +28,14 @@ function doPost(e) {
     sheet.setFrozenRows(1);
   }
 
-  var data = JSON.parse(e.postData.contents);
+  // Support both JSON body (fetch) and form-encoded payload (form submit)
+  var raw = '';
+  if (e.parameter && e.parameter.payload) {
+    raw = e.parameter.payload;
+  } else if (e.postData && e.postData.contents) {
+    raw = e.postData.contents;
+  }
+  var data = JSON.parse(raw);
 
   sheet.appendRow([
     new Date().toISOString(),

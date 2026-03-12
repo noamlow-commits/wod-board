@@ -584,6 +584,58 @@
     }
 
     // ═══════════════════════════════
+    // POST via hidden form + iframe
+    // (Apps Script 302 redirect breaks fetch — form handles it correctly)
+    // ═══════════════════════════════
+    function postViaForm(url, data) {
+      return new Promise((resolve, reject) => {
+        const iframeName = '_postFrame_' + Date.now();
+        const iframe = document.createElement('iframe');
+        iframe.name = iframeName;
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = url;
+        form.target = iframeName;
+        form.style.display = 'none';
+
+        // Send JSON as a single hidden field named 'payload'
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'payload';
+        input.value = JSON.stringify(data);
+        form.appendChild(input);
+
+        document.body.appendChild(form);
+
+        iframe.onload = () => {
+          // Cleanup after a short delay
+          setTimeout(() => {
+            iframe.remove();
+            form.remove();
+          }, 500);
+          resolve();
+        };
+
+        iframe.onerror = () => {
+          iframe.remove();
+          form.remove();
+          reject(new Error('Form submission failed'));
+        };
+
+        // Timeout fallback
+        setTimeout(() => {
+          resolve(); // Assume success after timeout
+          try { iframe.remove(); form.remove(); } catch {}
+        }, 5000);
+
+        form.submit();
+      });
+    }
+
+    // ═══════════════════════════════
     // Submit
     // ═══════════════════════════════
     async function submitScore() {
@@ -624,14 +676,10 @@
       };
 
       try {
-        await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify(payload),
-          mode: 'no-cors'
-        });
+        // Use hidden form + iframe to reliably POST to Apps Script
+        // (fetch with no-cors fails because 302 redirect converts POST to GET)
+        await postViaForm(API_URL, payload);
 
-        // no-cors means we can't read response, but it usually works
         showToast('התוצאה נשלחה!', 'success');
         saveToHistory(payload);
         renderHistory();
