@@ -911,6 +911,47 @@
       font-size: 3rem;
     }
 
+    /* ── PR Notification Banner ── */
+    .pr-notify {
+      position: relative;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      padding: 0.4rem 1rem;
+      background: linear-gradient(135deg, #b8860b, #ffd700, #b8860b);
+      color: #000;
+      font-family: 'Barlow', 'Heebo', sans-serif;
+      font-weight: 900;
+      font-size: calc(1.1rem * var(--font-scale));
+      text-align: center;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: max-height 0.4s ease, opacity 0.3s ease, padding 0.4s ease;
+    }
+
+    .pr-notify.show {
+      max-height: 3rem;
+      opacity: 1;
+      padding: 0.4rem 1rem;
+      animation: prNotifyPulse 1s ease-in-out 3;
+    }
+
+    @keyframes prNotifyPulse {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.3); }
+    }
+
+    .pr-notify-icon {
+      font-size: calc(1.2rem * var(--font-scale));
+    }
+
+    .pr-notify-text {
+      letter-spacing: 0.03em;
+    }
+
     .scoreboard-table {
       width: 100%;
       border-collapse: collapse;
@@ -1145,6 +1186,13 @@
     </div>
   </div>
 
+  <!-- PR Notification Banner -->
+  <div class="pr-notify" id="prNotify">
+    <span class="pr-notify-icon">🏆</span>
+    <span class="pr-notify-text" id="prNotifyText"></span>
+    <span class="pr-notify-icon">🔥</span>
+  </div>
+
   <!-- Tab Bar (hidden until tabs exist) -->
   <div class="tab-bar" id="tabBar" style="display:none;"></div>
 
@@ -1315,6 +1363,9 @@
     let lastLiftJSON = '';
     let todayBenchmarks = [];
     let lastBenchmarkJSON = '';
+    let knownPRKeys = new Set(); // track already-notified PRs to avoid repeat banners
+    let prNotifyTimer = null;
+    let prInitialized = false; // first load: seed known PRs silently
 
     const SECTION_THEMES = [
       { keywords: ['חימום', 'warm', 'חמום'], cls: 'warmup' },
@@ -1712,6 +1763,7 @@
             fetchScoreboard();
             renderLiftsSeparate();
             if (displayMode === 'pr') renderPRBoard();
+            checkForNewPRs();
           }
         }
       };
@@ -1769,6 +1821,7 @@
             lastBenchmarkJSON = newJSON;
             todayBenchmarks = data.benchmarks;
             if (displayMode === 'pr') renderPRBoard();
+            checkForNewPRs();
           }
         }
       };
@@ -1823,6 +1876,48 @@
             <span class="pr-badge">${badge}</span>
           </div>`;
       }).join('');
+    }
+
+    function checkForNewPRs() {
+      if (!prInitialized) {
+        // First load: seed all existing PRs as known (no banners)
+        todayLifts.filter(l => l.isPR).forEach(l => knownPRKeys.add(`lift|${l.name}|${l.exercise}`));
+        todayBenchmarks.filter(b => b.isPR).forEach(b => knownPRKeys.add(`bm|${b.name}|${b.wod}`));
+        prInitialized = true;
+        return;
+      }
+      // Check lifts for new PRs
+      todayLifts.filter(l => l.isPR).forEach(l => {
+        const key = `lift|${l.name}|${l.exercise}`;
+        if (!knownPRKeys.has(key)) {
+          knownPRKeys.add(key);
+          showPRNotify(`${l.name} — ${l.exercise} — ${l.weight} ${l.unit} x${l.reps}`);
+        }
+      });
+      // Check benchmarks for new PRs
+      todayBenchmarks.filter(b => b.isPR).forEach(b => {
+        const key = `bm|${b.name}|${b.wod}`;
+        if (!knownPRKeys.has(key)) {
+          knownPRKeys.add(key);
+          showPRNotify(`${b.name} — ${b.wod} — ${b.score}`);
+        }
+      });
+    }
+
+    function showPRNotify(text) {
+      const el = document.getElementById('prNotify');
+      const textEl = document.getElementById('prNotifyText');
+      // If already showing, queue after current
+      if (prNotifyTimer) {
+        setTimeout(() => showPRNotify(text), 6000);
+        return;
+      }
+      textEl.textContent = `שיא חדש!  ${text}`;
+      el.classList.add('show');
+      prNotifyTimer = setTimeout(() => {
+        el.classList.remove('show');
+        prNotifyTimer = null;
+      }, 5000);
     }
 
     const SCORE_TYPE_LABELS = { time: 'FOR TIME', amrap: 'AMRAP', reps: 'REPS', weight: 'WEIGHT' };
