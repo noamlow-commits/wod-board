@@ -998,47 +998,187 @@ function handleChallengeLeaderboard_(e) {
 // Gender-aware badge thresholds
 // M = men's threshold, F = women's threshold (roughly 60-65% of men's)
 var BADGE_DEFINITIONS = [
-  // Universal badges
-  { id: 'first_pr', name: 'שיא ראשון! 🎯', desc: 'שברת את השיא הראשון', icon: '🎯', gender: 'all',
+  // ══════════════════════════════════════════════════════
+  // Universal badges (count-based)
+  // ══════════════════════════════════════════════════════
+  { id: 'first_pr', name: 'שיא ראשון!', shortName: 'שיא ראשון', desc: 'שברת את השיא הראשון', icon: '🎯', gender: 'all',
     check: function(prs) { return prs.length >= 1; } },
-  { id: 'prs_5', name: '5 שיאים 🌟', desc: '5 שיאים אישיים', icon: '🌟', gender: 'all',
+  { id: 'prs_3', name: '3 שיאים', shortName: '3 שיאים', desc: '3 שיאים אישיים', icon: '🌱', gender: 'all',
+    check: function(prs) { return prs.length >= 3; } },
+  { id: 'prs_5', name: '5 שיאים', shortName: '5 שיאים', desc: '5 שיאים אישיים', icon: '🌟', gender: 'all',
     check: function(prs) { return prs.length >= 5; } },
-  { id: 'prs_10', name: '10 שיאים ⭐', desc: '10 שיאים אישיים', icon: '⭐', gender: 'all',
+  { id: 'prs_10', name: '10 שיאים', shortName: '10 שיאים', desc: '10 שיאים אישיים', icon: '⭐', gender: 'all',
     check: function(prs) { return prs.length >= 10; } },
-  { id: 'prs_20', name: '20 שיאים 💫', desc: '20 שיאים אישיים', icon: '💫', gender: 'all',
+  { id: 'prs_20', name: '20 שיאים', shortName: '20 שיאים', desc: '20 שיאים אישיים', icon: '💫', gender: 'all',
     check: function(prs) { return prs.length >= 20; } },
+  { id: 'multi_lift', name: 'מגוון', shortName: 'מגוון', desc: 'שיא ב-3 תרגילים שונים לפחות', icon: '🎨', gender: 'all',
+    check: function(prs) {
+      var exercises = {};
+      prs.forEach(function(p) { exercises[p.exercise] = true; });
+      return Object.keys(exercises).length >= 3;
+    } },
+  { id: 'multi_lift_5', name: 'רב-תחומי', shortName: 'רב-תחומי', desc: 'שיא ב-5 תרגילים שונים לפחות', icon: '🌈', gender: 'all',
+    check: function(prs) {
+      var exercises = {};
+      prs.forEach(function(p) { exercises[p.exercise] = true; });
+      return Object.keys(exercises).length >= 5;
+    } },
 
-  // Men's strength clubs
-  { id: 'squat_100_m', name: 'מועדון 100 ק"ג סקוואט 🏋️', desc: 'Back Squat מעל 100 ק"ג (גברים)', icon: '🏋️', gender: 'M',
+  // ══════════════════════════════════════════════════════
+  // MEN'S BADGES — 4 tiers per exercise:
+  //   Tier 1 "צעד ראשון" (First Steps): ~3 months training
+  //   Tier 2 "מתחזק" (Getting Stronger): ~6 months
+  //   Tier 3 "Rx Ready" (Scaled→Rx transition): ~1-2 years
+  //   Tier 4 "עילית" (Elite Club): advanced
+  // ══════════════════════════════════════════════════════
+
+  // -- Back Squat (M): 60 → 80 → 100 → 140 kg --
+  { id: 'squat_60_m', name: 'סקוואט 60 ק"ג', shortName: 'סקוואט 60', desc: 'Back Squat 60 ק"ג — צעד ראשון (גברים)', icon: '🌱', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 60; }); } },
+  { id: 'squat_80_m', name: 'סקוואט 80 ק"ג', shortName: 'סקוואט 80', desc: 'Back Squat 80 ק"ג — מתחזק (גברים)', icon: '💪', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 80; }); } },
+  { id: 'squat_100_m', name: 'מועדון 100 סקוואט', shortName: 'סקוואט 100', desc: 'Back Squat 100 ק"ג — Rx Ready (גברים)', icon: '🏋️', gender: 'M',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 100; }); } },
-  { id: 'squat_140_m', name: 'מועדון 140 ק"ג סקוואט 💪', desc: 'Back Squat מעל 140 ק"ג (גברים)', icon: '💪', gender: 'M',
+  { id: 'squat_140_m', name: 'מועדון 140 סקוואט', shortName: 'סקוואט 140', desc: 'Back Squat 140 ק"ג — עילית (גברים)', icon: '👑', gender: 'M',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 140; }); } },
-  { id: 'deadlift_140_m', name: 'מועדון 140 ק"ג מתים 🔥', desc: 'Deadlift מעל 140 ק"ג (גברים)', icon: '🔥', gender: 'M',
+
+  // -- Deadlift (M): 80 → 100 → 140 → 180 kg --
+  { id: 'deadlift_80_m', name: 'מתים 80 ק"ג', shortName: 'מתים 80', desc: 'Deadlift 80 ק"ג — צעד ראשון (גברים)', icon: '🌱', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 80; }); } },
+  { id: 'deadlift_100_m', name: 'מתים 100 ק"ג', shortName: 'מתים 100', desc: 'Deadlift 100 ק"ג — מתחזק (גברים)', icon: '💪', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 100; }); } },
+  { id: 'deadlift_140_m', name: 'מועדון 140 מתים', shortName: 'מתים 140', desc: 'Deadlift 140 ק"ג — Rx Ready (גברים)', icon: '🔥', gender: 'M',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 140; }); } },
-  { id: 'deadlift_180_m', name: 'מועדון 180 ק"ג מתים 👑', desc: 'Deadlift מעל 180 ק"ג (גברים)', icon: '👑', gender: 'M',
+  { id: 'deadlift_180_m', name: 'מועדון 180 מתים', shortName: 'מתים 180', desc: 'Deadlift 180 ק"ג — עילית (גברים)', icon: '👑', gender: 'M',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 180; }); } },
-  { id: 'clean_100_m', name: 'מועדון 100 ק"ג קלין 🎖️', desc: 'Clean מעל 100 ק"ג (גברים)', icon: '🎖️', gender: 'M',
+
+  // -- Clean (M): 40 → 60 → 80 → 100 kg --
+  { id: 'clean_40_m', name: 'קלין 40 ק"ג', shortName: 'קלין 40', desc: 'Clean 40 ק"ג — צעד ראשון (גברים)', icon: '🌱', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Clean' && p.bestRaw >= 40; }); } },
+  { id: 'clean_60_m', name: 'קלין 60 ק"ג', shortName: 'קלין 60', desc: 'Clean 60 ק"ג — מתחזק (גברים)', icon: '💪', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Clean' && p.bestRaw >= 60; }); } },
+  { id: 'clean_80_m', name: 'קלין 80 ק"ג', shortName: 'קלין 80', desc: 'Clean 80 ק"ג — Rx Ready (גברים)', icon: '🏋️', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Clean' && p.bestRaw >= 80; }); } },
+  { id: 'clean_100_m', name: 'מועדון 100 קלין', shortName: 'קלין 100', desc: 'Clean 100 ק"ג — עילית (גברים)', icon: '🎖️', gender: 'M',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Clean' && p.bestRaw >= 100; }); } },
-  { id: 'snatch_80_m', name: 'מועדון 80 ק"ג סנאצ\' 🏅', desc: 'Snatch מעל 80 ק"ג (גברים)', icon: '🏅', gender: 'M',
+
+  // -- Snatch (M): 30 → 45 → 60 → 80 kg --
+  { id: 'snatch_30_m', name: 'סנאצ\' 30 ק"ג', shortName: 'סנאצ\' 30', desc: 'Snatch 30 ק"ג — צעד ראשון (גברים)', icon: '🌱', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Snatch' && p.bestRaw >= 30; }); } },
+  { id: 'snatch_45_m', name: 'סנאצ\' 45 ק"ג', shortName: 'סנאצ\' 45', desc: 'Snatch 45 ק"ג — מתחזק (גברים)', icon: '💪', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Snatch' && p.bestRaw >= 45; }); } },
+  { id: 'snatch_60_m', name: 'סנאצ\' 60 ק"ג', shortName: 'סנאצ\' 60', desc: 'Snatch 60 ק"ג — Rx Ready (גברים)', icon: '🏋️', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Snatch' && p.bestRaw >= 60; }); } },
+  { id: 'snatch_80_m', name: 'מועדון 80 סנאצ\'', shortName: 'סנאצ\' 80', desc: 'Snatch 80 ק"ג — עילית (גברים)', icon: '🏅', gender: 'M',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Snatch' && p.bestRaw >= 80; }); } },
-  { id: 'bench_100_m', name: 'מועדון 100 ק"ג בנץ\' 💎', desc: 'Bench Press מעל 100 ק"ג (גברים)', icon: '💎', gender: 'M',
+
+  // -- Bench Press (M): 40 → 60 → 80 → 100 kg --
+  { id: 'bench_40_m', name: 'בנץ\' 40 ק"ג', shortName: 'בנץ\' 40', desc: 'Bench Press 40 ק"ג — צעד ראשון (גברים)', icon: '🌱', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Bench Press' && p.bestRaw >= 40; }); } },
+  { id: 'bench_60_m', name: 'בנץ\' 60 ק"ג', shortName: 'בנץ\' 60', desc: 'Bench Press 60 ק"ג — מתחזק (גברים)', icon: '💪', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Bench Press' && p.bestRaw >= 60; }); } },
+  { id: 'bench_80_m', name: 'בנץ\' 80 ק"ג', shortName: 'בנץ\' 80', desc: 'Bench Press 80 ק"ג — Rx Ready (גברים)', icon: '🏋️', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Bench Press' && p.bestRaw >= 80; }); } },
+  { id: 'bench_100_m', name: 'מועדון 100 בנץ\'', shortName: 'בנץ\' 100', desc: 'Bench Press 100 ק"ג — עילית (גברים)', icon: '💎', gender: 'M',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Bench Press' && p.bestRaw >= 100; }); } },
 
-  // Women's strength clubs (adjusted thresholds)
-  { id: 'squat_60_f', name: 'מועדון 60 ק"ג סקוואט 🏋️', desc: 'Back Squat מעל 60 ק"ג (נשים)', icon: '🏋️', gender: 'F',
+  // -- Shoulder Press (M): 30 → 40 → 55 → 70 kg --
+  { id: 'press_30_m', name: 'כתפיים 30 ק"ג', shortName: 'כתפיים 30', desc: 'Shoulder Press 30 ק"ג — צעד ראשון (גברים)', icon: '🌱', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Shoulder Press' && p.bestRaw >= 30; }); } },
+  { id: 'press_40_m', name: 'כתפיים 40 ק"ג', shortName: 'כתפיים 40', desc: 'Shoulder Press 40 ק"ג — מתחזק (גברים)', icon: '💪', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Shoulder Press' && p.bestRaw >= 40; }); } },
+  { id: 'press_55_m', name: 'כתפיים 55 ק"ג', shortName: 'כתפיים 55', desc: 'Shoulder Press 55 ק"ג — Rx Ready (גברים)', icon: '🏋️', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Shoulder Press' && p.bestRaw >= 55; }); } },
+  { id: 'press_70_m', name: 'מועדון 70 כתפיים', shortName: 'כתפיים 70', desc: 'Shoulder Press 70 ק"ג — עילית (גברים)', icon: '👑', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Shoulder Press' && p.bestRaw >= 70; }); } },
+
+  // -- Front Squat (M): 50 → 70 → 90 → 120 kg --
+  { id: 'fsquat_50_m', name: 'פרונט סקוואט 50', shortName: 'פרונט 50', desc: 'Front Squat 50 ק"ג — צעד ראשון (גברים)', icon: '🌱', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Front Squat' && p.bestRaw >= 50; }); } },
+  { id: 'fsquat_70_m', name: 'פרונט סקוואט 70', shortName: 'פרונט 70', desc: 'Front Squat 70 ק"ג — מתחזק (גברים)', icon: '💪', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Front Squat' && p.bestRaw >= 70; }); } },
+  { id: 'fsquat_90_m', name: 'פרונט סקוואט 90', shortName: 'פרונט 90', desc: 'Front Squat 90 ק"ג — Rx Ready (גברים)', icon: '🏋️', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Front Squat' && p.bestRaw >= 90; }); } },
+  { id: 'fsquat_120_m', name: 'מועדון 120 פרונט', shortName: 'פרונט 120', desc: 'Front Squat 120 ק"ג — עילית (גברים)', icon: '👑', gender: 'M',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Front Squat' && p.bestRaw >= 120; }); } },
+
+  // ══════════════════════════════════════════════════════
+  // WOMEN'S BADGES — 4 tiers per exercise:
+  //   Tier 1 "צעד ראשון": ~3 months
+  //   Tier 2 "מתחזקת": ~6 months
+  //   Tier 3 "Rx Ready": ~1-2 years
+  //   Tier 4 "עילית": advanced
+  // ══════════════════════════════════════════════════════
+
+  // -- Back Squat (F): 35 → 50 → 60 → 90 kg --
+  { id: 'squat_35_f', name: 'סקוואט 35 ק"ג', shortName: 'סקוואט 35', desc: 'Back Squat 35 ק"ג — צעד ראשון (נשים)', icon: '🌱', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 35; }); } },
+  { id: 'squat_50_f', name: 'סקוואט 50 ק"ג', shortName: 'סקוואט 50', desc: 'Back Squat 50 ק"ג — מתחזקת (נשים)', icon: '💪', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 50; }); } },
+  { id: 'squat_60_f', name: 'מועדון 60 סקוואט', shortName: 'סקוואט 60', desc: 'Back Squat 60 ק"ג — Rx Ready (נשים)', icon: '🏋️', gender: 'F',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 60; }); } },
-  { id: 'squat_90_f', name: 'מועדון 90 ק"ג סקוואט 💪', desc: 'Back Squat מעל 90 ק"ג (נשים)', icon: '💪', gender: 'F',
+  { id: 'squat_90_f', name: 'מועדון 90 סקוואט', shortName: 'סקוואט 90', desc: 'Back Squat 90 ק"ג — עילית (נשים)', icon: '👑', gender: 'F',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Back Squat' && p.bestRaw >= 90; }); } },
-  { id: 'deadlift_80_f', name: 'מועדון 80 ק"ג מתים 🔥', desc: 'Deadlift מעל 80 ק"ג (נשים)', icon: '🔥', gender: 'F',
+
+  // -- Deadlift (F): 50 → 65 → 80 → 110 kg --
+  { id: 'deadlift_50_f', name: 'מתים 50 ק"ג', shortName: 'מתים 50', desc: 'Deadlift 50 ק"ג — צעד ראשון (נשים)', icon: '🌱', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 50; }); } },
+  { id: 'deadlift_65_f', name: 'מתים 65 ק"ג', shortName: 'מתים 65', desc: 'Deadlift 65 ק"ג — מתחזקת (נשים)', icon: '💪', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 65; }); } },
+  { id: 'deadlift_80_f', name: 'מועדון 80 מתים', shortName: 'מתים 80', desc: 'Deadlift 80 ק"ג — Rx Ready (נשים)', icon: '🔥', gender: 'F',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 80; }); } },
-  { id: 'deadlift_110_f', name: 'מועדון 110 ק"ג מתים 👑', desc: 'Deadlift מעל 110 ק"ג (נשים)', icon: '👑', gender: 'F',
+  { id: 'deadlift_110_f', name: 'מועדון 110 מתים', shortName: 'מתים 110', desc: 'Deadlift 110 ק"ג — עילית (נשים)', icon: '👑', gender: 'F',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Deadlift' && p.bestRaw >= 110; }); } },
-  { id: 'clean_60_f', name: 'מועדון 60 ק"ג קלין 🎖️', desc: 'Clean מעל 60 ק"ג (נשים)', icon: '🎖️', gender: 'F',
+
+  // -- Clean (F): 25 → 35 → 45 → 60 kg --
+  { id: 'clean_25_f', name: 'קלין 25 ק"ג', shortName: 'קלין 25', desc: 'Clean 25 ק"ג — צעד ראשון (נשים)', icon: '🌱', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Clean' && p.bestRaw >= 25; }); } },
+  { id: 'clean_35_f', name: 'קלין 35 ק"ג', shortName: 'קלין 35', desc: 'Clean 35 ק"ג — מתחזקת (נשים)', icon: '💪', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Clean' && p.bestRaw >= 35; }); } },
+  { id: 'clean_45_f', name: 'קלין 45 ק"ג', shortName: 'קלין 45', desc: 'Clean 45 ק"ג — Rx Ready (נשים)', icon: '🏋️', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Clean' && p.bestRaw >= 45; }); } },
+  { id: 'clean_60_f', name: 'מועדון 60 קלין', shortName: 'קלין 60', desc: 'Clean 60 ק"ג — עילית (נשים)', icon: '🎖️', gender: 'F',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Clean' && p.bestRaw >= 60; }); } },
-  { id: 'snatch_45_f', name: 'מועדון 45 ק"ג סנאצ\' 🏅', desc: 'Snatch מעל 45 ק"ג (נשים)', icon: '🏅', gender: 'F',
+
+  // -- Snatch (F): 20 → 30 → 35 → 45 kg --
+  { id: 'snatch_20_f', name: 'סנאצ\' 20 ק"ג', shortName: 'סנאצ\' 20', desc: 'Snatch 20 ק"ג — צעד ראשון (נשים)', icon: '🌱', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Snatch' && p.bestRaw >= 20; }); } },
+  { id: 'snatch_30_f', name: 'סנאצ\' 30 ק"ג', shortName: 'סנאצ\' 30', desc: 'Snatch 30 ק"ג — מתחזקת (נשים)', icon: '💪', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Snatch' && p.bestRaw >= 30; }); } },
+  { id: 'snatch_35_f', name: 'סנאצ\' 35 ק"ג', shortName: 'סנאצ\' 35', desc: 'Snatch 35 ק"ג — Rx Ready (נשים)', icon: '🏋️', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Snatch' && p.bestRaw >= 35; }); } },
+  { id: 'snatch_45_f', name: 'מועדון 45 סנאצ\'', shortName: 'סנאצ\' 45', desc: 'Snatch 45 ק"ג — עילית (נשים)', icon: '🏅', gender: 'F',
     check: function(prs) { return prs.some(function(p) { return p.exercise === 'Snatch' && p.bestRaw >= 45; }); } },
-  { id: 'bench_50_f', name: 'מועדון 50 ק"ג בנץ\' 💎', desc: 'Bench Press מעל 50 ק"ג (נשים)', icon: '💎', gender: 'F',
-    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Bench Press' && p.bestRaw >= 50; }); } }
+
+  // -- Bench Press (F): 20 → 30 → 40 → 50 kg --
+  { id: 'bench_20_f', name: 'בנץ\' 20 ק"ג', shortName: 'בנץ\' 20', desc: 'Bench Press 20 ק"ג — צעד ראשון (נשים)', icon: '🌱', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Bench Press' && p.bestRaw >= 20; }); } },
+  { id: 'bench_30_f', name: 'בנץ\' 30 ק"ג', shortName: 'בנץ\' 30', desc: 'Bench Press 30 ק"ג — מתחזקת (נשים)', icon: '💪', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Bench Press' && p.bestRaw >= 30; }); } },
+  { id: 'bench_40_f', name: 'בנץ\' 40 ק"ג', shortName: 'בנץ\' 40', desc: 'Bench Press 40 ק"ג — Rx Ready (נשים)', icon: '🏋️', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Bench Press' && p.bestRaw >= 40; }); } },
+  { id: 'bench_50_f', name: 'מועדון 50 בנץ\'', shortName: 'בנץ\' 50', desc: 'Bench Press 50 ק"ג — עילית (נשים)', icon: '💎', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Bench Press' && p.bestRaw >= 50; }); } },
+
+  // -- Shoulder Press (F): 15 → 25 → 35 → 45 kg --
+  { id: 'press_15_f', name: 'כתפיים 15 ק"ג', shortName: 'כתפיים 15', desc: 'Shoulder Press 15 ק"ג — צעד ראשון (נשים)', icon: '🌱', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Shoulder Press' && p.bestRaw >= 15; }); } },
+  { id: 'press_25_f', name: 'כתפיים 25 ק"ג', shortName: 'כתפיים 25', desc: 'Shoulder Press 25 ק"ג — מתחזקת (נשים)', icon: '💪', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Shoulder Press' && p.bestRaw >= 25; }); } },
+  { id: 'press_35_f', name: 'כתפיים 35 ק"ג', shortName: 'כתפיים 35', desc: 'Shoulder Press 35 ק"ג — Rx Ready (נשים)', icon: '🏋️', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Shoulder Press' && p.bestRaw >= 35; }); } },
+  { id: 'press_45_f', name: 'מועדון 45 כתפיים', shortName: 'כתפיים 45', desc: 'Shoulder Press 45 ק"ג — עילית (נשים)', icon: '👑', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Shoulder Press' && p.bestRaw >= 45; }); } },
+
+  // -- Front Squat (F): 30 → 40 → 55 → 75 kg --
+  { id: 'fsquat_30_f', name: 'פרונט סקוואט 30', shortName: 'פרונט 30', desc: 'Front Squat 30 ק"ג — צעד ראשון (נשים)', icon: '🌱', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Front Squat' && p.bestRaw >= 30; }); } },
+  { id: 'fsquat_40_f', name: 'פרונט סקוואט 40', shortName: 'פרונט 40', desc: 'Front Squat 40 ק"ג — מתחזקת (נשים)', icon: '💪', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Front Squat' && p.bestRaw >= 40; }); } },
+  { id: 'fsquat_55_f', name: 'פרונט סקוואט 55', shortName: 'פרונט 55', desc: 'Front Squat 55 ק"ג — Rx Ready (נשים)', icon: '🏋️', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Front Squat' && p.bestRaw >= 55; }); } },
+  { id: 'fsquat_75_f', name: 'מועדון 75 פרונט', shortName: 'פרונט 75', desc: 'Front Squat 75 ק"ג — עילית (נשים)', icon: '👑', gender: 'F',
+    check: function(prs) { return prs.some(function(p) { return p.exercise === 'Front Squat' && p.bestRaw >= 75; }); } }
 ];
 
 function calculateBadgesForAthlete_(athleteName) {
@@ -1123,7 +1263,16 @@ function handleGetBadges_(e) {
   }
 
   var allBadges = earned.concat(manual);
-  return respondWithCallback_(e, { badges: allBadges, name: name });
+
+  // Also return all possible badge definitions for this athlete's gender (for locked badge display)
+  var possibleBadges = [];
+  for (var k = 0; k < BADGE_DEFINITIONS.length; k++) {
+    var bd = BADGE_DEFINITIONS[k];
+    if (bd.gender !== 'all' && bd.gender !== athleteGender) continue;
+    possibleBadges.push({ id: bd.id, name: bd.name, shortName: bd.shortName || bd.name, desc: bd.desc, icon: bd.icon });
+  }
+
+  return respondWithCallback_(e, { badges: allBadges, allBadges: possibleBadges, name: name });
 }
 
 // --- Manually award badge (coach) ---
