@@ -115,7 +115,13 @@ function doPost(e) {
   } else if (e.postData && e.postData.contents) {
     raw = e.postData.contents;
   }
-  var data = JSON.parse(raw);
+  var data;
+  try {
+    data = JSON.parse(raw);
+  } catch (err) {
+    return jsonResponse_({ status: 'error', message: 'Invalid JSON' });
+  }
+  if (!data) return jsonResponse_({ status: 'error', message: 'Empty payload' });
   var action = data.action || 'score';
 
   if (action === 'lift') {
@@ -264,18 +270,20 @@ function checkAndUpdatePR_(prSheet, name, exercise, type, bestDisplay, bestRaw, 
   var isPR = false;
 
   if (foundRow === -1) {
-    // First entry — it's a PR by definition
-    isPR = true;
-    var newRow = prSheet.getLastRow() + 1;
-    prSheet.getRange(newRow, 1, 1, 7).setNumberFormat('@').setValues([[
-      name, exercise, type, String(bestDisplay), String(bestRaw), String(reps || 0), date
-    ]]);
+    // First entry — it's a PR by definition (only if value is meaningful)
+    isPR = bestRaw > 0;
+    if (isPR) {
+      var newRow = prSheet.getLastRow() + 1;
+      prSheet.getRange(newRow, 1, 1, 7).setNumberFormat('@').setValues([[
+        name, exercise, type, String(bestDisplay), String(bestRaw), String(reps || 0), date
+      ]]);
+    }
   } else {
     var currentBestRaw = Number(data[foundRow - 1][4]) || 0;
 
     if (type === 'benchmark' && scoreType === 'time') {
-      // For time: lower is better
-      isPR = bestRaw < currentBestRaw;
+      // For time: lower is better (but must be > 0)
+      isPR = bestRaw > 0 && (currentBestRaw === 0 || bestRaw < currentBestRaw);
     } else {
       // For lifts and other benchmarks: higher is better
       isPR = bestRaw > currentBestRaw;
@@ -295,6 +303,7 @@ function checkAndUpdatePR_(prSheet, name, exercise, type, bestDisplay, bestRaw, 
 // GET handler
 // ═══════════════════════════════════════════════════════
 function doGet(e) {
+  if (!e.parameter) e.parameter = {};
   var action = e.parameter.action || 'scores';
 
   if (action === 'clear') return handleClear_(e);
@@ -705,6 +714,9 @@ function handleAllPRs_(e) {
 // Clear today's scores (Results tab ONLY)
 // ═══════════════════════════════════════════════════════
 function handleClear_(e) {
+  if (!verifyCoach_(e.parameter.coachKey || e.parameter.password || '')) {
+    return respondWithCallback_(e, { status: 'error', message: 'Unauthorized' });
+  }
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Results');
   var deleted = 0;
 
@@ -1675,6 +1687,11 @@ function respondWithCallback_(e, obj) {
   var json = JSON.stringify(obj);
   var callback = e.parameter.callback;
   if (callback) {
+    // Sanitize callback name: allow only valid JS identifiers (letters, digits, underscore, dot)
+    if (!/^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(callback)) {
+      return ContentService.createTextOutput(json)
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     return ContentService.createTextOutput(callback + '(' + json + ')')
       .setMimeType(ContentService.MimeType.JAVASCRIPT);
   }

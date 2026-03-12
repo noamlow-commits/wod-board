@@ -1700,7 +1700,8 @@
       const d = new Date();
       const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const cbName = '_clearCb_' + Date.now();
-      const url = `${settings.appsScriptUrl}?action=clear&date=${today}&callback=${cbName}`;
+      const coachKey = localStorage.getItem('wodboard-coach-key') || '';
+      const url = `${settings.appsScriptUrl}?action=clear&date=${today}&coachKey=${encodeURIComponent(coachKey)}&callback=${cbName}`;
 
       const statusEl = document.getElementById('clearStatus');
       statusEl.style.display = 'block';
