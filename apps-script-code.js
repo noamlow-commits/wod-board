@@ -26,6 +26,9 @@ function doPost(e) {
     // Format header row
     sheet.getRange(1, 1, 1, 7).setFontWeight('bold');
     sheet.setFrozenRows(1);
+    // Set Score and WorkoutDate columns to plain text to prevent auto-conversion
+    sheet.getRange('C:C').setNumberFormat('@');
+    sheet.getRange('E:E').setNumberFormat('@');
   }
 
   // Support both JSON body (fetch) and form-encoded payload (form submit)
@@ -37,15 +40,16 @@ function doPost(e) {
   }
   var data = JSON.parse(raw);
 
-  sheet.appendRow([
+  var newRow = sheet.getLastRow() + 1;
+  sheet.getRange(newRow, 1, 1, 7).setNumberFormat('@').setValues([[
     new Date().toISOString(),
     data.name || '',
     data.score || '',
     data.scoreType || 'time',
     data.workoutDate || new Date().toISOString().slice(0, 10),
-    data.rawValue || 0,
+    String(data.rawValue || 0),
     data.rx || 'Rx'
-  ]);
+  ]]);
 
   return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
     .setMimeType(ContentService.MimeType.JSON);
@@ -65,25 +69,48 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  var tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+  var tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone() || 'Asia/Jerusalem';
   var dateFilter = e.parameter.date || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
   var data = sheet.getDataRange().getValues();
   var results = [];
 
-  // Skip header row (i=0)
   for (var i = 1; i < data.length; i++) {
     var rowDate = data[i][4]; // WorkoutDate column
-    // Use spreadsheet timezone (not UTC) to avoid date shift
-    if (rowDate instanceof Date) {
-      rowDate = Utilities.formatDate(rowDate, tz, 'yyyy-MM-dd');
+    try {
+      rowDate = Utilities.formatDate(new Date(rowDate), tz, 'yyyy-MM-dd');
+    } catch (err) {
+      rowDate = String(rowDate).slice(0, 10);
     }
-    if (String(rowDate) === dateFilter) {
+
+    if (rowDate === dateFilter) {
+      // Reconstruct score from rawValue+scoreType if Sheets auto-converted it to Date
+      var score = data[i][2];
+      var scoreType = String(data[i][3]);
+      var rawValue = Number(data[i][5]) || 0;
+
+      if (score instanceof Date || (typeof score === 'object' && score !== null)) {
+        // Score was auto-converted — reconstruct from rawValue
+        if (scoreType === 'time') {
+          var min = Math.floor(rawValue / 60);
+          var sec = rawValue % 60;
+          score = min + ':' + (sec < 10 ? '0' : '') + sec;
+        } else if (scoreType === 'amrap') {
+          var rounds = Math.floor(rawValue / 1000);
+          var reps = rawValue % 1000;
+          score = rounds + '+' + reps;
+        } else {
+          score = String(rawValue);
+        }
+      } else {
+        score = String(score);
+      }
+
       results.push({
         timestamp: data[i][0],
         name: data[i][1],
-        score: data[i][2],
-        scoreType: data[i][3],
-        rawValue: data[i][5],
+        score: score,
+        scoreType: scoreType,
+        rawValue: rawValue,
         rx: data[i][6] || 'Rx'
       });
     }
