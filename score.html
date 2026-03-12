@@ -537,7 +537,14 @@
       const savedType = localStorage.getItem('wodboard-score-type');
       if (savedType) selectType(savedType);
 
-      if (urlParams.get('api')) localStorage.setItem('wodboard-api', urlParams.get('api'));
+      if (urlParams.get('api')) {
+        localStorage.setItem('wodboard-api', urlParams.get('api'));
+        try {
+          var wbSettings = JSON.parse(localStorage.getItem('wodboard') || '{}');
+          wbSettings.appsScriptUrl = urlParams.get('api');
+          localStorage.setItem('wodboard', JSON.stringify(wbSettings));
+        } catch(e) {}
+      }
 
       // Pass API to profile link
       if (API_URL) {

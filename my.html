@@ -1197,10 +1197,23 @@ let leaderboardGenderFilter = '';
   const urlParams = new URLSearchParams(window.location.search);
   API_URL = urlParams.get('api') || localStorage.getItem('wodboard-api') || '';
 
+  // Save API to both localStorage keys for cross-page sync
+  if (API_URL) {
+    localStorage.setItem('wodboard-api', API_URL);
+    // Also sync to index.html settings format
+    try {
+      var wbSettings = JSON.parse(localStorage.getItem('wodboard') || '{}');
+      if (wbSettings.appsScriptUrl !== API_URL) {
+        wbSettings.appsScriptUrl = API_URL;
+        localStorage.setItem('wodboard', JSON.stringify(wbSettings));
+      }
+    } catch(e) {}
+  }
+
   // Pass API to linked pages
   if (API_URL) {
     document.getElementById('linkScore').href = 'score.html?api=' + encodeURIComponent(API_URL);
-    document.getElementById('linkBoard').href = 'index.html';
+    document.getElementById('linkBoard').href = 'index.html?api=' + encodeURIComponent(API_URL);
     document.getElementById('linkCoach').href = 'coach.html?api=' + encodeURIComponent(API_URL);
   }
 

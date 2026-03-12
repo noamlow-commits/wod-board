@@ -729,7 +729,14 @@ const BADGE_DEFS = [
   const urlParams = new URLSearchParams(window.location.search);
   API_URL = urlParams.get('api') || localStorage.getItem('wodboard-api') || '';
 
-  if (API_URL) localStorage.setItem('wodboard-api', API_URL);
+  if (API_URL) {
+    localStorage.setItem('wodboard-api', API_URL);
+    try {
+      var wbSettings = JSON.parse(localStorage.getItem('wodboard') || '{}');
+      wbSettings.appsScriptUrl = API_URL;
+      localStorage.setItem('wodboard', JSON.stringify(wbSettings));
+    } catch(e) {}
+  }
 
   coachKey = localStorage.getItem('wodboard-coach-key') || '';
 

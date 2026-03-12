@@ -1352,6 +1352,20 @@
     // State
     // ════════════════════════════════════════
     let settings = loadSettings();
+
+    // Accept ?api= parameter from other pages (my.html, score.html)
+    (function syncApiFromUrl() {
+      const urlApi = new URLSearchParams(window.location.search).get('api');
+      if (urlApi && urlApi !== settings.appsScriptUrl) {
+        settings.appsScriptUrl = urlApi;
+        saveSettings(settings);
+      }
+      // Also sync to wodboard-api key used by my.html/score.html
+      if (settings.appsScriptUrl) {
+        localStorage.setItem('wodboard-api', settings.appsScriptUrl);
+      }
+    })();
+
     let currentTab = '';
     let lastDataJSON = '';
     let lastScoreJSON = '';
