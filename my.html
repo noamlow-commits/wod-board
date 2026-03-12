@@ -1213,11 +1213,20 @@ let leaderboardGenderFilter = '';
     } catch(e) {}
   }
 
-  // Pass API to linked pages
+  // Pass API to linked pages, including sheet/tab for index.html
   if (API_URL) {
-    document.getElementById('linkScore').href = 'score.html?api=' + encodeURIComponent(API_URL);
-    document.getElementById('linkBoard').href = 'index.html?api=' + encodeURIComponent(API_URL);
-    document.getElementById('linkCoach').href = 'coach.html?api=' + encodeURIComponent(API_URL);
+    var apiParam = 'api=' + encodeURIComponent(API_URL);
+    document.getElementById('linkScore').href = 'score.html?' + apiParam;
+    document.getElementById('linkCoach').href = 'coach.html?' + apiParam;
+
+    // Build index.html link with sheet+tab from settings
+    var boardUrl = 'index.html?' + apiParam;
+    try {
+      var wbS = JSON.parse(localStorage.getItem('wodboard') || '{}');
+      if (wbS.sheetId) boardUrl += '&sheet=' + encodeURIComponent(wbS.sheetId);
+      if (wbS.tabs && wbS.tabs[0]) boardUrl += '&tab=' + encodeURIComponent(wbS.tabs[0]);
+    } catch(e) {}
+    document.getElementById('linkBoard').href = boardUrl;
   }
 
   myName = localStorage.getItem('wodboard-athlete-name') || '';

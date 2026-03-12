@@ -743,6 +743,22 @@ const BADGE_DEFS = [
       wbSettings.appsScriptUrl = API_URL;
       localStorage.setItem('wodboard', JSON.stringify(wbSettings));
     } catch(e) {}
+
+    // Update header links with API param
+    var apiP = 'api=' + encodeURIComponent(API_URL);
+    var links = document.querySelectorAll('.header-links a');
+    links.forEach(function(a) {
+      if (a.href.includes('my.html')) a.href = 'my.html?' + apiP;
+      if (a.href.includes('score.html')) a.href = 'score.html?' + apiP;
+      if (a.href.includes('index.html')) {
+        var bUrl = 'index.html?' + apiP;
+        try {
+          if (wbSettings.sheetId) bUrl += '&sheet=' + encodeURIComponent(wbSettings.sheetId);
+          if (wbSettings.tabs && wbSettings.tabs[0]) bUrl += '&tab=' + encodeURIComponent(wbSettings.tabs[0]);
+        } catch(e2) {}
+        a.href = bUrl;
+      }
+    });
   }
 
   coachKey = localStorage.getItem('wodboard-coach-key') || '';
