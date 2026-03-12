@@ -163,6 +163,16 @@ function doPost(e) {
   if (action === 'deleteAnnouncement') {
     return handleDeleteAnnouncement_(data);
   }
+  if (action === 'changePassword') {
+    if (!verifyCoach_(data.coachKey || '')) {
+      return jsonResponse_({ status: 'error', message: 'Unauthorized' });
+    }
+    if (!data.newPassword || data.newPassword.length < 4) {
+      return jsonResponse_({ status: 'error', message: 'Password too short' });
+    }
+    PropertiesService.getScriptProperties().setProperty('COACH_PASSWORD', data.newPassword);
+    return jsonResponse_({ status: 'ok', message: 'Password changed' });
+  }
   // Default: daily WOD score (existing behavior)
   return handleScorePost_(data);
 }
