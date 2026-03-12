@@ -1317,7 +1317,7 @@
         setDisplayMode('split');
       }
 
-      // Group by scoreType, then deduplicate by name within each group (keep last)
+      // Deduplicate: per name per scoreType, keep last entry
       const groups = {};
       for (const r of results) {
         const t = r.scoreType || 'time';
@@ -1325,7 +1325,6 @@
         groups[t][r.name] = r;
       }
 
-      // Sort groups in consistent order, render each
       const orderedTypes = SCORE_TYPE_ORDER.filter(t => groups[t]);
       const multiGroup = orderedTypes.length > 1;
 
@@ -1333,7 +1332,9 @@
       if (newJSON === lastScoreJSON) return;
       lastScoreJSON = newJSON;
 
-      let html = '';
+      // Flatten all entries into a single sorted list
+      // Each entry gets its type label; sort within each type, then concatenate
+      let allRows = [];
       for (const type of orderedTypes) {
         let sorted = Object.values(groups[type]);
         if (type === 'time') {
@@ -1341,37 +1342,41 @@
         } else {
           sorted.sort((a, b) => b.rawValue - a.rawValue);
         }
-
-        if (multiGroup) {
-          html += `<div class="score-group-header">${SCORE_TYPE_LABELS[type] || type.toUpperCase()}</div>`;
-        }
-
-        const rowsHTML = sorted.map((r, i) => {
-          const rank = i + 1;
-          const rankClass = rank <= 3 ? ` rank-${rank}` : '';
-          const rxClass = (r.rx || 'Rx') === 'Rx' ? 'rx-tag-rx' : 'rx-tag-scaled';
-          return `
-            <tr class="score-row-enter${rankClass}">
-              <td class="rank-cell">${rank}</td>
-              <td class="name-cell" dir="auto">${escapeHtml(r.name)}</td>
-              <td class="score-cell">${escapeHtml(String(r.score))}</td>
-              <td><span class="rx-cell ${rxClass}">${escapeHtml(r.rx || 'Rx')}</span></td>
-            </tr>`;
-        }).join('');
-
-        html += `
-          <table class="scoreboard-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>ATHLETE</th>
-                <th>SCORE</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>${rowsHTML}</tbody>
-          </table>`;
+        sorted.forEach((r, i) => allRows.push({ ...r, rank: i + 1, typeLabel: SCORE_TYPE_LABELS[type] || type.toUpperCase() }));
       }
+
+      let html = '';
+      let prevType = '';
+      const rowsHTML = allRows.map(r => {
+        const rankClass = r.rank <= 3 ? ` rank-${r.rank}` : '';
+        const rxClass = (r.rx || 'Rx') === 'Rx' ? 'rx-tag-rx' : 'rx-tag-scaled';
+        // Show type separator row when type changes (only if multiple types)
+        let sep = '';
+        if (multiGroup && r.typeLabel !== prevType) {
+          prevType = r.typeLabel;
+          sep = `<tr><td colspan="4" class="score-group-header" style="padding:0.4rem 0.6rem 0.15rem;">${r.typeLabel}</td></tr>`;
+        }
+        return `${sep}
+          <tr class="score-row-enter${rankClass}">
+            <td class="rank-cell">${r.rank}</td>
+            <td class="name-cell" dir="auto">${escapeHtml(r.name)}</td>
+            <td class="score-cell">${escapeHtml(String(r.score))}</td>
+            <td><span class="rx-cell ${rxClass}">${escapeHtml(r.rx || 'Rx')}</span></td>
+          </tr>`;
+      }).join('');
+
+      html = `
+        <table class="scoreboard-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>ATHLETE</th>
+              <th>SCORE</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>${rowsHTML}</tbody>
+        </table>`;
 
       container.innerHTML = html;
     }
