@@ -578,6 +578,74 @@
       min-width: 0;
       border-inline-start: 1px solid #222;
       padding-inline-start: 0.8rem;
+      transition: flex 0.3s ease;
+    }
+
+    /* Compact scoreboard when in SPLIT mode */
+    .main-content.mode-split .scoreboard-header {
+      font-size: calc(1.1rem * var(--font-scale));
+      padding: 0.25rem 0;
+    }
+
+    .main-content.mode-split .scoreboard-table th {
+      font-size: calc(0.7rem * var(--font-scale));
+      padding: 0.2rem 0.4rem;
+    }
+
+    .main-content.mode-split .scoreboard-table td {
+      font-size: calc(0.9rem * var(--font-scale));
+      padding: 0.25rem 0.4rem;
+    }
+
+    .main-content.mode-split .scoreboard-table .rank-cell {
+      font-size: calc(0.95rem * var(--font-scale));
+      width: 1.8rem;
+    }
+
+    .main-content.mode-split .scoreboard-table .score-cell {
+      font-size: calc(1.05rem * var(--font-scale));
+    }
+
+    .main-content.mode-split .scoreboard-table .rx-cell {
+      font-size: calc(0.65rem * var(--font-scale));
+      padding: 0.1rem 0.3rem;
+    }
+
+    .main-content.mode-split .score-group-header {
+      font-size: calc(0.75rem * var(--font-scale));
+      padding: 0.2rem 0.4rem 0.1rem !important;
+    }
+
+    /* When many results: scoreboard gets more space */
+    .main-content.mode-split.scores-many #scoreboardArea {
+      flex: 2;
+    }
+    .main-content.mode-split.scores-many #wodArea {
+      flex: 2;
+    }
+
+    /* Compact top bar in split mode when crowded */
+    .main-content.mode-split ~ .top-bar,
+    body.split-active .top-bar {
+      padding: 0.2rem 1.5rem;
+    }
+
+    body.split-active .top-bar .clock {
+      font-size: calc(1.8rem * var(--font-scale));
+    }
+
+    body.split-active .top-bar .logo .logo-img {
+      height: calc(2.8rem * var(--font-scale));
+    }
+
+    body.split-active .top-bar .logo {
+      font-size: calc(1.2rem * var(--font-scale));
+    }
+
+    /* Smaller QR in SPLIT mode */
+    body.split-active .qr-overlay img {
+      width: 90px;
+      height: 90px;
     }
 
     .main-content.mode-wod #scoreboardArea { display: none; }
@@ -1180,6 +1248,9 @@
         container.classList.add(`mode-${mode}`);
       }
 
+      // Toggle body class for split-specific compact styling
+      document.body.classList.toggle('split-active', mode === 'split');
+
       // Update mode indicator buttons
       document.querySelectorAll('.mode-dot').forEach(b => {
         b.classList.toggle('active', b.dataset.mode === mode);
@@ -1379,6 +1450,19 @@
         </table>`;
 
       container.innerHTML = html;
+
+      // Dynamic layout: adjust scoreboard panel size based on result count
+      adjustSplitLayout(allRows.length);
+    }
+
+    function adjustSplitLayout(resultCount) {
+      const mainContent = document.getElementById('mainContent');
+      // Toggle class for many results (more than 6 rows = give scoreboard more space)
+      if (resultCount > 6) {
+        mainContent.classList.add('scores-many');
+      } else {
+        mainContent.classList.remove('scores-many');
+      }
     }
 
     // ════════════════════════════════════════
