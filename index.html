@@ -582,7 +582,7 @@
     }
 
     /* Compact scoreboard when in SPLIT mode */
-    .main-content.mode-split .scoreboard-header {
+    .main-content.mode-split .scoreboard-header-bar .scoreboard-header {
       font-size: calc(1.1rem * var(--font-scale));
       padding: 0.25rem 0;
     }
@@ -687,6 +687,14 @@
       margin-top: 0;
     }
 
+    .scoreboard-header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      flex-shrink: 0;
+    }
+
     .scoreboard-header {
       font-family: 'Barlow', sans-serif;
       font-size: calc(1.6rem * var(--font-scale));
@@ -699,7 +707,95 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      flex-shrink: 0;
+    }
+
+    .lift-mode-toggle {
+      position: absolute;
+      right: 0.3rem;
+      display: flex;
+      gap: 0.2rem;
+    }
+
+    .lift-mode-btn {
+      background: none;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 0.15rem 0.35rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+      color: var(--text-dim);
+      transition: all 0.2s;
+    }
+
+    .lift-mode-btn.active {
+      border-color: var(--blue, #3b82f6);
+      color: var(--blue, #3b82f6);
+      background: rgba(59,130,246,0.1);
+    }
+
+    /* Lifts separate section */
+    .lifts-header {
+      font-family: 'Barlow', sans-serif;
+      font-size: calc(0.9rem * var(--font-scale));
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      text-align: center;
+      padding: 0.4rem 0 0.2rem;
+      color: var(--blue, #3b82f6);
+      border-top: 1px solid #2a2a2a;
+      margin-top: 0.3rem;
+    }
+
+    .lift-row {
+      display: flex;
+      align-items: center;
+      padding: 0.25rem 0.5rem;
+      border-bottom: 1px solid #1a1a1a;
+      font-size: calc(0.85rem * var(--font-scale));
+      gap: 0.4rem;
+    }
+
+    .lift-row .lift-name {
+      flex: 1;
+      font-weight: 600;
+      unicode-bidi: plaintext;
+    }
+
+    .lift-row .lift-exercise {
+      color: var(--text-dim);
+      font-size: calc(0.75rem * var(--font-scale));
+      flex: 1;
+    }
+
+    .lift-row .lift-weight {
+      font-weight: 900;
+      font-family: 'Barlow', sans-serif;
+      color: var(--blue, #3b82f6);
+    }
+
+    .lift-row .lift-pr-badge {
+      font-size: calc(0.6rem * var(--font-scale));
+      padding: 0.1rem 0.3rem;
+      border-radius: 4px;
+      background: rgba(245,158,11,0.2);
+      color: var(--accent2, #f59e0b);
+      font-weight: 700;
+    }
+
+    /* Inline lift chips in score row */
+    .score-chip.lift-chip .score-value {
+      color: var(--blue, #3b82f6);
+      font-size: calc(1.1rem * var(--font-scale));
+    }
+
+    .score-chip.lift-chip .score-type-label {
+      color: var(--blue, #3b82f6);
+      opacity: 0.7;
+    }
+
+    .main-content.mode-split .score-chip.lift-chip .score-value {
+      font-size: calc(0.9rem * var(--font-scale));
     }
 
     .scoreboard-table {
@@ -950,12 +1046,22 @@
     </div>
     <div id="scoreboardArea">
       <div class="scoreboard-wrap">
-        <div class="scoreboard-header">Results</div>
+        <div class="scoreboard-header-bar">
+          <span class="scoreboard-header">Results</span>
+          <div class="lift-mode-toggle" id="liftModeToggle" style="display:none;">
+            <button class="lift-mode-btn active" data-lmode="inline" onclick="setLiftDisplayMode('inline')" title="הרמות בשורת הספורטאי">📊</button>
+            <button class="lift-mode-btn" data-lmode="separate" onclick="setLiftDisplayMode('separate')" title="הרמות באזור נפרד">📋</button>
+          </div>
+        </div>
         <div id="scoreboardContent">
           <div class="scoreboard-empty">
             <div class="empty-icon">📊</div>
             <p>ממתין לתוצאות...</p>
           </div>
+        </div>
+        <div id="liftsSection" style="display:none;">
+          <div class="lifts-header">🏋️ LIFTS TODAY</div>
+          <div id="liftsContent"></div>
         </div>
       </div>
     </div>
@@ -1089,6 +1195,9 @@
     let autoRotateTimer = null;
     let displayMode = 'wod';
     let autoRotateState = 'wod'; // toggles between 'wod' and 'scoreboard'
+    let liftDisplayMode = 'inline'; // 'inline' = in athlete row, 'separate' = own section
+    let todayLifts = [];
+    let lastLiftJSON = '';
 
     const SECTION_THEMES = [
       { keywords: ['חימום', 'warm', 'חמום'], cls: 'warmup' },
@@ -1414,6 +1523,67 @@
       document.head.appendChild(script);
     }
 
+    function fetchTodayLifts() {
+      if (!settings.appsScriptUrl) return;
+
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const url = `${settings.appsScriptUrl}?action=todaylifts&date=${today}&callback=_liftCb_${Date.now()}`;
+      const callbackName = url.match(/callback=([^&]+)/)[1];
+
+      const script = document.createElement('script');
+      window[callbackName] = function(data) {
+        delete window[callbackName];
+        script.remove();
+        if (data && data.lifts) {
+          const newJSON = JSON.stringify(data.lifts);
+          if (newJSON !== lastLiftJSON) {
+            lastLiftJSON = newJSON;
+            todayLifts = data.lifts;
+            // Show toggle when lifts exist
+            document.getElementById('liftModeToggle').style.display = todayLifts.length > 0 ? 'flex' : 'none';
+            // Re-render scoreboard with lifts
+            lastScoreJSON = ''; // force re-render
+            fetchScoreboard();
+            renderLiftsSeparate();
+          }
+        }
+      };
+      script.onerror = () => { delete window[callbackName]; script.remove(); };
+      setTimeout(() => { if (window[callbackName]) { delete window[callbackName]; script.remove(); } }, 8000);
+      script.src = url;
+      document.head.appendChild(script);
+    }
+
+    function setLiftDisplayMode(mode) {
+      liftDisplayMode = mode;
+      document.querySelectorAll('.lift-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.lmode === mode));
+      // Toggle separate lifts section visibility
+      document.getElementById('liftsSection').style.display = (mode === 'separate' && todayLifts.length > 0) ? 'block' : 'none';
+      // Re-render scoreboard
+      lastScoreJSON = '';
+      fetchScoreboard();
+      if (mode === 'separate') renderLiftsSeparate();
+    }
+
+    function renderLiftsSeparate() {
+      const container = document.getElementById('liftsContent');
+      const section = document.getElementById('liftsSection');
+      if (!todayLifts.length) { section.style.display = 'none'; return; }
+      if (liftDisplayMode !== 'separate') { section.style.display = 'none'; return; }
+
+      section.style.display = 'block';
+      container.innerHTML = todayLifts.map(l => {
+        const prBadge = l.isPR ? '<span class="lift-pr-badge">PR!</span>' : '';
+        return `<div class="lift-row">
+          <span class="lift-name" dir="auto">${escapeHtml(l.name)}</span>
+          <span class="lift-exercise">${escapeHtml(l.exercise)}</span>
+          <span class="lift-weight">${l.weight} ${l.unit} x${l.reps}</span>
+          ${prBadge}
+        </div>`;
+      }).join('');
+    }
+
     const SCORE_TYPE_LABELS = { time: 'FOR TIME', amrap: 'AMRAP', reps: 'REPS', weight: 'WEIGHT' };
     const SCORE_TYPE_ORDER = ['time', 'amrap', 'reps', 'weight'];
 
@@ -1465,7 +1635,11 @@
 
       const rowsHTML = athleteOrder.map((name, idx) => {
         const scores = athletes[name];
-        const showLabels = scores.length > 1;
+        // Add inline lifts for this athlete if in inline mode
+        const athleteLifts = (liftDisplayMode === 'inline') ? todayLifts.filter(l => l.name === name) : [];
+        const allItems = scores.length + athleteLifts.length;
+        const showLabels = allItems > 1;
+
         // Build score chips: each score as a small badge
         const scoreChips = scores.map(s => {
           const rxClass = (s.rx || 'Rx') === 'Rx' ? 'rx-tag-rx' : 'rx-tag-scaled';
@@ -1473,12 +1647,18 @@
           return `<span class="score-chip">${label}<span class="score-value">${escapeHtml(String(s.score))}</span><span class="rx-cell ${rxClass}">${escapeHtml(s.rx || 'Rx')}</span></span>`;
         }).join('');
 
+        // Build lift chips
+        const liftChips = athleteLifts.map(l => {
+          const prBadge = l.isPR ? `<span class="lift-pr-badge" style="margin-inline-start:0.15rem;">PR</span>` : '';
+          return `<span class="score-chip lift-chip"><span class="score-type-label">${escapeHtml(l.exercise)}</span><span class="score-value">${l.weight}${l.unit} x${l.reps}</span>${prBadge}</span>`;
+        }).join('');
+
         const rankClass = idx < 3 ? ` rank-${idx + 1}` : '';
         return `
           <tr class="score-row-enter${rankClass}">
             <td class="rank-cell">${idx + 1}</td>
             <td class="name-cell" dir="auto">${escapeHtml(name)}</td>
-            <td class="scores-cell">${scoreChips}</td>
+            <td class="scores-cell">${scoreChips}${liftChips}</td>
           </tr>`;
       }).join('');
 
@@ -1829,10 +2009,14 @@
         refreshTimer = setInterval(fetchAndRender, (settings.refreshInterval || 30) * 1000);
       }
 
-      // Start scoreboard refresh if configured
+      // Start scoreboard + lifts refresh if configured
       if (settings.appsScriptUrl) {
         fetchScoreboard();
-        scoreRefreshTimer = setInterval(fetchScoreboard, 5000);
+        fetchTodayLifts();
+        scoreRefreshTimer = setInterval(() => {
+          fetchScoreboard();
+          fetchTodayLifts();
+        }, 5000);
       }
 
       // Apply display mode

@@ -220,6 +220,7 @@ function doGet(e) {
   if (action === 'myprs') return handleMyPRs_(e);
   if (action === 'mylifts') return handleMyLifts_(e);
   if (action === 'mybenchmarks') return handleMyBenchmarks_(e);
+  if (action === 'todaylifts') return handleTodayLifts_(e);
 
   // Default: return today's WOD scores (existing behavior)
   return handleGetScores_(e);
@@ -358,6 +359,39 @@ function handleMyBenchmarks_(e) {
   }
 
   return respondWithCallback_(e, { benchmarks: benchmarks, name: name });
+}
+
+// --- Get today's lifts (all athletes) ---
+function handleTodayLifts_(e) {
+  var tz = getTz_();
+  var dateFilter = e.parameter.date || todayStr_();
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Lifts');
+  var lifts = [];
+
+  if (sheet) {
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      var rowDate = data[i][8]; // WorkoutDate column (index 8)
+      try {
+        rowDate = Utilities.formatDate(new Date(rowDate), tz, 'yyyy-MM-dd');
+      } catch (err) {
+        rowDate = String(rowDate).slice(0, 10);
+      }
+      if (rowDate === dateFilter) {
+        lifts.push({
+          name: data[i][1],
+          exercise: data[i][2],
+          weight: Number(data[i][3]) || 0,
+          reps: Number(data[i][4]) || 0,
+          unit: data[i][5],
+          est1RM: Number(data[i][6]) || 0,
+          isPR: data[i][7] === 'TRUE'
+        });
+      }
+    }
+  }
+
+  return respondWithCallback_(e, { lifts: lifts, date: dateFilter });
 }
 
 // ═══════════════════════════════════════════════════════
