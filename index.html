@@ -290,12 +290,15 @@
     .exercise-line:last-child { border-bottom: none; }
 
     .exercise-line.sub-header {
-      font-weight: 700;
-      font-size: calc(1.25rem * var(--font-scale));
+      font-weight: 900;
+      font-size: calc(1.3rem * var(--font-scale));
       color: #fff;
-      margin-top: 0.6rem;
-      padding-bottom: 0.3rem;
-      border-bottom: 2px solid #333;
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(245, 158, 11, 0.10));
+      padding: 0.4rem 0.8rem;
+      margin: 0.2rem -0.5rem;
+      border-radius: 8px;
+      border-bottom: none;
+      letter-spacing: 0.02em;
     }
 
     .exercise-line .rep-number {
@@ -882,9 +885,25 @@
     }
 
     function parseLine(text) {
-      // Detect sub-headers (lines ending with : or all-caps Hebrew)
+      // Detect sub-headers (lines ending with : or all-caps)
       if (/^[A-Z\s]{4,}:?$/.test(text) || /^.{2,}:$/.test(text)) {
         return { type: 'sub-header', html: escapeHtml(text) };
+      }
+
+      // Detect instruction lines: workout format acronyms + rep/time schemes
+      // e.g. "E2MOM x 6", "18 min amrap", "2 rounds", "For Time", "Tabata 8 rounds"
+      const isInstruction = /\b(EMOM|AMRAP|FOR TIME|E2MOM|E3MOM|TABATA|RFT|YGIG)\b/i.test(text)
+        || /^\d+\s*(rounds?|min)\b/i.test(text)
+        || /^(every|each)\s+\d/i.test(text)
+        || /\brounds?\s*(for time|x\s*\d)/i.test(text)
+        || /^stay\s+\d/i.test(text);
+
+      if (isInstruction) {
+        let html = escapeHtml(text);
+        // Keep time-badge highlighting inside instruction lines
+        html = html.replace(/\b(EMOM|AMRAP|FOR TIME|E2MOM|E3MOM|TABATA|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
+        html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
+        return { type: 'sub-header', html };
       }
 
       // Empty separator
@@ -899,7 +918,7 @@
 
       // Highlight time patterns
       html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
-      html = html.replace(/\b(EMOM|AMRAP|FOR TIME|E2MOM|TABATA|RFT)\b/gi, '<span class="time-badge">$1</span>');
+      html = html.replace(/\b(EMOM|AMRAP|FOR TIME|E2MOM|E3MOM|TABATA|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
 
       return { type: 'exercise', html };
     }
