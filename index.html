@@ -815,6 +815,7 @@
         <button class="mode-dot" data-mode="auto" onclick="setDisplayMode('auto')" title="Auto rotate">AUTO</button>
       </div>
       <span class="refresh-dot" id="refreshDot" title="מחובר"></span>
+      <button class="settings-btn" id="clearScoresBtn" title="נקה תוצאות היום" onclick="clearTodayScores()" style="display:none;font-size:1.1rem;color:#ef4444;">🗑</button>
       <button class="settings-btn" id="fullscreenBtn" title="מסך מלא">⛶</button>
       <button class="settings-btn" id="settingsBtn" title="הגדרות">⚙</button>
     </div>
@@ -1056,6 +1057,9 @@
       document.documentElement.style.setProperty('--font-scale', (settings.fontSize / 100).toFixed(2));
       const logoText = document.querySelector('#gymName .logo-text');
       if (logoText) logoText.textContent = settings.gymName || 'CrossFit Gush Etzion';
+      // Show/hide clear scores button based on Apps Script URL
+      const clearBtn = document.getElementById('clearScoresBtn');
+      if (clearBtn) clearBtn.style.display = settings.appsScriptUrl ? '' : 'none';
     }
 
     // Auto-fit: find the largest font scale that doesn't cause overflow
