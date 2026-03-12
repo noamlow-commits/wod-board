@@ -760,6 +760,56 @@
     .rx-tag-rx { background: rgba(34,197,94,0.15); color: #22c55e; }
     .rx-tag-scaled { background: rgba(245,158,11,0.15); color: #f59e0b; }
 
+    /* Score chips: multiple scores per athlete in one cell */
+    .scores-cell {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      align-items: center;
+    }
+
+    .score-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+    }
+
+    .score-chip .score-value {
+      font-weight: 900;
+      font-family: 'Barlow', sans-serif;
+      font-size: calc(1.3rem * var(--font-scale));
+      color: var(--accent2, #f59e0b);
+    }
+
+    .score-chip .score-type-label {
+      font-size: calc(0.6rem * var(--font-scale));
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    /* Separator dot between multiple scores */
+    .score-chip + .score-chip::before {
+      content: '·';
+      color: #555;
+      font-size: calc(1.2rem * var(--font-scale));
+      margin-inline-end: 0.15rem;
+    }
+
+    /* Compact score chips in SPLIT mode */
+    .main-content.mode-split .score-chip .score-value {
+      font-size: calc(1.0rem * var(--font-scale));
+    }
+
+    .main-content.mode-split .score-chip .score-type-label {
+      font-size: calc(0.5rem * var(--font-scale));
+    }
+
+    .main-content.mode-split .scores-cell {
+      gap: 0.15rem;
+    }
+
     .score-row-enter {
       animation: scoreSlideIn 0.4s ease-out;
     }
@@ -1388,62 +1438,57 @@
         setDisplayMode('split');
       }
 
-      // Deduplicate: per name per scoreType, keep last entry
-      const groups = {};
+      // Group all scores by athlete name (one row per person)
+      const athletes = {};
+      const athleteOrder = []; // preserve first-seen order
       for (const r of results) {
+        const name = r.name;
+        if (!athletes[name]) {
+          athletes[name] = [];
+          athleteOrder.push(name);
+        }
         const t = r.scoreType || 'time';
-        if (!groups[t]) groups[t] = {};
-        groups[t][r.name] = r;
+        // Deduplicate: keep last entry per scoreType per athlete
+        const existingIdx = athletes[name].findIndex(s => s.scoreType === t);
+        if (existingIdx >= 0) {
+          athletes[name][existingIdx] = r;
+        } else {
+          athletes[name].push(r);
+        }
       }
-
-      const orderedTypes = SCORE_TYPE_ORDER.filter(t => groups[t]);
-      const multiGroup = orderedTypes.length > 1;
 
       const newJSON = JSON.stringify(results);
       if (newJSON === lastScoreJSON) return;
       lastScoreJSON = newJSON;
 
-      // Flatten all entries into a single sorted list
-      // Each entry gets its type label; sort within each type, then concatenate
-      let allRows = [];
-      for (const type of orderedTypes) {
-        let sorted = Object.values(groups[type]);
-        if (type === 'time') {
-          sorted.sort((a, b) => a.rawValue - b.rawValue);
-        } else {
-          sorted.sort((a, b) => b.rawValue - a.rawValue);
-        }
-        sorted.forEach((r, i) => allRows.push({ ...r, rank: i + 1, typeLabel: SCORE_TYPE_LABELS[type] || type.toUpperCase() }));
-      }
+      const SCORE_TYPE_SHORT = { time: 'Time', amrap: 'AMRAP', reps: 'Reps', weight: 'Weight' };
 
-      let html = '';
-      let prevType = '';
-      const rowsHTML = allRows.map(r => {
-        const rankClass = r.rank <= 3 ? ` rank-${r.rank}` : '';
-        const rxClass = (r.rx || 'Rx') === 'Rx' ? 'rx-tag-rx' : 'rx-tag-scaled';
-        // Show type separator row when type changes (only if multiple types)
-        let sep = '';
-        if (multiGroup && r.typeLabel !== prevType) {
-          prevType = r.typeLabel;
-          sep = `<tr><td colspan="4" class="score-group-header" style="padding:0.4rem 0.6rem 0.15rem;">${r.typeLabel}</td></tr>`;
-        }
-        return `${sep}
+      const rowsHTML = athleteOrder.map((name, idx) => {
+        const scores = athletes[name];
+        const showLabels = scores.length > 1;
+        // Build score chips: each score as a small badge
+        const scoreChips = scores.map(s => {
+          const rxClass = (s.rx || 'Rx') === 'Rx' ? 'rx-tag-rx' : 'rx-tag-scaled';
+          const label = showLabels ? `<span class="score-type-label">${SCORE_TYPE_SHORT[s.scoreType] || s.scoreType}</span>` : '';
+          return `<span class="score-chip">${label}<span class="score-value">${escapeHtml(String(s.score))}</span><span class="rx-cell ${rxClass}">${escapeHtml(s.rx || 'Rx')}</span></span>`;
+        }).join('');
+
+        const rankClass = idx < 3 ? ` rank-${idx + 1}` : '';
+        return `
           <tr class="score-row-enter${rankClass}">
-            <td class="rank-cell">${r.rank}</td>
-            <td class="name-cell" dir="auto">${escapeHtml(r.name)}</td>
-            <td class="score-cell">${escapeHtml(String(r.score))}</td>
-            <td><span class="rx-cell ${rxClass}">${escapeHtml(r.rx || 'Rx')}</span></td>
+            <td class="rank-cell">${idx + 1}</td>
+            <td class="name-cell" dir="auto">${escapeHtml(name)}</td>
+            <td class="scores-cell">${scoreChips}</td>
           </tr>`;
       }).join('');
 
-      html = `
+      const html = `
         <table class="scoreboard-table">
           <thead>
             <tr>
               <th>#</th>
               <th>ATHLETE</th>
-              <th>SCORE</th>
-              <th></th>
+              <th>SCORES</th>
             </tr>
           </thead>
           <tbody>${rowsHTML}</tbody>
@@ -1452,7 +1497,7 @@
       container.innerHTML = html;
 
       // Dynamic layout: adjust scoreboard panel size based on result count
-      adjustSplitLayout(allRows.length);
+      adjustSplitLayout(athleteOrder.length);
     }
 
     function adjustSplitLayout(resultCount) {
