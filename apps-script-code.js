@@ -1700,10 +1700,11 @@ function respondWithCallback_(e, obj) {
 }
 
 // ═══════════════════════════════════════════════════════
-// One-time setup: Run this function to set coach password
-// After running, you can delete it.
+// One-time setup: Run this function in Apps Script to set coach password.
+// Usage: setCoachPassword('your-password-here')
 // ═══════════════════════════════════════════════════════
-function setCoachPassword() {
-  PropertiesService.getScriptProperties().setProperty('COACH_PASSWORD', 'cfgush2026');
+function setCoachPassword(pw) {
+  if (!pw) { Logger.log('Usage: setCoachPassword("your-password")'); return; }
+  PropertiesService.getScriptProperties().setProperty('COACH_PASSWORD', pw);
   Logger.log('Coach password set successfully!');
 }
