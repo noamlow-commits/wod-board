@@ -852,25 +852,75 @@
       const rowsHTML = data.rows.map(row => {
         const theme = detectSectionTheme(row.label);
 
-        const cardsHTML = row.cells.map(cell => {
-          if (cell.lines.length === 0) return '';
+        // Count how many cells have content (excluding safety)
+        const contentCells = row.cells.filter(c => c.lines.length > 0 && !isSafetyColumn(c.header));
+        const safetyCells = row.cells.filter(c => c.lines.length > 0 && isSafetyColumn(c.header));
 
-          const safety = isSafetyColumn(cell.header);
-          const allText = cell.lines.join(' ');
+        let cardsHTML = '';
+
+        if (contentCells.length === 1 && contentCells[0].lines.length > 3) {
+          // Single content source with many lines — spread across columns
+          const lines = contentCells[0].lines;
+          const numCols = Math.min(3, Math.ceil(lines.length / 3));
+          const perCol = Math.ceil(lines.length / numCols);
+          const allText = lines.join(' ');
           const hebrewChars = (allText.match(/[\u0590-\u05FF]/g) || []).length;
           const isRtl = hebrewChars > allText.length * 0.3;
 
-          const linesHTML = cell.lines.map(line => {
-            const parsed = parseLine(line);
-            return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
-          }).join('');
+          for (let i = 0; i < numCols; i++) {
+            const colLines = lines.slice(i * perCol, (i + 1) * perCol);
+            const linesHTML = colLines.map(line => {
+              const parsed = parseLine(line);
+              return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
+            }).join('');
 
-          return `
-            <div class="workout-card${safety ? ' safety-card' : ''}">
-              <div class="card-header ${safety ? 'warmup' : theme}">${escapeHtml(cell.header)}</div>
-              <div class="card-body${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>
-            </div>`;
-        }).join('');
+            const header = i === 0 ? contentCells[0].header : '';
+            cardsHTML += `
+              <div class="workout-card">
+                ${header ? `<div class="card-header ${theme}">${escapeHtml(header)}</div>` : ''}
+                <div class="card-body${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>
+              </div>`;
+          }
+        } else {
+          // Multiple phases — render each cell as a card
+          cardsHTML = row.cells.map(cell => {
+            if (cell.lines.length === 0) return '';
+
+            const safety = isSafetyColumn(cell.header);
+            const allText = cell.lines.join(' ');
+            const hebrewChars = (allText.match(/[\u0590-\u05FF]/g) || []).length;
+            const isRtl = hebrewChars > allText.length * 0.3;
+
+            const linesHTML = cell.lines.map(line => {
+              const parsed = parseLine(line);
+              return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
+            }).join('');
+
+            return `
+              <div class="workout-card${safety ? ' safety-card' : ''}">
+                <div class="card-header ${safety ? 'warmup' : theme}">${escapeHtml(cell.header)}</div>
+                <div class="card-body${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>
+              </div>`;
+          }).join('');
+        }
+
+        // Append safety cards if we used the spread layout
+        if (contentCells.length === 1 && contentCells[0].lines.length > 3 && safetyCells.length > 0) {
+          cardsHTML += safetyCells.map(cell => {
+            const allText = cell.lines.join(' ');
+            const hebrewChars = (allText.match(/[\u0590-\u05FF]/g) || []).length;
+            const isRtl = hebrewChars > allText.length * 0.3;
+            const linesHTML = cell.lines.map(line => {
+              const parsed = parseLine(line);
+              return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
+            }).join('');
+            return `
+              <div class="workout-card safety-card">
+                <div class="card-header warmup">${escapeHtml(cell.header)}</div>
+                <div class="card-body${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>
+              </div>`;
+          }).join('');
+        }
 
         return `
           <div class="workout-row">
