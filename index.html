@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WOD Board</title>
+  <title>CrossFit Gush Etzion - WOD Board</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -29,7 +29,7 @@
     }
 
     body {
-      font-family: 'Heebo', sans-serif;
+      font-family: 'Oswald', 'Heebo', sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
@@ -63,12 +63,25 @@
     }
 
     .top-bar .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
       font-size: calc(1.6rem * var(--font-scale));
       font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .top-bar .logo .logo-text {
       background: linear-gradient(135deg, var(--metcon-start), var(--warmup-start));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+    }
+
+    .top-bar .logo .logo-img {
+      height: calc(2.8rem * var(--font-scale));
+      width: auto;
+      border-radius: 6px;
     }
 
     .top-bar .settings-btn {
@@ -271,6 +284,7 @@
     .card-body.rtl-content {
       direction: rtl;
       text-align: right;
+      font-family: 'Heebo', 'Oswald', sans-serif;
     }
 
     .card-body::-webkit-scrollbar { width: 4px; }
@@ -279,6 +293,7 @@
 
     .exercise-line {
       font-size: calc(1.15rem * var(--font-scale));
+      font-weight: 500;
       line-height: 1.7;
       padding: 0.2rem 0;
       color: var(--text);
@@ -345,6 +360,7 @@
       max-width: 550px;
       max-height: 90vh;
       overflow-y: auto;
+      font-family: 'Heebo', sans-serif;
     }
 
     .modal h2 {
@@ -548,7 +564,10 @@
       <div class="clock" id="clock">00:00:00</div>
       <div class="date-display" id="dateDisplay"></div>
     </div>
-    <div class="logo" id="gymName">WOD BOARD</div>
+    <div class="logo" id="gymName">
+      <img class="logo-img" src="logo.png" alt="CrossFit Gush Etzion" onerror="this.style.display='none'">
+      <span class="logo-text">CrossFit Gush Etzion</span>
+    </div>
     <div style="display:flex;align-items:center;gap:1rem;">
       <span class="refresh-dot" id="refreshDot" title="מחובר"></span>
       <button class="settings-btn" id="fullscreenBtn" title="מסך מלא">⛶</button>
@@ -592,7 +611,7 @@
 
       <div class="form-group">
         <label>שם החדר / לוגו</label>
-        <input type="text" id="inputGymName" placeholder="WOD BOARD" dir="auto">
+        <input type="text" id="inputGymName" placeholder="CrossFit Gush Etzion" dir="auto">
       </div>
 
       <div class="form-group">
@@ -639,7 +658,7 @@
     // Settings persistence
     // ════════════════════════════════════════
     function loadSettings() {
-      const defaults = { sheetId: '', tabs: [], gymName: 'WOD BOARD', refreshInterval: 30, fontSize: 100 };
+      const defaults = { sheetId: '', tabs: [], gymName: 'CrossFit Gush Etzion', refreshInterval: 30, fontSize: 100 };
       try {
         return { ...defaults, ...JSON.parse(localStorage.getItem('wodboard') || '{}') };
       } catch { return defaults; }
@@ -701,7 +720,7 @@
     function saveAndClose() {
       const url = document.getElementById('inputSheetUrl').value;
       settings.sheetId = extractSheetId(url);
-      settings.gymName = document.getElementById('inputGymName').value.trim() || 'WOD BOARD';
+      settings.gymName = document.getElementById('inputGymName').value.trim() || 'CrossFit Gush Etzion';
       settings.refreshInterval = parseInt(document.getElementById('inputRefresh').value) || 30;
       settings.fontSize = parseInt(document.getElementById('inputFontSize').value) || 100;
       saveSettings(settings);
@@ -713,7 +732,8 @@
 
     function applySettings() {
       document.documentElement.style.setProperty('--font-scale', (settings.fontSize / 100).toFixed(2));
-      document.getElementById('gymName').textContent = settings.gymName || 'WOD BOARD';
+      const logoText = document.querySelector('#gymName .logo-text');
+      if (logoText) logoText.textContent = settings.gymName || 'CrossFit Gush Etzion';
     }
 
     // Auto-fit: find the largest font scale that doesn't cause overflow
