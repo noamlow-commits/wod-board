@@ -649,8 +649,14 @@
     }
 
     .main-content.mode-wod #scoreboardArea { display: none; }
+    .main-content.mode-wod #prBoardArea { display: none; }
     .main-content.mode-scoreboard #wodArea { display: none; }
+    .main-content.mode-scoreboard #prBoardArea { display: none; }
     .main-content.mode-scoreboard #scoreboardArea { flex: 1; }
+    .main-content.mode-split #prBoardArea { display: none; }
+    .main-content.mode-pr #wodArea { display: none; }
+    .main-content.mode-pr #scoreboardArea { display: none; }
+    .main-content.mode-pr #prBoardArea { display: flex; flex: 1; }
 
     /* ── Scoreboard ── */
     .scoreboard-wrap {
@@ -796,6 +802,113 @@
 
     .main-content.mode-split .score-chip.lift-chip .score-value {
       font-size: calc(0.9rem * var(--font-scale));
+    }
+
+    /* ── PR Board ── */
+    #prBoardArea {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .pr-board-wrap {
+      width: 100%;
+      max-width: 900px;
+      padding: 1rem 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .pr-board-title {
+      font-family: 'Barlow', sans-serif;
+      font-size: calc(2.5rem * var(--font-scale));
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      text-align: center;
+      background: linear-gradient(135deg, #ffd700, #ff8c00, #ffd700);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: prGlow 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes prGlow {
+      from { filter: brightness(1); }
+      to { filter: brightness(1.3); }
+    }
+
+    .pr-card {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.8rem 1.2rem;
+      background: linear-gradient(135deg, rgba(255,215,0,0.08), rgba(255,140,0,0.05));
+      border: 1px solid rgba(255,215,0,0.25);
+      border-radius: 12px;
+      animation: prSlideIn 0.5s ease-out;
+    }
+
+    @keyframes prSlideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .pr-card .pr-icon {
+      font-size: calc(2rem * var(--font-scale));
+      flex-shrink: 0;
+    }
+
+    .pr-card .pr-athlete {
+      font-size: calc(1.4rem * var(--font-scale));
+      font-weight: 900;
+      color: var(--text);
+      flex: 1;
+      unicode-bidi: plaintext;
+    }
+
+    .pr-card .pr-exercise {
+      font-size: calc(1rem * var(--font-scale));
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .pr-card .pr-result {
+      font-family: 'Barlow', sans-serif;
+      font-size: calc(1.6rem * var(--font-scale));
+      font-weight: 900;
+      color: #ffd700;
+      flex-shrink: 0;
+    }
+
+    .pr-card .pr-badge {
+      font-size: calc(0.7rem * var(--font-scale));
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      background: rgba(255,215,0,0.2);
+      color: #ffd700;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .pr-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-dim);
+      text-align: center;
+      gap: 0.5rem;
+      padding: 3rem 0;
+    }
+
+    .pr-empty .empty-icon {
+      font-size: 3rem;
     }
 
     .scoreboard-table {
@@ -1023,7 +1136,7 @@
         <button class="mode-dot active" data-mode="wod" onclick="setDisplayMode('wod')" title="WOD only">WOD</button>
         <button class="mode-dot" data-mode="split" onclick="setDisplayMode('split')" title="WOD + Board">SPLIT</button>
         <button class="mode-dot" data-mode="scoreboard" onclick="setDisplayMode('scoreboard')" title="Scoreboard only">BOARD</button>
-        <button class="mode-dot" data-mode="auto" onclick="setDisplayMode('auto')" title="Auto rotate">AUTO</button>
+        <button class="mode-dot" data-mode="pr" onclick="setDisplayMode('pr')" title="PR Board">PR</button>
       </div>
       <span class="refresh-dot" id="refreshDot" title="מחובר"></span>
       <button class="settings-btn" id="clearScoresBtn" title="נקה תוצאות היום" onclick="clearTodayScores()" style="display:none;font-size:1.1rem;color:#ef4444;">🗑</button>
@@ -1063,6 +1176,17 @@
         <div id="liftsSection" style="display:none;">
           <div class="lifts-header">🏋️ LIFTS TODAY</div>
           <div id="liftsContent"></div>
+        </div>
+      </div>
+    </div>
+    <div id="prBoardArea">
+      <div class="pr-board-wrap">
+        <div class="pr-board-title">🏆 PR BOARD — TODAY 🏆</div>
+        <div id="prBoardContent">
+          <div class="scoreboard-empty">
+            <div class="empty-icon">🏆</div>
+            <p>אין שיאים חדשים היום... בינתיים</p>
+          </div>
         </div>
       </div>
     </div>
@@ -1124,14 +1248,6 @@
           <div class="hint">הכתובת מ-Google Apps Script שמחובר לגוגל שיט. ראה הוראות בתחתית.</div>
         </div>
 
-        <div class="form-group">
-          <label>
-            מרווח רוטציה אוטומטית (שניות)
-            <span class="range-value" id="autoRotateValue">15</span>
-          </label>
-          <input type="range" id="inputAutoRotate" min="5" max="60" value="15" oninput="document.getElementById('autoRotateValue').textContent=this.value">
-          <div class="hint">רלוונטי רק במצב AUTO — כמה שניות להציג כל מסך</div>
-        </div>
 
         <div class="form-group" style="display:flex;align-items:center;gap:0.8rem;">
           <input type="checkbox" id="inputShowQR" checked style="width:auto;accent-color:var(--metcon-start);">
@@ -1163,7 +1279,7 @@
         <div id="shortcutsHelp" style="display:none;margin-top:0.8rem;background:#111;border-radius:8px;padding:1rem;font-size:0.85rem;line-height:1.8;direction:rtl;">
           <table style="width:100%;border-collapse:collapse;color:#ccc;">
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">← →</td><td>מעבר בין מצבים</td></tr>
-            <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">1 2 3 4</td><td>קפיצה ישירה למצב (WOD / SPLIT / BOARD / AUTO)</td></tr>
+            <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">1 2 3 4</td><td>קפיצה ישירה למצב (WOD / SPLIT / BOARD / PR)</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">Enter</td><td>מסך מלא / יציאה</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">Delete</td><td>נקה תוצאות היום</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">R</td><td>רענן עכשיו</td></tr>
@@ -1193,12 +1309,12 @@
     let lastScoreJSON = '';
     let refreshTimer = null;
     let scoreRefreshTimer = null;
-    let autoRotateTimer = null;
     let displayMode = 'wod';
-    let autoRotateState = 'wod'; // toggles between 'wod' and 'scoreboard'
     let liftDisplayMode = 'inline'; // 'inline' = in athlete row, 'separate' = own section
     let todayLifts = [];
     let lastLiftJSON = '';
+    let todayBenchmarks = [];
+    let lastBenchmarkJSON = '';
 
     const SECTION_THEMES = [
       { keywords: ['חימום', 'warm', 'חמום'], cls: 'warmup' },
@@ -1212,7 +1328,7 @@
     // Settings persistence
     // ════════════════════════════════════════
     function loadSettings() {
-      const defaults = { sheetId: '', tabs: [], gymName: 'CrossFit Gush Etzion', refreshInterval: 30, fontSize: 100, appsScriptUrl: '', autoRotateInterval: 15, showQR: true, showQRinWod: true, autoSplitOnScores: true };
+      const defaults = { sheetId: '', tabs: [], gymName: 'CrossFit Gush Etzion', refreshInterval: 30, fontSize: 100, appsScriptUrl: '', showQR: true, showQRinWod: true, autoSplitOnScores: true };
       try {
         return { ...defaults, ...JSON.parse(localStorage.getItem('wodboard') || '{}') };
       } catch { return defaults; }
@@ -1240,8 +1356,6 @@
       document.getElementById('inputFontSize').value = settings.fontSize || 100;
       document.getElementById('fontValue').textContent = (settings.fontSize || 100) + '%';
       document.getElementById('inputAppsScript').value = settings.appsScriptUrl || '';
-      document.getElementById('inputAutoRotate').value = settings.autoRotateInterval || 15;
-      document.getElementById('autoRotateValue').textContent = settings.autoRotateInterval || 15;
       document.getElementById('inputShowQR').checked = settings.showQR !== false;
       document.getElementById('inputShowQRinWod').checked = settings.showQRinWod !== false;
       document.getElementById('inputAutoSplit').checked = settings.autoSplitOnScores !== false;
@@ -1284,7 +1398,6 @@
       settings.refreshInterval = parseInt(document.getElementById('inputRefresh').value) || 30;
       settings.fontSize = parseInt(document.getElementById('inputFontSize').value) || 100;
       settings.appsScriptUrl = document.getElementById('inputAppsScript').value.trim();
-      settings.autoRotateInterval = parseInt(document.getElementById('inputAutoRotate').value) || 15;
       settings.showQR = document.getElementById('inputShowQR').checked;
       settings.showQRinWod = document.getElementById('inputShowQRinWod').checked;
       settings.autoSplitOnScores = document.getElementById('inputAutoSplit').checked;
@@ -1390,26 +1503,15 @@
     function setDisplayMode(mode) {
       displayMode = mode;
       const container = document.getElementById('mainContent');
-      container.classList.remove('mode-wod', 'mode-scoreboard', 'mode-split', 'mode-auto');
+      container.classList.remove('mode-wod', 'mode-scoreboard', 'mode-split', 'mode-pr');
 
-      // Stop auto-rotate timer
-      if (autoRotateTimer) { clearInterval(autoRotateTimer); autoRotateTimer = null; }
-
-      if (mode === 'auto') {
-        autoRotateState = 'wod';
-        container.classList.add('mode-wod');
-        autoRotateTimer = setInterval(() => {
-          autoRotateState = autoRotateState === 'wod' ? 'scoreboard' : 'wod';
-          container.classList.remove('mode-wod', 'mode-scoreboard');
-          container.classList.add(`mode-${autoRotateState}`);
-          requestAnimationFrame(() => autoFitFontSize());
-        }, (settings.autoRotateInterval || 15) * 1000);
-      } else {
-        container.classList.add(`mode-${mode}`);
-      }
+      container.classList.add(`mode-${mode}`);
 
       // Toggle body class for split-specific compact styling
       document.body.classList.toggle('split-active', mode === 'split');
+
+      // Render PR board when switching to PR mode
+      if (mode === 'pr') renderPRBoard();
 
       // Update mode indicator buttons
       document.querySelectorAll('.mode-dot').forEach(b => {
@@ -1609,6 +1711,7 @@
             lastScoreJSON = ''; // force re-render
             fetchScoreboard();
             renderLiftsSeparate();
+            if (displayMode === 'pr') renderPRBoard();
           }
         }
       };
@@ -1646,6 +1749,80 @@
         </div>`;
       }).join('');
       requestAnimationFrame(() => repositionQR());
+    }
+
+    function fetchTodayBenchmarks() {
+      if (!settings.appsScriptUrl) return;
+
+      const d = new Date();
+      const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const url = `${settings.appsScriptUrl}?action=todaybenchmarks&date=${today}&callback=_bmCb_${Date.now()}`;
+      const callbackName = url.match(/callback=([^&]+)/)[1];
+
+      const script = document.createElement('script');
+      window[callbackName] = function(data) {
+        delete window[callbackName];
+        script.remove();
+        if (data && data.benchmarks) {
+          const newJSON = JSON.stringify(data.benchmarks);
+          if (newJSON !== lastBenchmarkJSON) {
+            lastBenchmarkJSON = newJSON;
+            todayBenchmarks = data.benchmarks;
+            if (displayMode === 'pr') renderPRBoard();
+          }
+        }
+      };
+      script.onerror = () => { delete window[callbackName]; script.remove(); };
+      setTimeout(() => { if (window[callbackName]) { delete window[callbackName]; script.remove(); } }, 8000);
+      script.src = url;
+      document.head.appendChild(script);
+    }
+
+    function renderPRBoard() {
+      const container = document.getElementById('prBoardContent');
+
+      // Collect PRs from lifts and benchmarks
+      const prItems = [];
+
+      todayLifts.filter(l => l.isPR).forEach(l => {
+        prItems.push({
+          name: l.name,
+          exercise: l.exercise,
+          result: `${l.weight} ${l.unit} x${l.reps}`,
+          type: 'lift'
+        });
+      });
+
+      todayBenchmarks.filter(b => b.isPR).forEach(b => {
+        prItems.push({
+          name: b.name,
+          exercise: b.wod,
+          result: b.score || String(b.rawValue),
+          type: 'benchmark'
+        });
+      });
+
+      if (prItems.length === 0) {
+        container.innerHTML = `
+          <div class="pr-empty">
+            <div class="empty-icon">🏆</div>
+            <p>אין שיאים חדשים היום... בינתיים</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = prItems.map(pr => {
+        const icon = pr.type === 'lift' ? '🏋️' : '⏱️';
+        const badge = pr.type === 'lift' ? 'LIFT PR' : 'WOD PR';
+        return `
+          <div class="pr-card">
+            <span class="pr-icon">${icon}</span>
+            <span class="pr-athlete" dir="auto">${escapeHtml(pr.name)}</span>
+            <span class="pr-exercise">${escapeHtml(pr.exercise)}</span>
+            <span class="pr-result">${escapeHtml(pr.result)}</span>
+            <span class="pr-badge">${badge}</span>
+          </div>`;
+      }).join('');
     }
 
     const SCORE_TYPE_LABELS = { time: 'FOR TIME', amrap: 'AMRAP', reps: 'REPS', weight: 'WEIGHT' };
@@ -2076,13 +2253,15 @@
         refreshTimer = setInterval(fetchAndRender, (settings.refreshInterval || 30) * 1000);
       }
 
-      // Start scoreboard + lifts refresh if configured
+      // Start scoreboard + lifts + benchmarks refresh if configured
       if (settings.appsScriptUrl) {
         fetchScoreboard();
         fetchTodayLifts();
+        fetchTodayBenchmarks();
         scoreRefreshTimer = setInterval(() => {
           fetchScoreboard();
           fetchTodayLifts();
+          fetchTodayBenchmarks();
         }, 5000);
       }
 
@@ -2131,14 +2310,14 @@
       // Display mode shortcuts
       if (notInput && !e.ctrlKey && !e.metaKey) {
         if (e.key === 'd') {
-          const modes = ['wod', 'split', 'scoreboard', 'auto'];
+          const modes = ['wod', 'split', 'scoreboard', 'pr'];
           const next = modes[(modes.indexOf(displayMode) + 1) % modes.length];
           setDisplayMode(next);
         }
         if (e.key === '1') setDisplayMode('wod');
         if (e.key === '2') setDisplayMode('split');
         if (e.key === '3') setDisplayMode('scoreboard');
-        if (e.key === '4') setDisplayMode('auto');
+        if (e.key === '4') setDisplayMode('pr');
         if (e.key === 'q') {
           settings.showQR = !settings.showQR;
           saveSettings(settings);
@@ -2146,7 +2325,7 @@
         }
         // Arrow keys: cycle display modes
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-          const modes = ['wod', 'split', 'scoreboard', 'auto'];
+          const modes = ['wod', 'split', 'scoreboard', 'pr'];
           const dir = e.key === 'ArrowRight' ? 1 : -1;
           const next = modes[(modes.indexOf(displayMode) + dir + modes.length) % modes.length];
           setDisplayMode(next);
