@@ -772,13 +772,17 @@ const BADGE_DEFS = [
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
-  // Set default dates
-  const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  // Set default dates (local time, not UTC)
+  function localToday() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  const todayStr = localToday();
   document.getElementById('chStart').value = todayStr;
-  const endDate = new Date(today);
+  const endDate = new Date();
   endDate.setMonth(endDate.getMonth() + 1);
-  document.getElementById('chEnd').value = endDate.toISOString().slice(0, 10);
+  const endStr = endDate.getFullYear() + '-' + String(endDate.getMonth()+1).padStart(2,'0') + '-' + String(endDate.getDate()).padStart(2,'0');
+  document.getElementById('chEnd').value = endStr;
   document.getElementById('wodDate').value = todayStr;
   document.getElementById('wodDate').addEventListener('change', () => {
     document.getElementById('wodTitle').value = '';
@@ -819,7 +823,7 @@ async function tryLogin() {
   if (!pw) return;
 
   if (!API_URL) {
-    showToast('אין חיבור לשרת. ודא שה-URL נכון.');
+    showToast('אין חיבור לשרת. ודא שה-URL נכון.', 'error');
     return;
   }
 
@@ -833,7 +837,7 @@ async function tryLogin() {
       document.getElementById('loginError').style.display = 'block';
     }
   } catch (err) {
-    showToast('שגיאה בהתחברות');
+    showToast('שגיאה בהתחברות', 'error');
   }
 }
 
@@ -923,11 +927,11 @@ function renderChallenges() {
     return;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const todayForCh = localToday();
   let html = '';
 
   allChallenges.forEach(ch => {
-    const isActive = ch.status === 'active' && ch.endDate >= today;
+    const isActive = ch.status === 'active' && ch.endDate >= todayForCh;
     const statusClass = isActive ? 'status-active' : 'status-ended';
     const statusText = isActive ? 'פעיל' : (ch.status === 'ended' ? 'הסתיים' : ch.status);
     const durationText = { weekly: 'שבועי', biweekly: 'דו-שבועי', monthly: 'חודשי' }[ch.duration] || ch.duration;
@@ -1006,8 +1010,8 @@ async function saveChallenge() {
     targetValue: document.getElementById('chTarget').value
   };
 
-  if (!payload.title) { showToast('הזן שם לאתגר'); return; }
-  if (!payload.endDate) { showToast('הזן תאריך סיום'); return; }
+  if (!payload.title) { showToast('הזן שם לאתגר', 'error'); return; }
+  if (!payload.endDate) { showToast('הזן תאריך סיום', 'error'); return; }
 
   if (editId) payload.id = editId;
 
@@ -1133,7 +1137,7 @@ async function recalcBadges() {
     const res = await jsonpGet({ action: 'recalcBadges', coachKey });
     showToast(`חושב מחדש ל-${res.recalculated} ספורטאים. ${res.newBadges} באדג'ים חדשים!`);
   } catch(e) {
-    showToast('שגיאה');
+    showToast('שגיאה', 'error');
   }
 }
 
@@ -1148,7 +1152,7 @@ async function awardBadge() {
   const name = document.getElementById('awardAthlete').value.trim();
   const badge = document.getElementById('awardBadgeName').value.trim();
   const desc = document.getElementById('awardBadgeDesc').value.trim();
-  if (!name || !badge) { showToast('מלא שם ובאדג\''); return; }
+  if (!name || !badge) { showToast('מלא שם ובאדג\'', 'error'); return; }
 
   await postData({ action: 'awardBadge', coachKey, athleteName: name, badgeName: badge, description: desc });
   closeModal('badgeModal');
@@ -1175,7 +1179,7 @@ async function saveWOD() {
   const title = document.getElementById('wodTitle').value.trim();
   const desc = document.getElementById('wodDesc').value.trim();
   const type = document.getElementById('wodType').value;
-  if (!title) { showToast('הזן שם ל-WOD'); return; }
+  if (!title) { showToast('הזן שם ל-WOD', 'error'); return; }
 
   await postData({ action: 'createWOD', coachKey, date, title, description: desc, type });
   showToast('WOD נשמר! 🏋️');
@@ -1225,7 +1229,7 @@ async function saveAnnouncement() {
   const title = document.getElementById('annTitle').value.trim();
   const message = document.getElementById('annMessage').value.trim();
   const expiresAt = document.getElementById('annExpires').value;
-  if (!title || !message) { showToast('מלא כותרת ותוכן'); return; }
+  if (!title || !message) { showToast('מלא כותרת ותוכן', 'error'); return; }
 
   await postData({ action: 'createAnnouncement', coachKey, title, message, expiresAt });
   closeModal('announcementModal');
@@ -1296,9 +1300,10 @@ function closeModal(id) {
   document.getElementById(id).classList.remove('show');
 }
 
-function showToast(msg) {
+function showToast(msg, type) {
   const t = document.getElementById('toast');
   t.textContent = msg;
+  t.style.background = type === 'error' ? 'var(--danger, #ef4444)' : 'var(--success)';
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3000);
 }
