@@ -702,7 +702,8 @@
         return;
       }
       const cbName = '_prCb_' + Date.now();
-      const url = `${API_URL}?action=myprs&name=${encodeURIComponent(name)}&callback=${cbName}`;
+      const gymPin = localStorage.getItem('wodboard-gym-pin') || '';
+      const url = `${API_URL}?action=myprs&name=${encodeURIComponent(name)}&pin=${encodeURIComponent(gymPin)}&callback=${cbName}`;
       const script = document.createElement('script');
       window[cbName] = function(data) {
         delete window[cbName]; script.remove();

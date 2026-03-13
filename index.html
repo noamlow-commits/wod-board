@@ -1702,7 +1702,8 @@
       const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       const cbName = '_clearCb_' + Date.now();
       const coachKey = localStorage.getItem('wodboard-coach-key') || '';
-      const url = `${settings.appsScriptUrl}?action=clear&date=${today}&coachKey=${encodeURIComponent(coachKey)}&callback=${cbName}`;
+      const gymPin = localStorage.getItem('wodboard-gym-pin') || '';
+      const url = `${settings.appsScriptUrl}?action=clear&date=${today}&coachKey=${encodeURIComponent(coachKey)}&pin=${encodeURIComponent(gymPin)}&callback=${cbName}`;
 
       const statusEl = document.getElementById('clearStatus');
       statusEl.style.display = 'block';
@@ -1742,7 +1743,8 @@
 
       const d = new Date();
       const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      const url = `${settings.appsScriptUrl}?date=${today}&callback=_scoreCb_${Date.now()}`;
+      const gymPin = localStorage.getItem('wodboard-gym-pin') || '';
+      const url = `${settings.appsScriptUrl}?date=${today}&pin=${encodeURIComponent(gymPin)}&callback=_scoreCb_${Date.now()}`;
       const callbackName = url.match(/callback=([^&]+)/)[1];
 
       const script = document.createElement('script');
@@ -1776,7 +1778,8 @@
 
       const d = new Date();
       const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      const url = `${settings.appsScriptUrl}?action=todaylifts&date=${today}&callback=_liftCb_${Date.now()}`;
+      const gymPin = localStorage.getItem('wodboard-gym-pin') || '';
+      const url = `${settings.appsScriptUrl}?action=todaylifts&date=${today}&pin=${encodeURIComponent(gymPin)}&callback=_liftCb_${Date.now()}`;
       const callbackName = url.match(/callback=([^&]+)/)[1];
 
       const script = document.createElement('script');
@@ -1840,7 +1843,8 @@
 
       const d = new Date();
       const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      const url = `${settings.appsScriptUrl}?action=todaybenchmarks&date=${today}&callback=_bmCb_${Date.now()}`;
+      const gymPin = localStorage.getItem('wodboard-gym-pin') || '';
+      const url = `${settings.appsScriptUrl}?action=todaybenchmarks&date=${today}&pin=${encodeURIComponent(gymPin)}&callback=_bmCb_${Date.now()}`;
       const callbackName = url.match(/callback=([^&]+)/)[1];
 
       const script = document.createElement('script');

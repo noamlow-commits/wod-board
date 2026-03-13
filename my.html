@@ -1341,7 +1341,8 @@ function jsonpGet(params) {
   return new Promise((resolve, reject) => {
     if (!API_URL) { reject('No API URL'); return; }
     const cbName = 'cb_' + Math.random().toString(36).slice(2);
-    const url = API_URL + '?' + new URLSearchParams({ ...params, callback: cbName }).toString();
+    const gymPin = localStorage.getItem('wodboard-gym-pin') || '';
+    const url = API_URL + '?' + new URLSearchParams({ ...params, pin: gymPin, callback: cbName }).toString();
     window[cbName] = (data) => {
       resolve(data);
       delete window[cbName];

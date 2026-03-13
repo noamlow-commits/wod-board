@@ -333,6 +333,20 @@ function doGet(e) {
   if (!e.parameter) e.parameter = {};
   var action = e.parameter.action || 'scores';
 
+  // ── PIN verification (allow through without PIN check) ──
+  if (action === 'verifyPin') {
+    var pin = e.parameter.pin || '';
+    return respondWithCallback_(e, { valid: verifyGymPin_(pin) });
+  }
+
+  // ── Coach login uses its own auth ──
+  if (action === 'coachLogin') return handleCoachLogin_(e);
+
+  // ── All other endpoints require valid Gym PIN ──
+  if (!verifyGymPin_(e.parameter.pin || '')) {
+    return respondWithCallback_(e, { status: 'error', message: 'PIN required' });
+  }
+
   if (action === 'clear') return handleClear_(e);
   if (action === 'myprs') return handleMyPRs_(e);
   if (action === 'mylifts') return handleMyLifts_(e);
@@ -342,7 +356,6 @@ function doGet(e) {
   if (action === 'feed') return handleFeed_(e);
   if (action === 'leaderboard') return handleLeaderboard_(e);
   if (action === 'allprs') return handleAllPRs_(e);
-  if (action === 'coachLogin') return handleCoachLogin_(e);
   if (action === 'getChallenges') return handleGetChallenges_(e);
   if (action === 'getAllChallenges') return handleGetAllChallenges_(e);
   if (action === 'getChallengeLeaderboard') return handleChallengeLeaderboard_(e);
@@ -350,16 +363,7 @@ function doGet(e) {
   if (action === 'getAllAthletes') return handleGetAllAthletes_(e);
   if (action === 'recalcBadges') return handleRecalcBadges_(e);
   if (action === 'getAthleteGender') return handleGetAthleteGender_(e);
-  if (action === 'verifyPin') {
-    var pin = e.parameter.pin || '';
-    return respondWithCallback_(e, { valid: verifyGymPin_(pin) });
-  }
-  if (action === 'getWOD') {
-    if (!verifyGymPin_(e.parameter.pin || '')) {
-      return respondWithCallback_(e, { status: 'error', message: 'PIN required' });
-    }
-    return handleGetWOD_(e);
-  }
+  if (action === 'getWOD') return handleGetWOD_(e);
   if (action === 'getAnnouncements') return handleGetAnnouncements_(e);
   if (action === 'getEntries') return handleGetEntries_(e);
   if (action === 'checkAthlete') return handleCheckAthlete_(e);
