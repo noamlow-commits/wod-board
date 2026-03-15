@@ -308,6 +308,24 @@
     .card-body::-webkit-scrollbar-track { background: transparent; }
     .card-body::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
 
+    .card-body-columns {
+      flex: 1;
+      display: flex;
+      gap: 1.5rem;
+      padding: 0.6rem 1rem;
+      direction: ltr;
+      text-align: left;
+    }
+    .card-body-columns.rtl-content {
+      direction: rtl;
+      text-align: right;
+      font-family: 'Heebo', 'Barlow', sans-serif;
+    }
+    .card-body-col {
+      flex: 1;
+      min-width: 0;
+    }
+
     .exercise-line {
       font-size: calc(1.15rem * var(--font-scale));
       font-weight: 500;
@@ -2318,6 +2336,9 @@
           }).join('');
         } else {
           // Multiple phases — render only cells that have content
+          // When a card has many lines, split into 2 columns to use horizontal space
+          const MULTI_COL_THRESHOLD = 5; // lines needed to trigger 2-column layout
+
           cardsHTML = row.cells
             .filter(cell => cell.lines.length > 0)
             .map(cell => {
@@ -2326,15 +2347,32 @@
               const hebrewChars = (allText.match(/[\u0590-\u05FF]/g) || []).length;
               const isRtl = hebrewChars > allText.length * 0.3;
 
-              const linesHTML = cell.lines.map(line => {
-                const parsed = parseLine(line);
-                return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
-              }).join('');
+              let bodyHTML;
+              if (!safety && cell.lines.length >= MULTI_COL_THRESHOLD) {
+                // Split lines into 2 columns for better space usage
+                const mid = Math.ceil(cell.lines.length / 2);
+                const col1Lines = cell.lines.slice(0, mid);
+                const col2Lines = cell.lines.slice(mid);
+                const renderCol = (lines) => lines.map(line => {
+                  const parsed = parseLine(line);
+                  return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
+                }).join('');
+                bodyHTML = `<div class="card-body-columns${isRtl ? ' rtl-content' : ''}">
+                  <div class="card-body-col">${renderCol(col1Lines)}</div>
+                  <div class="card-body-col">${renderCol(col2Lines)}</div>
+                </div>`;
+              } else {
+                const linesHTML = cell.lines.map(line => {
+                  const parsed = parseLine(line);
+                  return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
+                }).join('');
+                bodyHTML = `<div class="card-body${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>`;
+              }
 
               return `
                 <div class="workout-card${safety ? ' safety-card' : ''}">
                   <div class="card-header ${safety ? 'warmup' : theme}">${escapeHtml(cell.header)}</div>
-                  <div class="card-body${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>
+                  ${bodyHTML}
                 </div>`;
             }).join('');
         }
