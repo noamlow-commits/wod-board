@@ -13,18 +13,25 @@
     return localStorage.getItem('wodboard-api') || '';
   }
 
+  // result: 'valid', 'invalid', or 'error' (timeout/network)
   function verifyPin(pin, cb) {
     var api = getApiUrl();
-    if (!api) { cb(false); return; }
+    if (!api) { cb('error'); return; }
     var cbName = '_pinCb_' + Date.now();
     var script = document.createElement('script');
-    window[cbName] = function(res) {
+    var done = false;
+    function finish(result) {
+      if (done) return;
+      done = true;
       delete window[cbName];
-      script.remove();
-      cb(res && res.valid === true);
+      if (script.parentNode) script.remove();
+      cb(result);
+    }
+    window[cbName] = function(res) {
+      finish(res && res.valid === true ? 'valid' : 'invalid');
     };
-    script.onerror = function() { delete window[cbName]; script.remove(); cb(false); };
-    setTimeout(function() { if (window[cbName]) { delete window[cbName]; script.remove(); cb(false); } }, 8000);
+    script.onerror = function() { finish('error'); };
+    setTimeout(function() { finish('error'); }, 15000);
     script.src = api + '?action=verifyPin&pin=' + encodeURIComponent(pin) + '&callback=' + cbName;
     document.body.appendChild(script);
   }
@@ -58,19 +65,24 @@
       if (!pin) { err.textContent = 'הזן קוד'; return; }
       btn.disabled = true;
       btn.textContent = '...';
-      verifyPin(pin, function(valid) {
-        if (valid) {
+      verifyPin(pin, function(result) {
+        if (result === 'valid') {
           localStorage.setItem(PIN_KEY, pin);
           overlay.remove();
           document.body.style.overflow = '';
           // Dispatch event so pages can init
           window.dispatchEvent(new Event('gym-pin-verified'));
-        } else {
+        } else if (result === 'invalid') {
           err.textContent = 'קוד שגוי';
           btn.disabled = false;
           btn.textContent = 'כניסה';
           input.value = '';
           input.focus();
+        } else {
+          // API error — let user retry
+          err.textContent = 'שגיאת תקשורת, נסה שוב';
+          btn.disabled = false;
+          btn.textContent = 'כניסה';
         }
       });
     }
@@ -82,21 +94,22 @@
 
   // On load: verify stored PIN or show lock screen
   if (storedPin) {
-    verifyPin(storedPin, function(valid) {
-      if (!valid) {
+    verifyPin(storedPin, function(result) {
+      if (result === 'invalid') {
+        // API explicitly said PIN is wrong — remove it
         localStorage.removeItem(PIN_KEY);
         showLockScreen();
       }
-      // If valid, do nothing — page is already visible
+      // If 'valid' — page is already visible, do nothing
+      // If 'error' (timeout/network) — keep stored PIN, allow access
+      // The PIN was valid before; don't punish for a slow API
     });
   } else {
     // Check if PIN is even required (API might not have a PIN set)
     var api = getApiUrl();
     if (api) {
-      verifyPin('', function(valid) {
-        if (valid) {
-          // No PIN required — allow access
-        } else {
+      verifyPin('', function(result) {
+        if (result !== 'valid') {
           showLockScreen();
         }
       });
