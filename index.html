@@ -2298,19 +2298,38 @@
 
         let cardsHTML = '';
 
-        if (contentCells.length === 1 && contentCells[0].lines.length > 3) {
-          // Single list — render as one merged card with CSS columns inside
-          const lines = contentCells[0].lines;
-          const numCols = Math.min(3, Math.ceil(lines.length / 3));
-          const allText = lines.join(' ');
+        // Decide layout strategy based on content balance
+        const totalContentLines = contentCells.reduce((sum, c) => sum + c.lines.length, 0);
+        const maxCellLines = contentCells.length > 0 ? Math.max(...contentCells.map(c => c.lines.length)) : 0;
+        const minCellLines = contentCells.length > 0 ? Math.min(...contentCells.map(c => c.lines.length)) : 0;
+        // Merge if: only 1 content card, OR cards are very unbalanced (one has ≤3 lines and total is high)
+        const shouldMerge = contentCells.length === 1
+          || (contentCells.length > 1 && minCellLines <= 3 && totalContentLines > 6);
+
+        if (shouldMerge && totalContentLines > 3) {
+          // Merge all content cells into one wide card with multi-column layout
+          const allLines = [];
+          for (const cell of contentCells) {
+            // Add cell header as a sub-header if there are multiple cells being merged
+            if (contentCells.length > 1 && cell.lines.length > 0) {
+              allLines.push('__SUBHEADER__' + cell.header);
+            }
+            allLines.push(...cell.lines);
+          }
+
+          const allText = allLines.join(' ');
           const hebrewChars = (allText.match(/[\u0590-\u05FF]/g) || []).length;
           const isRtl = hebrewChars > allText.length * 0.3;
 
-          const perCol = Math.ceil(lines.length / numCols);
+          const numCols = Math.min(3, Math.ceil(allLines.length / 4));
+          const perCol = Math.ceil(allLines.length / numCols);
           let colsHTML = '';
           for (let i = 0; i < numCols; i++) {
-            const colLines = lines.slice(i * perCol, (i + 1) * perCol);
+            const colLines = allLines.slice(i * perCol, (i + 1) * perCol);
             const linesHTML = colLines.map(line => {
+              if (line.startsWith('__SUBHEADER__')) {
+                return `<div class="exercise-line sub-header" dir="auto"><strong>${escapeHtml(line.replace('__SUBHEADER__', ''))}</strong></div>`;
+              }
               const parsed = parseLine(line);
               return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
             }).join('');
@@ -2335,9 +2354,8 @@
               </div>`;
           }).join('');
         } else {
-          // Multiple phases — render only cells that have content
-          // When a card has many lines, split into 2 columns to use horizontal space
-          const MULTI_COL_THRESHOLD = 5; // lines needed to trigger 2-column layout
+          // Balanced cards — render separately, split long ones into 2 columns
+          const MULTI_COL_THRESHOLD = 5;
 
           cardsHTML = row.cells
             .filter(cell => cell.lines.length > 0)
