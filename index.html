@@ -2142,22 +2142,34 @@
         dataRows = dataRows.slice(1);
       }
 
+      // Find label column: first column that has section labels (WOD, CARDIO, etc.)
+      // Could be column A or B depending on sheet layout
+      let labelCol = 0;
+      for (let ci = 0; ci < Math.min(3, headers.length); ci++) {
+        const hasValues = dataRows.some(r => r.c && r.c[ci] && r.c[ci].v && String(r.c[ci].v).trim().length > 0);
+        if (hasValues) { labelCol = ci; break; }
+      }
+
       const rows = [];
       for (const row of dataRows) {
-        const label = row.c && row.c[0] && row.c[0].v ? String(row.c[0].v).trim() : '';
+        // Find label from the label column
+        const label = row.c && row.c[labelCol] && row.c[labelCol].v ? String(row.c[labelCol].v).trim() : '';
         if (!label) continue;
 
+        // Collect content from all columns after the label column
         const cells = [];
-        for (let colIdx = 1; colIdx < headers.length; colIdx++) {
+        for (let colIdx = labelCol + 1; colIdx < headers.length; colIdx++) {
           const cell = row.c && row.c[colIdx];
           const val = cell && cell.v ? String(cell.v).trim() : '';
           const lines = val ? val.split(/\n/).map(l => l.trim()).filter(l => l.length > 0) : [];
           cells.push({ header: headers[colIdx], lines });
         }
+        // Skip rows where all cells are empty
+        if (cells.every(c => c.lines.length === 0)) continue;
         rows.push({ label, cells });
       }
 
-      return { headers: headers.slice(1), rows };
+      return { headers: headers.slice(labelCol + 1), rows };
     }
 
     // ════════════════════════════════════════
