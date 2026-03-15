@@ -2477,6 +2477,16 @@
       requestAnimationFrame(() => autoFitFontSize());
     }
 
+    function getSectionLabels() {
+      const rows = document.querySelectorAll('#wodArea .workout-row[data-section]');
+      const labels = [];
+      rows.forEach(r => {
+        const s = r.dataset.section;
+        if (s && !labels.includes(s)) labels.push(s);
+      });
+      return labels;
+    }
+
     // ════════════════════════════════════════
     // Tab bar
     // ════════════════════════════════════════
@@ -2606,28 +2616,47 @@
         if (e.key === '2') setDisplayMode('split');
         if (e.key === '3') setDisplayMode('scoreboard');
         if (e.key === '4') setDisplayMode('pr');
-        if (e.key === 'q') {
+        // Q / 9: toggle QR
+        if (e.key === 'q' || e.key === '9') {
           settings.showQR = !settings.showQR;
           saveSettings(settings);
           updateQR();
         }
-        // Arrow keys: cycle display modes
+        // ←→ Arrow keys: cycle display modes (TV remote friendly)
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
           const modes = ['wod', 'split', 'scoreboard', 'pr'];
           const dir = e.key === 'ArrowRight' ? 1 : -1;
           const next = modes[(modes.indexOf(displayMode) + dir + modes.length) % modes.length];
           setDisplayMode(next);
         }
+        // ↑↓ Arrow keys: cycle section filter (TV remote friendly)
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          const sections = getSectionLabels();
+          if (sections.length > 1) {
+            const allOptions = [null, ...sections]; // null = show all
+            const dir = e.key === 'ArrowDown' ? 1 : -1;
+            const curIdx = sectionFilter ? allOptions.indexOf(sectionFilter) : 0;
+            const nextIdx = (curIdx + dir + allOptions.length) % allOptions.length;
+            sectionFilter = allOptions[nextIdx];
+            applySectionFilter();
+            requestAnimationFrame(() => autoFitFontSize());
+          }
+        }
         // Delete / Backspace: clear today's scores
         if (e.key === 'Delete' || e.key === 'Backspace') {
           clearTodayScores();
         }
-        // W: toggle WOD only, C: toggle CARDIO only, A: show all sections
+        // 5: WOD only, 6: CARDIO only, 0: show all (TV remote number keys)
+        if (e.key === '5') toggleSectionFilter('WOD');
+        if (e.key === '6') toggleSectionFilter('CARDIO');
+        if (e.key === '0') { sectionFilter = null; applySectionFilter(); requestAnimationFrame(() => autoFitFontSize()); }
+        // W/C/A: section filter (keyboard only, kept for convenience)
         if (e.key === 'w') toggleSectionFilter('WOD');
         if (e.key === 'c') toggleSectionFilter('CARDIO');
         if (e.key === 'a') { sectionFilter = null; applySectionFilter(); requestAnimationFrame(() => autoFitFontSize()); }
-        // R: refresh now
-        if (e.key === 'r') {
+        // R / 8: refresh now
+        if (e.key === 'r' || e.key === '8') {
           lastDataJSON = '';
           startApp();
           fetchScoreboard();
