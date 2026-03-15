@@ -1605,8 +1605,21 @@
         });
       }
 
-      // Safety card: fixed font size (no auto-scale to prevent giant text)
-      // The yellow border + background make it stand out without needing huge text
+      // Auto-scale safety card text to fill its box, capped at 2x base font
+      document.querySelectorAll('.workout-card.safety-card .card-body').forEach(body => {
+        const lines = body.querySelectorAll('.exercise-line');
+        if (!lines.length) return;
+        const availH = body.clientHeight;
+        if (availH <= 0) return;
+        let sLo = 0.9, sHi = 2.0;
+        for (let j = 0; j < 10; j++) {
+          const mid = (sLo + sHi) / 2;
+          lines.forEach(l => l.style.fontSize = `calc(${mid}rem * var(--font-scale))`);
+          body.offsetHeight;
+          if (body.scrollHeight > availH + 2) { sHi = mid; } else { sLo = mid; }
+        }
+        lines.forEach(l => l.style.fontSize = `calc(${sLo.toFixed(3)}rem * var(--font-scale))`);
+      });
     }
 
     // ════════════════════════════════════════
