@@ -1573,20 +1573,20 @@
       function hasOverflow() {
         // Check main container vertical overflow
         if (container.scrollHeight > container.clientHeight + 2) return true;
-        // Check each row for overflow
-        for (const row of container.querySelectorAll('.workout-row')) {
+        // Check only VISIBLE rows (skip section-hidden)
+        for (const row of container.querySelectorAll('.workout-row:not(.section-hidden)')) {
           if (row.scrollHeight > row.clientHeight + 2) return true;
         }
-        // Check each card-body for internal scrolling
-        for (const body of container.querySelectorAll('.card-body')) {
+        // Check each card-body for internal scrolling (only in visible rows)
+        for (const body of container.querySelectorAll('.workout-row:not(.section-hidden) .card-body')) {
           if (body.scrollHeight > body.clientHeight + 2) return true;
         }
-        // Check spread columns too
-        for (const col of container.querySelectorAll('.spread-col')) {
+        // Check spread columns too (only in visible rows)
+        for (const col of container.querySelectorAll('.workout-row:not(.section-hidden) .spread-col')) {
           if (col.scrollHeight > col.clientHeight + 2) return true;
         }
-        // Check 2-column card bodies
-        for (const col of container.querySelectorAll('.card-body-columns')) {
+        // Check 2-column card bodies (only in visible rows)
+        for (const col of container.querySelectorAll('.workout-row:not(.section-hidden) .card-body-columns')) {
           if (col.scrollHeight > col.clientHeight + 2) return true;
         }
         return false;
@@ -1611,17 +1611,21 @@
 
       // Redistribute row flex based on actual rendered content heights
       // so each row gets exactly the space it needs (no black gaps)
-      const rows = container.querySelectorAll('.workout-row');
-      if (rows.length > 1) {
-        const heights = Array.from(rows).map(r => {
-          // Measure natural content height by temporarily removing flex-grow
+      // Only consider visible rows (not section-hidden)
+      const allRows = container.querySelectorAll('.workout-row');
+      const visibleRows = container.querySelectorAll('.workout-row:not(.section-hidden)');
+      if (visibleRows.length >= 1) {
+        // Reset hidden rows
+        allRows.forEach(r => {
+          if (r.classList.contains('section-hidden')) r.style.flex = '';
+        });
+        const heights = Array.from(visibleRows).map(r => {
           r.style.flex = '0 0 auto';
           container.offsetHeight;
           const h = r.scrollHeight;
           return h;
         });
-        // Restore flex with proportional weights based on actual content
-        rows.forEach((r, i) => {
+        visibleRows.forEach((r, i) => {
           r.style.flex = `${heights[i]} 1 0px`;
         });
       }
