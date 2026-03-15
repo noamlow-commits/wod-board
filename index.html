@@ -1379,32 +1379,36 @@
         <button class="btn btn-secondary" onclick="document.getElementById('shortcutsHelp').style.display=document.getElementById('shortcutsHelp').style.display==='none'?'block':'none'" style="font-size:0.9rem;">⌨ קיצורי מקלדת / שלט</button>
         <div id="shortcutsHelp" style="display:none;margin-top:0.8rem;background:#111;border-radius:8px;padding:1rem;font-size:0.85rem;line-height:1.8;direction:rtl;">
           <div style="color:#facc15;font-weight:bold;margin-bottom:0.4rem;">📺 שלט TV / שלט רחוק</div>
-          <table style="width:100%;border-collapse:collapse;color:#ccc;margin-bottom:1rem;">
+          <table style="width:100%;border-collapse:collapse;color:#ccc;margin-bottom:0.6rem;">
+            <tr><td colspan="2" style="padding:0.3rem 0.6rem;color:#888;font-weight:600;font-size:0.8rem;">מצב תצוגה</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">← →</td><td>מעבר בין מצבים (WOD / SPLIT / BOARD / PR)</td></tr>
-            <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">↑ ↓</td><td>מעבר בין פילטר סקשנים (הכל → WOD → CARDIO → הכל)</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">1</td><td>WOD</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">2</td><td>SPLIT</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">3</td><td>BOARD</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">4</td><td>PR</td></tr>
+            <tr><td colspan="2" style="padding:0.3rem 0.6rem;color:#888;font-weight:600;font-size:0.8rem;">פילטר סקשנים (WOD / SPLIT בלבד)</td></tr>
+            <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">↑ ↓</td><td>מעבר בין סקשנים (הכל → WOD → CARDIO → הכל)</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">5</td><td>סקשן WOD בלבד</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">6</td><td>סקשן CARDIO בלבד</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">0</td><td>הצג את כל הסקשנים</td></tr>
+            <tr><td colspan="2" style="padding:0.3rem 0.6rem;color:#888;font-weight:600;font-size:0.8rem;">כללי</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">8</td><td>רענן עכשיו</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">9</td><td>הצג / הסתר QR</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">Enter</td><td>מסך מלא</td></tr>
-            <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">Back / Esc</td><td>סגור הגדרות</td></tr>
-            <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">Delete</td><td>נקה תוצאות היום</td></tr>
+            <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">Esc</td><td>סגור הגדרות / יציאה ממסך מלא</td></tr>
+            <tr><td style="padding:0.2rem 0.6rem;color:#facc15;">Delete</td><td>נקה תוצאות היום (עם אישור)</td></tr>
           </table>
+          <div style="color:#888;font-size:0.78rem;margin-bottom:0.8rem;line-height:1.5;">* פילטר סקשנים מתאפס אוטומטית כשעוברים למצב BOARD או PR<br>* פילטר נשמר כשעוברים בין WOD ל-SPLIT</div>
           <div style="color:#60a5fa;font-weight:bold;margin-bottom:0.4rem;">⌨ מקלדת בלבד</div>
           <table style="width:100%;border-collapse:collapse;color:#ccc;">
             <tr><td style="padding:0.2rem 0.6rem;color:#60a5fa;">S</td><td>פתח הגדרות</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#60a5fa;">F</td><td>מסך מלא</td></tr>
+            <tr><td style="padding:0.2rem 0.6rem;color:#60a5fa;">D</td><td>מצב הבא (מחזורי)</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#60a5fa;">R</td><td>רענן עכשיו</td></tr>
             <tr><td style="padding:0.2rem 0.6rem;color:#60a5fa;">Q</td><td>הצג / הסתר QR</td></tr>
-            <tr><td style="padding:0.2rem 0.6rem;color:#60a5fa;">W</td><td>סקשן WOD בלבד</td></tr>
-            <tr><td style="padding:0.2rem 0.6rem;color:#60a5fa;">C</td><td>סקשן CARDIO בלבד</td></tr>
-            <tr><td style="padding:0.2rem 0.6rem;color:#60a5fa;">A</td><td>הצג את כל הסקשנים</td></tr>
-            <tr><td style="padding:0.2rem 0.6rem;color:#60a5fa;">D</td><td>מצב הבא (מחזורי)</td></tr>
+            <tr><td style="padding:0.2rem 0.6rem;color:#60a5fa;">W</td><td>סקשן WOD בלבד (WOD / SPLIT בלבד)</td></tr>
+            <tr><td style="padding:0.2rem 0.6rem;color:#60a5fa;">C</td><td>סקשן CARDIO בלבד (WOD / SPLIT בלבד)</td></tr>
+            <tr><td style="padding:0.2rem 0.6rem;color:#60a5fa;">A</td><td>הצג את כל הסקשנים (WOD / SPLIT בלבד)</td></tr>
           </table>
         </div>
       </div>
@@ -1667,6 +1671,14 @@
 
       // Toggle body class for split-specific compact styling
       document.body.classList.toggle('split-active', mode === 'split');
+
+      // Reset section filter when switching to modes without WOD area
+      // (scoreboard, pr don't display WOD sections, filter is meaningless)
+      // Keep filter when switching between wod <-> split (both show WOD)
+      if (mode === 'scoreboard' || mode === 'pr') {
+        sectionFilter = null;
+        applySectionFilter();
+      }
 
       // Render PR board when switching to PR mode
       if (mode === 'pr') renderPRBoard();
@@ -2657,32 +2669,39 @@
           const next = modes[(modes.indexOf(displayMode) + dir + modes.length) % modes.length];
           setDisplayMode(next);
         }
-        // ↑↓ Arrow keys: cycle section filter (TV remote friendly)
+        // ↑↓ Arrow keys: cycle section filter (only in WOD/SPLIT modes where sections are visible)
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
           e.preventDefault();
-          const sections = getSectionLabels();
-          if (sections.length > 1) {
-            const allOptions = [null, ...sections]; // null = show all
-            const dir = e.key === 'ArrowDown' ? 1 : -1;
-            const curIdx = sectionFilter ? allOptions.indexOf(sectionFilter) : 0;
-            const nextIdx = (curIdx + dir + allOptions.length) % allOptions.length;
-            sectionFilter = allOptions[nextIdx];
-            applySectionFilter();
-            requestAnimationFrame(() => autoFitFontSize());
+          if (displayMode === 'wod' || displayMode === 'split') {
+            const sections = getSectionLabels();
+            if (sections.length > 1) {
+              const allOptions = [null, ...sections]; // null = show all
+              const dir = e.key === 'ArrowDown' ? 1 : -1;
+              const curIdx = sectionFilter ? allOptions.indexOf(sectionFilter) : 0;
+              const nextIdx = (curIdx + dir + allOptions.length) % allOptions.length;
+              sectionFilter = allOptions[nextIdx];
+              applySectionFilter();
+              requestAnimationFrame(() => autoFitFontSize());
+            }
           }
         }
-        // Delete / Backspace: clear today's scores
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-          clearTodayScores();
+        // Delete: clear today's scores (with confirmation)
+        if (e.key === 'Delete') {
+          if (confirm('Are you sure you want to clear all of today\'s scores?')) {
+            clearTodayScores();
+          }
         }
+        // Section filter keys: only active in WOD / SPLIT modes
         // 5: WOD only, 6: CARDIO only, 0: show all (TV remote number keys)
-        if (e.key === '5') toggleSectionFilter('WOD');
-        if (e.key === '6') toggleSectionFilter('CARDIO');
-        if (e.key === '0') { sectionFilter = null; applySectionFilter(); requestAnimationFrame(() => autoFitFontSize()); }
-        // W/C/A: section filter (keyboard only, kept for convenience)
-        if (e.key === 'w') toggleSectionFilter('WOD');
-        if (e.key === 'c') toggleSectionFilter('CARDIO');
-        if (e.key === 'a') { sectionFilter = null; applySectionFilter(); requestAnimationFrame(() => autoFitFontSize()); }
+        if (displayMode === 'wod' || displayMode === 'split') {
+          if (e.key === '5') toggleSectionFilter('WOD');
+          if (e.key === '6') toggleSectionFilter('CARDIO');
+          if (e.key === '0') { sectionFilter = null; applySectionFilter(); requestAnimationFrame(() => autoFitFontSize()); }
+          // W/C/A: section filter (keyboard only, kept for convenience)
+          if (e.key === 'w') toggleSectionFilter('WOD');
+          if (e.key === 'c') toggleSectionFilter('CARDIO');
+          if (e.key === 'a') { sectionFilter = null; applySectionFilter(); requestAnimationFrame(() => autoFitFontSize()); }
+        }
         // R / 8: refresh now
         if (e.key === 'r' || e.key === '8') {
           lastDataJSON = '';
