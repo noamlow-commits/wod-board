@@ -224,9 +224,10 @@
     }
 
     .workout-card.safety-card {
-      flex: 0 0 200px;
-      max-width: 260px;
-      border: 1.5px solid rgba(250, 204, 21, 0.35);
+      flex: 0 0 160px;
+      max-width: 220px;
+      border: 2px solid rgba(250, 204, 21, 0.5);
+      background: rgba(250, 204, 21, 0.08);
     }
 
     .workout-card.safety-card .card-header {
@@ -237,12 +238,15 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
+      padding: 0.4rem 0.6rem;
     }
 
     .workout-card.safety-card .exercise-line {
       font-weight: 700;
       color: #fde68a;
-      border-bottom-color: rgba(250, 204, 21, 0.15);
+      border-bottom: none;
+      font-size: calc(0.95rem * var(--font-scale));
+      line-height: 1.4;
     }
 
     /* Merged spread: single list split across columns, looks like one card */
@@ -350,6 +354,23 @@
       border-bottom: 2px solid rgba(245, 158, 11, 0.3);
       border-radius: 0;
       letter-spacing: 0.03em;
+    }
+
+    .exercise-line.merged-section-header {
+      font-weight: 800;
+      font-size: calc(1.1rem * var(--font-scale));
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.2rem 0.5rem;
+      margin: 0.3rem 0 0.1rem 0;
+      border-bottom: none;
+      border-radius: 4px;
+      border-right: 3px solid var(--warmup-start);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .exercise-line.merged-section-header:first-child {
+      margin-top: 0;
     }
 
     .exercise-line .rep-number {
@@ -1543,6 +1564,10 @@
         for (const col of container.querySelectorAll('.spread-col')) {
           if (col.scrollHeight > col.clientHeight + 2) return true;
         }
+        // Check 2-column card bodies
+        for (const col of container.querySelectorAll('.card-body-columns')) {
+          if (col.scrollHeight > col.clientHeight + 2) return true;
+        }
         return false;
       }
 
@@ -1580,22 +1605,8 @@
         });
       }
 
-      // Auto-scale safety card text to fill available space
-      document.querySelectorAll('.workout-card.safety-card .card-body').forEach(body => {
-        const lines = body.querySelectorAll('.exercise-line');
-        if (!lines.length) return;
-        const availH = body.clientHeight;
-        if (availH <= 0) return;
-        // Binary search for font size that fills the card
-        let sLo = 0.9, sHi = 3.0;
-        for (let j = 0; j < 10; j++) {
-          const mid = (sLo + sHi) / 2;
-          lines.forEach(l => l.style.fontSize = `calc(${mid}rem * var(--font-scale))`);
-          body.offsetHeight;
-          if (body.scrollHeight > availH + 2) { sHi = mid; } else { sLo = mid; }
-        }
-        lines.forEach(l => l.style.fontSize = `calc(${sLo.toFixed(3)}rem * var(--font-scale))`);
-      });
+      // Safety card: fixed font size (no auto-scale to prevent giant text)
+      // The yellow border + background make it stand out without needing huge text
     }
 
     // ════════════════════════════════════════
@@ -2331,7 +2342,8 @@
             const colLines = allLines.slice(i * perCol, (i + 1) * perCol);
             const linesHTML = colLines.map(line => {
               if (line.startsWith('__SUBHEADER__')) {
-                return `<div class="exercise-line sub-header" dir="auto"><strong>${escapeHtml(line.replace('__SUBHEADER__', ''))}</strong></div>`;
+                const hdrText = escapeHtml(line.replace('__SUBHEADER__', ''));
+                return `<div class="exercise-line merged-section-header" dir="auto">${hdrText}</div>`;
               }
               const parsed = parseLine(line);
               return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
