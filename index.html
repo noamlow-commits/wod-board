@@ -2142,34 +2142,59 @@
         dataRows = dataRows.slice(1);
       }
 
-      // Find label column: first column that has section labels (WOD, CARDIO, etc.)
-      // Could be column A or B depending on sheet layout
-      let labelCol = 0;
-      for (let ci = 0; ci < Math.min(3, headers.length); ci++) {
-        const hasValues = dataRows.some(r => r.c && r.c[ci] && r.c[ci].v && String(r.c[ci].v).trim().length > 0);
-        if (hasValues) { labelCol = ci; break; }
-      }
+      // Content-based parsing: detect labels vs content by cell length, not position.
+      // Short cells (≤30 chars, single line) = section labels (WOD, CARDIO, etc.)
+      // Long/multi-line cells = workout content
+      // This is resilient to column reordering, insertion, or deletion.
+      const LABEL_MAX_LEN = 30;
 
       const rows = [];
       for (const row of dataRows) {
-        // Find label from the label column
-        const label = row.c && row.c[labelCol] && row.c[labelCol].v ? String(row.c[labelCol].v).trim() : '';
-        if (!label) continue;
+        if (!row.c) continue;
 
-        // Collect content from all columns after the label column
+        let label = '';
         const cells = [];
-        for (let colIdx = labelCol + 1; colIdx < headers.length; colIdx++) {
-          const cell = row.c && row.c[colIdx];
+
+        for (let colIdx = 0; colIdx < row.c.length; colIdx++) {
+          const cell = row.c[colIdx];
           const val = cell && cell.v ? String(cell.v).trim() : '';
-          const lines = val ? val.split(/\n/).map(l => l.trim()).filter(l => l.length > 0) : [];
-          cells.push({ header: headers[colIdx], lines });
+          if (!val) continue;
+
+          const lineCount = val.split(/\n/).filter(l => l.trim().length > 0).length;
+          const header = (colIdx < headers.length ? headers[colIdx] : '').trim();
+
+          // A cell is a section label if: short, single line, and not under a named header like "1","2","3","בטיחות"
+          const isNamedHeader = header.length > 0 && !/^\s*$/.test(header);
+          if (!label && val.length <= LABEL_MAX_LEN && lineCount === 1 && !isNamedHeader) {
+            label = val;
+          } else {
+            // Content cell — use column header, or fallback to column letter
+            const lines = val.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
+            const cellHeader = isNamedHeader ? header : (label ? '' : String.fromCharCode(65 + colIdx));
+            cells.push({ header: cellHeader, lines });
+          }
         }
-        // Skip rows where all cells are empty
-        if (cells.every(c => c.lines.length === 0)) continue;
+
+        // Skip rows with no content cells
+        if (cells.length === 0) continue;
+        // If no label found, use a generic one
+        if (!label) label = '—';
         rows.push({ label, cells });
       }
 
-      return { headers: headers.slice(labelCol + 1), rows };
+      // Collect all unique content headers for the return value
+      const usedHeaders = [];
+      const seen = new Set();
+      for (const row of rows) {
+        for (const cell of row.cells) {
+          if (cell.header && !seen.has(cell.header)) {
+            seen.add(cell.header);
+            usedHeaders.push(cell.header);
+          }
+        }
+      }
+
+      return { headers: usedHeaders, rows };
     }
 
     // ════════════════════════════════════════
