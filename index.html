@@ -208,6 +208,7 @@
       gap: 0.6rem;
       flex: 1;
       min-width: 0;
+      align-items: stretch;
     }
 
     /* ── Workout Card (cell within row) ── */
@@ -2302,9 +2303,11 @@
         const totalContentLines = contentCells.reduce((sum, c) => sum + c.lines.length, 0);
         const maxCellLines = contentCells.length > 0 ? Math.max(...contentCells.map(c => c.lines.length)) : 0;
         const minCellLines = contentCells.length > 0 ? Math.min(...contentCells.map(c => c.lines.length)) : 0;
-        // Merge if: only 1 content card, OR cards are very unbalanced (one has ≤3 lines and total is high)
+        // Merge if: only 1 content card, OR cards are unbalanced
+        // Unbalanced = smallest card has ≤3 lines, OR biggest card is 2x+ the smallest
         const shouldMerge = contentCells.length === 1
-          || (contentCells.length > 1 && minCellLines <= 3 && totalContentLines > 6);
+          || (contentCells.length > 1 && totalContentLines > 6 &&
+              (minCellLines <= 3 || maxCellLines >= minCellLines * 2));
 
         if (shouldMerge && totalContentLines > 3) {
           // Merge all content cells into one wide card with multi-column layout
