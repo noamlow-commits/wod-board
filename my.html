@@ -1750,7 +1750,7 @@ function renderBadges() {
     else if (d.includes('rx ready')) tier = 'silver';
     else if (d.includes('מתחזק') || d.includes('מתחזקת')) tier = 'bronze';
     else tier = 'bronze';
-    return `<span class="badge-pill badge-${tier}" title="${esc(b.desc)}">${esc(b.icon || '🏅')} ${esc(b.shortName || b.name)}</span>`;
+    return `<span class="badge-pill badge-${tier}" title="${esc(b.desc)}">${getBadgeIcon(b)} ${esc(b.shortName || b.name)}</span>`;
   }).join('') + (myBadges.length > 6 ? '<span class="badge-pill badge-bronze">+' + (myBadges.length - 6) + '</span>' : '');
 }
 
@@ -2016,6 +2016,29 @@ function renderStreak(weekStreak) {
 // ═══════════════════════════════════════════════════════
 // Feature 2: Badge Shelf with Locked Badges
 // ═══════════════════════════════════════════════════════
+// Client-side badge icon map — avoids JSONP emoji corruption
+var BADGE_ICONS = {
+  first_pr: '\u{1F3AF}', prs_3: '\u{1F331}', prs_5: '\u{1F31F}', prs_10: '\u2B50', prs_20: '\u{1F4AB}',
+  multi_lift: '\u{1F3A8}', multi_lift_5: '\u{1F308}',
+  squat_60_m: '\u{1F331}', squat_80_m: '\u{1F4AA}', squat_100_m: '\u{1F3CB}\uFE0F', squat_140_m: '\u{1F451}',
+  deadlift_80_m: '\u{1F331}', deadlift_100_m: '\u{1F4AA}', deadlift_140_m: '\u{1F525}', deadlift_180_m: '\u{1F451}',
+  clean_40_m: '\u{1F331}', clean_60_m: '\u{1F4AA}', clean_80_m: '\u{1F525}', clean_100_m: '\u{1F451}',
+  snatch_30_m: '\u{1F331}', snatch_45_m: '\u{1F4AA}', snatch_60_m: '\u{1F525}', snatch_80_m: '\u{1F451}',
+  bench_40_m: '\u{1F331}', bench_60_m: '\u{1F4AA}', bench_80_m: '\u{1F525}', bench_100_m: '\u{1F451}',
+  press_25_m: '\u{1F331}', press_40_m: '\u{1F4AA}', press_55_m: '\u{1F525}', press_70_m: '\u{1F451}',
+  squat_40_f: '\u{1F331}', squat_55_f: '\u{1F4AA}', squat_70_f: '\u{1F525}', squat_90_f: '\u{1F451}',
+  deadlift_50_f: '\u{1F331}', deadlift_70_f: '\u{1F4AA}', deadlift_90_f: '\u{1F525}', deadlift_120_f: '\u{1F451}',
+  clean_25_f: '\u{1F331}', clean_40_f: '\u{1F4AA}', clean_55_f: '\u{1F525}', clean_70_f: '\u{1F451}',
+  snatch_20_f: '\u{1F331}', snatch_30_f: '\u{1F4AA}', snatch_40_f: '\u{1F525}', snatch_55_f: '\u{1F451}',
+  bench_25_f: '\u{1F331}', bench_35_f: '\u{1F4AA}', bench_45_f: '\u{1F525}', bench_55_f: '\u{1F451}',
+  press_15_f: '\u{1F331}', press_25_f: '\u{1F4AA}', press_35_f: '\u{1F525}', press_45_f: '\u{1F451}'
+};
+
+function getBadgeIcon(badge) {
+  // Use client-side icon map to avoid JSONP encoding corruption
+  return BADGE_ICONS[badge.id] || '\u{1F3C5}';
+}
+
 function renderBadgeShelf(earnedBadges, allBadges) {
   var shelf = document.getElementById('badgeShelf');
   var inner = document.getElementById('badgeShelfInner');
@@ -2030,20 +2053,19 @@ function renderBadgeShelf(earnedBadges, allBadges) {
   earnedBadges.forEach(function(b) { earnedIds[b.id] = b; });
 
   var html = '';
-  // Show earned first, then locked
   var earned = allBadges.filter(function(b) { return earnedIds[b.id]; });
   var locked = allBadges.filter(function(b) { return !earnedIds[b.id]; });
 
   earned.forEach(function(b) {
     html += '<div class="badge-card badge-card-earned" title="' + esc(b.desc) + '">' +
-      '<div class="badge-icon">' + (b.icon || '🏅') + '</div>' +
+      '<div class="badge-icon">' + getBadgeIcon(b) + '</div>' +
       '<div class="badge-label">' + esc(b.shortName || b.name) + '</div></div>';
   });
 
   locked.forEach(function(b) {
     html += '<div class="badge-card badge-card-locked" title="' + esc(b.desc) + '">' +
-      '<div class="badge-icon">' + (b.icon || '🏅') + '</div>' +
-      '<div class="badge-label">' + esc(b.shortName || b.name) + ' <span class="badge-lock">🔒</span></div></div>';
+      '<div class="badge-icon">' + getBadgeIcon(b) + '</div>' +
+      '<div class="badge-label">' + esc(b.shortName || b.name) + ' <span class="badge-lock">\u{1F512}</span></div></div>';
   });
 
   inner.innerHTML = html;
