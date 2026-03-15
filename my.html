@@ -1750,7 +1750,7 @@ function renderBadges() {
     else if (d.includes('rx ready')) tier = 'silver';
     else if (d.includes('מתחזק') || d.includes('מתחזקת')) tier = 'bronze';
     else tier = 'bronze';
-    return `<span class="badge-pill badge-${tier}" title="${esc(b.desc)}">${getBadgeIcon(b)} ${esc(b.shortName || b.name)}</span>`;
+    return `<span class="badge-pill badge-${tier}" title="${esc(b.desc)}">${getBadgeIcon(b)} ${esc(getBadgeName(b))}</span>`;
   }).join('') + (myBadges.length > 6 ? '<span class="badge-pill badge-bronze">+' + (myBadges.length - 6) + '</span>' : '');
 }
 
@@ -2016,27 +2016,96 @@ function renderStreak(weekStreak) {
 // ═══════════════════════════════════════════════════════
 // Feature 2: Badge Shelf with Locked Badges
 // ═══════════════════════════════════════════════════════
-// Client-side badge icon map — avoids JSONP emoji corruption
-var BADGE_ICONS = {
-  first_pr: '\u{1F3AF}', prs_3: '\u{1F331}', prs_5: '\u{1F31F}', prs_10: '\u2B50', prs_20: '\u{1F4AB}',
-  multi_lift: '\u{1F3A8}', multi_lift_5: '\u{1F308}',
-  squat_60_m: '\u{1F331}', squat_80_m: '\u{1F4AA}', squat_100_m: '\u{1F3CB}\uFE0F', squat_140_m: '\u{1F451}',
-  deadlift_80_m: '\u{1F331}', deadlift_100_m: '\u{1F4AA}', deadlift_140_m: '\u{1F525}', deadlift_180_m: '\u{1F451}',
-  clean_40_m: '\u{1F331}', clean_60_m: '\u{1F4AA}', clean_80_m: '\u{1F525}', clean_100_m: '\u{1F451}',
-  snatch_30_m: '\u{1F331}', snatch_45_m: '\u{1F4AA}', snatch_60_m: '\u{1F525}', snatch_80_m: '\u{1F451}',
-  bench_40_m: '\u{1F331}', bench_60_m: '\u{1F4AA}', bench_80_m: '\u{1F525}', bench_100_m: '\u{1F451}',
-  press_25_m: '\u{1F331}', press_40_m: '\u{1F4AA}', press_55_m: '\u{1F525}', press_70_m: '\u{1F451}',
-  squat_40_f: '\u{1F331}', squat_55_f: '\u{1F4AA}', squat_70_f: '\u{1F525}', squat_90_f: '\u{1F451}',
-  deadlift_50_f: '\u{1F331}', deadlift_70_f: '\u{1F4AA}', deadlift_90_f: '\u{1F525}', deadlift_120_f: '\u{1F451}',
-  clean_25_f: '\u{1F331}', clean_40_f: '\u{1F4AA}', clean_55_f: '\u{1F525}', clean_70_f: '\u{1F451}',
-  snatch_20_f: '\u{1F331}', snatch_30_f: '\u{1F4AA}', snatch_40_f: '\u{1F525}', snatch_55_f: '\u{1F451}',
-  bench_25_f: '\u{1F331}', bench_35_f: '\u{1F4AA}', bench_45_f: '\u{1F525}', bench_55_f: '\u{1F451}',
-  press_15_f: '\u{1F331}', press_25_f: '\u{1F4AA}', press_35_f: '\u{1F525}', press_45_f: '\u{1F451}'
+// Client-side badge data — avoids JSONP emoji/Hebrew corruption
+var BADGE_DATA = {
+  // Universal
+  first_pr:      { icon: '\u{1F3AF}', name: '\u05E9\u05D9\u05D0 \u05E8\u05D0\u05E9\u05D5\u05DF!' },
+  prs_3:         { icon: '\u{1F331}', name: '3 \u05E9\u05D9\u05D0\u05D9\u05DD' },
+  prs_5:         { icon: '\u{1F31F}', name: '5 \u05E9\u05D9\u05D0\u05D9\u05DD' },
+  prs_10:        { icon: '\u2B50',    name: '10 \u05E9\u05D9\u05D0\u05D9\u05DD' },
+  prs_20:        { icon: '\u{1F4AB}', name: '20 \u05E9\u05D9\u05D0\u05D9\u05DD' },
+  multi_lift:    { icon: '\u{1F3A8}', name: '\u05DE\u05D2\u05D5\u05D5\u05DF' },
+  multi_lift_5:  { icon: '\u{1F308}', name: '\u05E8\u05D1-\u05EA\u05D7\u05D5\u05DE\u05D9' },
+  // Men - Back Squat
+  squat_60_m:    { icon: '\u{1F331}', name: '\u05E1\u05E7\u05D5\u05D5\u05D0\u05D8 60' },
+  squat_80_m:    { icon: '\u{1F4AA}', name: '\u05E1\u05E7\u05D5\u05D5\u05D0\u05D8 80' },
+  squat_100_m:   { icon: '\u{1F3CB}\uFE0F', name: '\u05E1\u05E7\u05D5\u05D5\u05D0\u05D8 100' },
+  squat_140_m:   { icon: '\u{1F451}', name: '\u05E1\u05E7\u05D5\u05D5\u05D0\u05D8 140' },
+  // Men - Deadlift
+  deadlift_80_m:  { icon: '\u{1F331}', name: '\u05DE\u05EA\u05D9\u05DD 80' },
+  deadlift_100_m: { icon: '\u{1F4AA}', name: '\u05DE\u05EA\u05D9\u05DD 100' },
+  deadlift_140_m: { icon: '\u{1F525}', name: '\u05DE\u05EA\u05D9\u05DD 140' },
+  deadlift_180_m: { icon: '\u{1F451}', name: '\u05DE\u05EA\u05D9\u05DD 180' },
+  // Men - Clean
+  clean_40_m:    { icon: '\u{1F331}', name: '\u05E7\u05DC\u05D9\u05DF 40' },
+  clean_60_m:    { icon: '\u{1F4AA}', name: '\u05E7\u05DC\u05D9\u05DF 60' },
+  clean_80_m:    { icon: '\u{1F525}', name: '\u05E7\u05DC\u05D9\u05DF 80' },
+  clean_100_m:   { icon: '\u{1F451}', name: '\u05E7\u05DC\u05D9\u05DF 100' },
+  // Men - Snatch
+  snatch_30_m:   { icon: '\u{1F331}', name: "\u05E1\u05E0\u05D0\u05E6' 30" },
+  snatch_45_m:   { icon: '\u{1F4AA}', name: "\u05E1\u05E0\u05D0\u05E6' 45" },
+  snatch_60_m:   { icon: '\u{1F3CB}\uFE0F', name: "\u05E1\u05E0\u05D0\u05E6' 60" },
+  snatch_80_m:   { icon: '\u{1F3C5}', name: "\u05E1\u05E0\u05D0\u05E6' 80" },
+  // Men - Bench
+  bench_40_m:    { icon: '\u{1F331}', name: "\u05D1\u05E0\u05E5' 40" },
+  bench_60_m:    { icon: '\u{1F4AA}', name: "\u05D1\u05E0\u05E5' 60" },
+  bench_80_m:    { icon: '\u{1F3CB}\uFE0F', name: "\u05D1\u05E0\u05E5' 80" },
+  bench_100_m:   { icon: '\u{1F48E}', name: "\u05D1\u05E0\u05E5' 100" },
+  // Men - Press
+  press_30_m:    { icon: '\u{1F331}', name: '\u05DB\u05EA\u05E4\u05D9\u05D9\u05DD 30' },
+  press_40_m:    { icon: '\u{1F4AA}', name: '\u05DB\u05EA\u05E4\u05D9\u05D9\u05DD 40' },
+  press_55_m:    { icon: '\u{1F525}', name: '\u05DB\u05EA\u05E4\u05D9\u05D9\u05DD 55' },
+  press_70_m:    { icon: '\u{1F451}', name: '\u05DB\u05EA\u05E4\u05D9\u05D9\u05DD 70' },
+  // Men - Front Squat
+  fsquat_50_m:   { icon: '\u{1F331}', name: '\u05E4\u05E8\u05D5\u05E0\u05D8 50' },
+  fsquat_70_m:   { icon: '\u{1F4AA}', name: '\u05E4\u05E8\u05D5\u05E0\u05D8 70' },
+  fsquat_90_m:   { icon: '\u{1F525}', name: '\u05E4\u05E8\u05D5\u05E0\u05D8 90' },
+  fsquat_120_m:  { icon: '\u{1F451}', name: '\u05E4\u05E8\u05D5\u05E0\u05D8 120' },
+  // Women - Back Squat
+  squat_35_f:    { icon: '\u{1F331}', name: '\u05E1\u05E7\u05D5\u05D5\u05D0\u05D8 35' },
+  squat_50_f:    { icon: '\u{1F4AA}', name: '\u05E1\u05E7\u05D5\u05D5\u05D0\u05D8 50' },
+  squat_60_f:    { icon: '\u{1F525}', name: '\u05E1\u05E7\u05D5\u05D5\u05D0\u05D8 60' },
+  squat_90_f:    { icon: '\u{1F451}', name: '\u05E1\u05E7\u05D5\u05D5\u05D0\u05D8 90' },
+  // Women - Deadlift
+  deadlift_40_f:  { icon: '\u{1F331}', name: '\u05DE\u05EA\u05D9\u05DD 40' },
+  deadlift_65_f:  { icon: '\u{1F4AA}', name: '\u05DE\u05EA\u05D9\u05DD 65' },
+  deadlift_80_f:  { icon: '\u{1F525}', name: '\u05DE\u05EA\u05D9\u05DD 80' },
+  deadlift_110_f: { icon: '\u{1F451}', name: '\u05DE\u05EA\u05D9\u05DD 110' },
+  // Women - Clean
+  clean_25_f:    { icon: '\u{1F331}', name: '\u05E7\u05DC\u05D9\u05DF 25' },
+  clean_35_f:    { icon: '\u{1F4AA}', name: '\u05E7\u05DC\u05D9\u05DF 35' },
+  clean_45_f:    { icon: '\u{1F525}', name: '\u05E7\u05DC\u05D9\u05DF 45' },
+  clean_60_f:    { icon: '\u{1F451}', name: '\u05E7\u05DC\u05D9\u05DF 60' },
+  // Women - Snatch
+  snatch_20_f:   { icon: '\u{1F331}', name: "\u05E1\u05E0\u05D0\u05E6' 20" },
+  snatch_30_f:   { icon: '\u{1F4AA}', name: "\u05E1\u05E0\u05D0\u05E6' 30" },
+  snatch_35_f:   { icon: '\u{1F3CB}\uFE0F', name: "\u05E1\u05E0\u05D0\u05E6' 35" },
+  snatch_45_f:   { icon: '\u{1F3C5}', name: "\u05E1\u05E0\u05D0\u05E6' 45" },
+  // Women - Bench
+  bench_20_f:    { icon: '\u{1F331}', name: "\u05D1\u05E0\u05E5' 20" },
+  bench_30_f:    { icon: '\u{1F4AA}', name: "\u05D1\u05E0\u05E5' 30" },
+  bench_40_f:    { icon: '\u{1F3CB}\uFE0F', name: "\u05D1\u05E0\u05E5' 40" },
+  bench_50_f:    { icon: '\u{1F48E}', name: "\u05D1\u05E0\u05E5' 50" },
+  // Women - Press
+  press_15_f:    { icon: '\u{1F331}', name: '\u05DB\u05EA\u05E4\u05D9\u05D9\u05DD 15' },
+  press_25_f:    { icon: '\u{1F4AA}', name: '\u05DB\u05EA\u05E4\u05D9\u05D9\u05DD 25' },
+  press_35_f:    { icon: '\u{1F525}', name: '\u05DB\u05EA\u05E4\u05D9\u05D9\u05DD 35' },
+  press_45_f:    { icon: '\u{1F451}', name: '\u05DB\u05EA\u05E4\u05D9\u05D9\u05DD 45' },
+  // Women - Front Squat
+  fsquat_30_f:   { icon: '\u{1F331}', name: '\u05E4\u05E8\u05D5\u05E0\u05D8 30' },
+  fsquat_40_f:   { icon: '\u{1F4AA}', name: '\u05E4\u05E8\u05D5\u05E0\u05D8 40' },
+  fsquat_55_f:   { icon: '\u{1F525}', name: '\u05E4\u05E8\u05D5\u05E0\u05D8 55' },
+  fsquat_75_f:   { icon: '\u{1F451}', name: '\u05E4\u05E8\u05D5\u05E0\u05D8 75' }
 };
 
 function getBadgeIcon(badge) {
-  // Use client-side icon map to avoid JSONP encoding corruption
-  return BADGE_ICONS[badge.id] || '\u{1F3C5}';
+  var d = BADGE_DATA[badge.id];
+  return d ? d.icon : '\u{1F3C5}';
+}
+
+function getBadgeName(badge) {
+  var d = BADGE_DATA[badge.id];
+  return d ? d.name : (badge.shortName || badge.name || badge.id);
 }
 
 function renderBadgeShelf(earnedBadges, allBadges) {
@@ -2059,13 +2128,13 @@ function renderBadgeShelf(earnedBadges, allBadges) {
   earned.forEach(function(b) {
     html += '<div class="badge-card badge-card-earned" title="' + esc(b.desc) + '">' +
       '<div class="badge-icon">' + getBadgeIcon(b) + '</div>' +
-      '<div class="badge-label">' + esc(b.shortName || b.name) + '</div></div>';
+      '<div class="badge-label">' + esc(getBadgeName(b)) + '</div></div>';
   });
 
   locked.forEach(function(b) {
     html += '<div class="badge-card badge-card-locked" title="' + esc(b.desc) + '">' +
       '<div class="badge-icon">' + getBadgeIcon(b) + '</div>' +
-      '<div class="badge-label">' + esc(b.shortName || b.name) + ' <span class="badge-lock">\u{1F512}</span></div></div>';
+      '<div class="badge-label">' + esc(getBadgeName(b)) + ' <span class="badge-lock">\u{1F512}</span></div></div>';
   });
 
   inner.innerHTML = html;
