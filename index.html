@@ -2466,11 +2466,39 @@
 
           // Split items evenly into flex columns
           const numCols = totalContentLines <= 10 ? 2 : totalContentLines <= 20 ? 3 : 4;
+
+          // Smart column splitting: prefer breaking at section headers
+          // so numbers (1, 2, 3) appear at the TOP of columns, not the bottom
+          const headerIndices = allItems.map((it, i) => it.type === 'header' ? i : -1).filter(i => i >= 0);
           const perCol = Math.ceil(allItems.length / numCols);
+          const breaks = [0]; // start of each column
+          for (let col = 1; col < numCols; col++) {
+            const idealBreak = col * perCol;
+            // Find nearest section header within 4 items of ideal break
+            let bestBreak = idealBreak;
+            let bestDist = 999;
+            for (const hi of headerIndices) {
+              const dist = Math.abs(hi - idealBreak);
+              if (dist <= 4 && dist < bestDist) {
+                bestBreak = hi;
+                bestDist = dist;
+              }
+            }
+            // Only use header break if it doesn't create a very unbalanced column
+            if (bestBreak > breaks[breaks.length - 1] + 2) {
+              breaks.push(bestBreak);
+            } else {
+              breaks.push(idealBreak);
+            }
+          }
+          breaks.push(allItems.length);
+
           let colsHTML = '';
-          for (let i = 0; i < numCols; i++) {
-            const colItems = allItems.slice(i * perCol, (i + 1) * perCol);
-            colsHTML += `<div class="flow-col">${colItems.map(it => it.html).join('')}</div>`;
+          for (let i = 0; i < breaks.length - 1; i++) {
+            const colItems = allItems.slice(breaks[i], breaks[i + 1]);
+            if (colItems.length > 0) {
+              colsHTML += `<div class="flow-col">${colItems.map(it => it.html).join('')}</div>`;
+            }
           }
 
           // Safety alongside
