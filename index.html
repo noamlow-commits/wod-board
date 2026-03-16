@@ -2369,14 +2369,13 @@
         let cardsHTML = '';
 
         // Decide layout strategy based on content balance
+        // PREFER separate cards with numbered headers (1, 2, 3) — only merge when
+        // one card is nearly empty (≤2 lines) and there's significant total content.
+        // This keeps the numbered structure the coach writes in the sheet.
         const totalContentLines = contentCells.reduce((sum, c) => sum + c.lines.length, 0);
-        const maxCellLines = contentCells.length > 0 ? Math.max(...contentCells.map(c => c.lines.length)) : 0;
         const minCellLines = contentCells.length > 0 ? Math.min(...contentCells.map(c => c.lines.length)) : 0;
-        // Merge if: only 1 content card, OR cards are unbalanced
-        // Unbalanced = smallest card has ≤3 lines, OR biggest card is 2x+ the smallest
         const shouldMerge = contentCells.length === 1
-          || (contentCells.length > 1 && totalContentLines > 6 &&
-              (minCellLines <= 3 || maxCellLines >= minCellLines * 2));
+          || (contentCells.length > 1 && minCellLines <= 2 && totalContentLines > 8);
 
         if (shouldMerge && totalContentLines > 3) {
           // Merge all content cells into one wide card with multi-column layout
