@@ -2813,14 +2813,16 @@
       // Display mode shortcuts
       if (notInput && !e.ctrlKey && !e.metaKey) {
         if (e.key === 'd') {
+          sectionFilter = null; applySectionFilter();
           const modes = ['wod', 'split', 'scoreboard', 'pr'];
           const next = modes[(modes.indexOf(displayMode) + 1) % modes.length];
           setDisplayMode(next);
         }
-        if (e.key === '1') setDisplayMode('wod');
-        if (e.key === '2') setDisplayMode('split');
-        if (e.key === '3') setDisplayMode('scoreboard');
-        if (e.key === '4') setDisplayMode('pr');
+        // 1-4: switch display mode AND reset section filter
+        if (e.key === '1') { sectionFilter = null; applySectionFilter(); setDisplayMode('wod'); }
+        if (e.key === '2') { sectionFilter = null; applySectionFilter(); setDisplayMode('split'); }
+        if (e.key === '3') { sectionFilter = null; applySectionFilter(); setDisplayMode('scoreboard'); }
+        if (e.key === '4') { sectionFilter = null; applySectionFilter(); setDisplayMode('pr'); }
         // Q / 9: toggle QR
         if (e.key === 'q' || e.key === '9') {
           settings.showQR = !settings.showQR;
@@ -2830,7 +2832,8 @@
         // ←→ Arrow keys: cycle display modes (TV remote friendly)
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
           e.preventDefault();
-          e.stopPropagation(); // Prevent TV browser spatial navigation from intercepting
+          e.stopPropagation();
+          sectionFilter = null; applySectionFilter();
           const modes = ['wod', 'split', 'scoreboard', 'pr'];
           const dir = e.key === 'ArrowRight' ? 1 : -1;
           const next = modes[(modes.indexOf(displayMode) + dir + modes.length) % modes.length];
