@@ -2400,14 +2400,12 @@
 
         let cardsHTML = '';
 
-        // Decide layout strategy based on content balance
-        // PREFER separate cards with numbered headers (1, 2, 3) — only merge when
-        // one card is nearly empty (≤2 lines) and there's significant total content.
-        // This keeps the numbered structure the coach writes in the sheet.
+        // Layout strategy: ALWAYS merge content into one wide area with sub-header columns.
+        // Numbers (1, 2, 3) become column dividers, not separate cards.
+        // This maximizes font size by eliminating wasted vertical space in short cards.
+        // Only exception: single card with few lines (render as-is).
         const totalContentLines = contentCells.reduce((sum, c) => sum + c.lines.length, 0);
-        const minCellLines = contentCells.length > 0 ? Math.min(...contentCells.map(c => c.lines.length)) : 0;
-        const shouldMerge = contentCells.length === 1
-          || (contentCells.length > 1 && minCellLines <= 2 && totalContentLines > 8);
+        const shouldMerge = contentCells.length >= 2 || (contentCells.length === 1 && totalContentLines > 6);
 
         if (shouldMerge && totalContentLines > 3) {
           // Merge all content cells into one wide card with multi-column layout
@@ -2480,10 +2478,8 @@
               </div>`;
           }).join('');
         } else {
-          // Balanced cards — render separately, split long ones into 2 columns
-          // Only split internally when there are few cards (≤2 content cards), otherwise too cramped
-          const totalCards = contentCells.length + safetyCells.length;
-          const MULTI_COL_THRESHOLD = totalCards <= 2 ? 5 : 999; // disable split when 3+ cards
+          // Single short card — render as-is, no splitting needed
+          const MULTI_COL_THRESHOLD = 999;
 
           cardsHTML = row.cells
             .filter(cell => cell.lines.length > 0)
