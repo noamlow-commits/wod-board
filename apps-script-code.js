@@ -367,6 +367,7 @@ function doGet(e) {
   if (action === 'getAnnouncements') return handleGetAnnouncements_(e);
   if (action === 'getEntries') return handleGetEntries_(e);
   if (action === 'checkAthlete') return handleCheckAthlete_(e);
+  if (action === 'getWorkoutSheet') return handleGetWorkoutSheet_(e);
 
   // Default: return today's WOD scores (existing behavior)
   return handleGetScores_(e);
@@ -1636,6 +1637,43 @@ function handleGetAnnouncements_(e) {
   }
 
   return respondWithCallback_(e, { announcements: announcements });
+}
+
+// ═══════════════════════════════════════════════════════
+// Read raw workout sheet (bypasses gviz API limitations)
+// ═══════════════════════════════════════════════════════
+function handleGetWorkoutSheet_(e) {
+  var tabName = e.parameter.tab || '';
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = tabName ? ss.getSheetByName(tabName) : ss.getSheets()[0];
+  if (!sheet) return respondWithCallback_(e, { error: 'Sheet not found', rows: [] });
+
+  var range = sheet.getDataRange();
+  var values = range.getValues();
+
+  // Find the last column with actual data (skip trailing empty columns)
+  var maxCol = 0;
+  for (var r = 0; r < values.length; r++) {
+    for (var c = values[r].length - 1; c >= 0; c--) {
+      if (values[r][c] !== '' && values[r][c] !== null) {
+        if (c + 1 > maxCol) maxCol = c + 1;
+        break;
+      }
+    }
+  }
+
+  // Build rows array with trimmed columns
+  var rows = [];
+  for (var r = 0; r < values.length; r++) {
+    var row = [];
+    for (var c = 0; c < maxCol; c++) {
+      var v = values[r][c];
+      row.push(v !== null && v !== undefined ? String(v) : '');
+    }
+    rows.push(row);
+  }
+
+  return respondWithCallback_(e, { rows: rows, tab: sheet.getName() });
 }
 
 // ═══════════════════════════════════════════════════════
