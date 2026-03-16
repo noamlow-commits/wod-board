@@ -2606,11 +2606,16 @@
       if (data) {
         renderWorkout(data);
         // Ensure auto-fit runs after DOM is fully rendered (fixes first-load sizing)
-        setTimeout(() => autoFitFontSize(), 100);
+        // Use rAF + multiple delayed retries: layout/fonts may not be stable on first load
+        requestAnimationFrame(() => {
+          autoFitFontSize();
+          setTimeout(() => autoFitFontSize(), 300);
+          setTimeout(() => autoFitFontSize(), 800);
+        });
       }
     }
 
-    function startApp() {
+    async function startApp() {
       applySettings();
       renderTabBar();
 
@@ -2619,7 +2624,8 @@
 
       if (settings.sheetId) {
         document.getElementById('emptyState')?.remove();
-        fetchAndRender();
+        // Await initial fetch so data is in DOM before setDisplayMode runs
+        await fetchAndRender();
         refreshTimer = setInterval(fetchAndRender, (settings.refreshInterval || 30) * 1000);
       }
 
@@ -2635,7 +2641,7 @@
         }, 5000);
       }
 
-      // Apply display mode
+      // Apply display mode (now runs AFTER data is rendered)
       setDisplayMode(displayMode);
     }
 
@@ -2670,11 +2676,13 @@
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { closeSettings(); if (document.fullscreenElement) document.exitFullscreen(); }
-      // Blur focused buttons so TV remote keys aren't captured by browser focus system
-      if (document.activeElement && document.activeElement.tagName === 'BUTTON') {
-        document.activeElement.blur();
+      // Blur ANY focused element (except inputs) so TV remote / browser spatial navigation
+      // doesn't intercept keys — fixes keys not working in BOARD/scoreboard mode
+      const ae = document.activeElement;
+      if (ae && ae !== document.body && ae.tagName !== 'INPUT' && ae.tagName !== 'TEXTAREA') {
+        ae.blur();
       }
+      if (e.key === 'Escape') { closeSettings(); if (document.fullscreenElement) document.exitFullscreen(); }
       const notInput = document.activeElement.tagName !== 'INPUT';
       if (e.key === 's' && !e.ctrlKey && !e.metaKey && notInput) openSettings();
       if (e.key === 'f' && !e.ctrlKey && !e.metaKey && notInput) {
@@ -2700,7 +2708,8 @@
         }
         // ←→ Arrow keys: cycle display modes (TV remote friendly)
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-          e.preventDefault(); // Prevent TV browser from moving focus
+          e.preventDefault();
+          e.stopPropagation(); // Prevent TV browser spatial navigation from intercepting
           const modes = ['wod', 'split', 'scoreboard', 'pr'];
           const dir = e.key === 'ArrowRight' ? 1 : -1;
           const next = modes[(modes.indexOf(displayMode) + dir + modes.length) % modes.length];
@@ -2709,6 +2718,7 @@
         // ↑↓ Arrow keys: cycle section filter (only in WOD/SPLIT modes where sections are visible)
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
           e.preventDefault();
+          e.stopPropagation();
           if (displayMode === 'wod' || displayMode === 'split') {
             const sections = getSectionLabels();
             if (sections.length > 1) {
