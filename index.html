@@ -304,6 +304,11 @@
     .card-header.cooldown { background: linear-gradient(135deg, var(--cooldown-start), var(--cooldown-end)); }
     .card-header.default { background: linear-gradient(135deg, var(--default-start), var(--default-end)); }
 
+    .workout-card.warmup-card > .card-body,
+    .workout-card.warmup-card > .card-body-columns {
+      background: rgba(245, 158, 11, 0.08);
+    }
+
     .card-body {
       flex: 1;
       padding: 0.6rem 1rem;
@@ -2392,11 +2397,31 @@
           const hebrewChars = (allText.match(/[\u0590-\u05FF]/g) || []).length;
           const isRtl = hebrewChars > allText.length * 0.3;
 
-          const numCols = Math.min(3, Math.ceil(allLines.length / 4));
-          const perCol = Math.ceil(allLines.length / numCols);
+          // Split columns by sub-headers: each numbered section (1, 2, 3) gets its own column
+          const columns = [];
+          let currentCol = [];
+          for (const line of allLines) {
+            if (line.startsWith('__SUBHEADER__') && currentCol.length > 0) {
+              columns.push(currentCol);
+              currentCol = [];
+            }
+            currentCol.push(line);
+          }
+          if (currentCol.length > 0) columns.push(currentCol);
+
+          // If no sub-headers found or only 1 column, fall back to even split
+          let finalColumns = columns;
+          if (finalColumns.length <= 1 && allLines.length > 4) {
+            const numCols = Math.min(3, Math.ceil(allLines.length / 4));
+            const perCol = Math.ceil(allLines.length / numCols);
+            finalColumns = [];
+            for (let i = 0; i < numCols; i++) {
+              finalColumns.push(allLines.slice(i * perCol, (i + 1) * perCol));
+            }
+          }
+
           let colsHTML = '';
-          for (let i = 0; i < numCols; i++) {
-            const colLines = allLines.slice(i * perCol, (i + 1) * perCol);
+          for (const colLines of finalColumns) {
             const linesHTML = colLines.map(line => {
               if (line.startsWith('__SUBHEADER__')) {
                 const hdrText = escapeHtml(line.replace('__SUBHEADER__', ''));
