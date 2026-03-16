@@ -342,6 +342,9 @@ function doGet(e) {
   // ── Coach login uses its own auth ──
   if (action === 'coachLogin') return handleCoachLogin_(e);
 
+  // ── Workout sheet is public read (no sensitive data) ──
+  if (action === 'getWorkoutSheet') return handleGetWorkoutSheet_(e);
+
   // ── All other endpoints require valid Gym PIN ──
   if (!verifyGymPin_(e.parameter.pin || '')) {
     return respondWithCallback_(e, { status: 'error', message: 'PIN required' });
