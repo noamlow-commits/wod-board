@@ -305,7 +305,8 @@
     .card-header.default { background: linear-gradient(135deg, var(--default-start), var(--default-end)); }
 
     .workout-card.warmup-card > .card-body,
-    .workout-card.warmup-card > .card-body-columns {
+    .workout-card.warmup-card > .card-body-columns,
+    .spread-container.warmup-card {
       background: rgba(245, 158, 11, 0.08);
     }
 
@@ -2433,7 +2434,9 @@
             colsHTML += `<div class="spread-col${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>`;
           }
 
-          cardsHTML = `<div class="spread-container">${colsHTML}</div>`;
+          const firstContentLine = allLines.find(l => !l.startsWith('__SUBHEADER__')) || '';
+          const isMergedWarmup = theme === 'warmup' || /warm\s*up/i.test(firstContentLine);
+          cardsHTML = `<div class="spread-container${isMergedWarmup ? ' warmup-card' : ''}">${colsHTML}</div>`;
 
           // Append safety cards
           cardsHTML += safetyCells.map(cell => {
@@ -2484,8 +2487,9 @@
                 bodyHTML = `<div class="card-body${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>`;
               }
 
+              const isWarmupCard = !safety && (theme === 'warmup' || (cell.lines.length > 0 && /warm\s*up/i.test(cell.lines[0])));
               return `
-                <div class="workout-card${safety ? ' safety-card' : ''}">
+                <div class="workout-card${safety ? ' safety-card' : ''}${isWarmupCard ? ' warmup-card' : ''}">
                   <div class="card-header ${safety ? 'warmup' : theme}">${escapeHtml(cell.header)}</div>
                   ${bodyHTML}
                 </div>`;
