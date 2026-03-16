@@ -261,16 +261,22 @@
       line-height: 1.4;
     }
 
-    /* Newspaper-column flow layout */
+    /* Flow layout: content in flex columns (not CSS columns, so overflow is detectable) */
     .flow-columns {
       flex: 1;
-      column-gap: 1rem;
+      display: flex;
+      gap: 0.8rem;
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 12px;
       padding: 0.5rem 0.8rem;
       overflow: hidden;
       min-width: 0;
+    }
+    .flow-col {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
     }
     .flow-section-header {
       font-size: calc(1.3rem * var(--font-scale));
@@ -280,7 +286,6 @@
       margin: 0.4rem 0 0.2rem 0;
       border-radius: 6px;
       text-align: center;
-      break-inside: avoid;
       background: rgba(255, 255, 255, 0.08);
       border: 1.5px solid rgba(255, 255, 255, 0.15);
       text-shadow: 0 1px 4px rgba(0,0,0,0.5);
@@ -288,9 +293,6 @@
     }
     .flow-section-header:first-child {
       margin-top: 0;
-    }
-    .flow-columns .exercise-line {
-      break-inside: avoid;
     }
     .flow-columns .exercise-line.warmup-line {
       background: rgba(245, 158, 11, 0.08);
@@ -1646,8 +1648,8 @@
         for (const col of container.querySelectorAll('.workout-row:not(.section-hidden) .card-body-columns')) {
           if (col.scrollHeight > col.clientHeight + 2) return true;
         }
-        // Check flow-columns layout
-        for (const el of container.querySelectorAll('.workout-row:not(.section-hidden) .flow-columns')) {
+        // Check flow layout columns
+        for (const el of container.querySelectorAll('.workout-row:not(.section-hidden) .flow-columns, .workout-row:not(.section-hidden) .flow-col')) {
           if (el.scrollHeight > el.clientHeight + 2) return true;
         }
         return false;
@@ -2449,22 +2451,27 @@
         const useFlowLayout = contentCells.length >= 2;
 
         if (useFlowLayout) {
-          // Build one continuous flow of lines with section headers
-          const allFlowHTML = contentCells.map(cell => {
-            const headerHTML = `<div class="flow-section-header ${theme}">${escapeHtml(cell.header)}</div>`;
-            // Track warm-up zone: lines after "warm up" until next sub-header
+          // Build one continuous list of items (headers + lines)
+          const allItems = [];
+          for (const cell of contentCells) {
+            allItems.push({ type: 'header', html: `<div class="flow-section-header ${theme}">${escapeHtml(cell.header)}</div>` });
             let inWarmup = false;
-            const linesHTML = cell.lines.map(line => {
+            for (const line of cell.lines) {
               if (/warm\s*up/i.test(line)) inWarmup = true;
               else if (/^\d+[\.\)]\s|^[A-C][\.\)]\s|amrap|emom|for time|every\s+\d/i.test(line)) inWarmup = false;
               const parsed = parseLine(line);
-              return `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}" dir="auto">${parsed.html}</div>`;
-            }).join('');
-            return headerHTML + linesHTML;
-          }).join('');
+              allItems.push({ type: 'line', html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}" dir="auto">${parsed.html}</div>` });
+            }
+          }
 
-          // Calculate optimal column count based on total lines
+          // Split items evenly into flex columns
           const numCols = totalContentLines <= 10 ? 2 : totalContentLines <= 20 ? 3 : 4;
+          const perCol = Math.ceil(allItems.length / numCols);
+          let colsHTML = '';
+          for (let i = 0; i < numCols; i++) {
+            const colItems = allItems.slice(i * perCol, (i + 1) * perCol);
+            colsHTML += `<div class="flow-col">${colItems.map(it => it.html).join('')}</div>`;
+          }
 
           // Safety alongside
           const safetyHTML = safetyCells.map(cell => {
@@ -2481,7 +2488,7 @@
             </div>`;
           }).join('');
 
-          cardsHTML = `<div class="flow-columns" style="column-count:${numCols};">${allFlowHTML}</div>${safetyHTML}`;
+          cardsHTML = `<div class="flow-columns">${colsHTML}</div>${safetyHTML}`;
 
         } else if (contentCells.length === 1 && totalContentLines > 3) {
           // Merge all content cells into one wide card with multi-column layout
