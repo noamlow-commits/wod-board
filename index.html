@@ -1584,8 +1584,10 @@
       const wodArea = document.getElementById('wodArea');
       if (!wodArea || !wodArea.children.length) return;
 
-      const maxScale = (settings.fontSize || 100) / 100;
-      let lo = 0.4, hi = Math.max(maxScale, 2.0);
+      const userScale = (settings.fontSize || 100) / 100;
+      // Allow auto-fit up to 2.5x when content is sparse (e.g., single filtered section)
+      const maxScale = Math.max(userScale, 2.5);
+      let lo = 0.4, hi = maxScale;
       const root = document.documentElement;
 
       function hasOverflow() {
@@ -1623,9 +1625,8 @@
         }
       }
 
-      // Cap at user's max setting
-      const finalScale = Math.min(lo, maxScale);
-      root.style.setProperty('--font-scale', finalScale.toFixed(4));
+      // Use the binary search result (already bounded by maxScale via hi)
+      root.style.setProperty('--font-scale', lo.toFixed(4));
 
       // Redistribute row flex based on actual rendered content heights
       // so each row gets exactly the space it needs (no black gaps)
@@ -2743,16 +2744,21 @@
             clearTodayScores();
           }
         }
-        // Section filter keys: only active in WOD / SPLIT modes
-        // 5: WOD only, 6: CARDIO only, 0: show all (TV remote number keys)
-        if (displayMode === 'wod' || displayMode === 'split') {
-          if (e.key === '5') toggleSectionFilter('WOD');
-          if (e.key === '6') toggleSectionFilter('CARDIO');
-          if (e.key === '0') { sectionFilter = null; applySectionFilter(); requestAnimationFrame(() => requestAnimationFrame(() => autoFitFontSize())); }
-          // W/C/A: section filter (keyboard only, kept for convenience)
-          if (e.key === 'w') toggleSectionFilter('WOD');
-          if (e.key === 'c') toggleSectionFilter('CARDIO');
-          if (e.key === 'a') { sectionFilter = null; applySectionFilter(); requestAnimationFrame(() => requestAnimationFrame(() => autoFitFontSize())); }
+        // Section filter keys: if not in WOD/SPLIT, switch to WOD first
+        // 5: WOD only, 6: CARDIO only, 0: show all
+        if (e.key === '5' || e.key === 'w') {
+          if (displayMode !== 'wod' && displayMode !== 'split') setDisplayMode('wod');
+          toggleSectionFilter('WOD');
+        }
+        if (e.key === '6' || e.key === 'c') {
+          if (displayMode !== 'wod' && displayMode !== 'split') setDisplayMode('wod');
+          toggleSectionFilter('CARDIO');
+        }
+        if (e.key === '0' || e.key === 'a') {
+          if (displayMode !== 'wod' && displayMode !== 'split') setDisplayMode('wod');
+          sectionFilter = null;
+          applySectionFilter();
+          requestAnimationFrame(() => requestAnimationFrame(() => autoFitFontSize()));
         }
         // R / 8: refresh now
         if (e.key === 'r' || e.key === '8') {
