@@ -2513,8 +2513,8 @@
       // Toggle: if already filtering this section, show all
       sectionFilter = (sectionFilter === section) ? null : section;
       applySectionFilter();
-      // Re-fit font for new visible content
-      requestAnimationFrame(() => autoFitFontSize());
+      // Re-fit font for new visible content — double rAF ensures DOM has updated display:none
+      requestAnimationFrame(() => requestAnimationFrame(() => autoFitFontSize()));
     }
 
     function getSectionLabels() {
@@ -2575,7 +2575,11 @@
     async function fetchAndRender() {
       if (!settings.sheetId) return;
       const data = await fetchSheetData(settings.sheetId, currentTab);
-      if (data) renderWorkout(data);
+      if (data) {
+        renderWorkout(data);
+        // Ensure auto-fit runs after DOM is fully rendered (fixes first-load sizing)
+        setTimeout(() => autoFitFontSize(), 100);
+      }
     }
 
     function startApp() {
@@ -2639,6 +2643,10 @@
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { closeSettings(); if (document.fullscreenElement) document.exitFullscreen(); }
+      // Blur focused buttons so TV remote keys aren't captured by browser focus system
+      if (document.activeElement && document.activeElement.tagName === 'BUTTON') {
+        document.activeElement.blur();
+      }
       const notInput = document.activeElement.tagName !== 'INPUT';
       if (e.key === 's' && !e.ctrlKey && !e.metaKey && notInput) openSettings();
       if (e.key === 'f' && !e.ctrlKey && !e.metaKey && notInput) {
@@ -2664,6 +2672,7 @@
         }
         // ←→ Arrow keys: cycle display modes (TV remote friendly)
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          e.preventDefault(); // Prevent TV browser from moving focus
           const modes = ['wod', 'split', 'scoreboard', 'pr'];
           const dir = e.key === 'ArrowRight' ? 1 : -1;
           const next = modes[(modes.indexOf(displayMode) + dir + modes.length) % modes.length];
@@ -2681,7 +2690,7 @@
               const nextIdx = (curIdx + dir + allOptions.length) % allOptions.length;
               sectionFilter = allOptions[nextIdx];
               applySectionFilter();
-              requestAnimationFrame(() => autoFitFontSize());
+              requestAnimationFrame(() => requestAnimationFrame(() => autoFitFontSize()));
             }
           }
         }
@@ -2696,11 +2705,11 @@
         if (displayMode === 'wod' || displayMode === 'split') {
           if (e.key === '5') toggleSectionFilter('WOD');
           if (e.key === '6') toggleSectionFilter('CARDIO');
-          if (e.key === '0') { sectionFilter = null; applySectionFilter(); requestAnimationFrame(() => autoFitFontSize()); }
+          if (e.key === '0') { sectionFilter = null; applySectionFilter(); requestAnimationFrame(() => requestAnimationFrame(() => autoFitFontSize())); }
           // W/C/A: section filter (keyboard only, kept for convenience)
           if (e.key === 'w') toggleSectionFilter('WOD');
           if (e.key === 'c') toggleSectionFilter('CARDIO');
-          if (e.key === 'a') { sectionFilter = null; applySectionFilter(); requestAnimationFrame(() => autoFitFontSize()); }
+          if (e.key === 'a') { sectionFilter = null; applySectionFilter(); requestAnimationFrame(() => requestAnimationFrame(() => autoFitFontSize())); }
         }
         // R / 8: refresh now
         if (e.key === 'r' || e.key === '8') {
