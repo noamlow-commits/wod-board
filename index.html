@@ -261,17 +261,29 @@
       line-height: 1.4;
     }
 
-    /* Flow layout: content in flex columns (not CSS columns, so overflow is detectable) */
+    /* Flow layout: sections stacked, each with spanning header + columns */
     .flow-columns {
       flex: 1;
       display: flex;
-      gap: 0.8rem;
+      flex-direction: column;
+      gap: 0.2rem;
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 12px;
-      padding: 0.5rem 0.8rem;
+      padding: 0.4rem 0.6rem;
       overflow: hidden;
       min-width: 0;
+    }
+    .flow-section {
+      display: flex;
+      flex-direction: column;
+    }
+    .flow-section-cols {
+      display: flex;
+      gap: 0.6rem;
+    }
+    .flow-section-body {
+      overflow: hidden;
     }
     .flow-col {
       flex: 1;
@@ -279,19 +291,19 @@
       overflow: hidden;
     }
     .flow-section-header {
-      font-size: calc(1.3rem * var(--font-scale));
+      font-size: calc(1.2rem * var(--font-scale));
       font-weight: 900;
       color: #fff;
-      padding: 0.25rem 0.6rem;
-      margin: 0.4rem 0 0.2rem 0;
-      border-radius: 6px;
+      padding: 0.15rem 0.5rem;
+      margin: 0.15rem 0;
+      border-radius: 5px;
       text-align: center;
       background: rgba(255, 255, 255, 0.08);
       border: 1.5px solid rgba(255, 255, 255, 0.15);
       text-shadow: 0 1px 4px rgba(0,0,0,0.5);
       letter-spacing: 0.05em;
     }
-    .flow-section-header:first-child {
+    .flow-section:first-child .flow-section-header {
       margin-top: 0;
     }
     .flow-columns .exercise-line.warmup-line {
@@ -1648,8 +1660,8 @@
         for (const col of container.querySelectorAll('.workout-row:not(.section-hidden) .card-body-columns')) {
           if (col.scrollHeight > col.clientHeight + 2) return true;
         }
-        // Check flow layout columns
-        for (const el of container.querySelectorAll('.workout-row:not(.section-hidden) .flow-columns, .workout-row:not(.section-hidden) .flow-col')) {
+        // Check flow layout
+        for (const el of container.querySelectorAll('.workout-row:not(.section-hidden) .flow-columns, .workout-row:not(.section-hidden) .flow-col, .workout-row:not(.section-hidden) .flow-section-body')) {
           if (el.scrollHeight > el.clientHeight + 2) return true;
         }
         return false;
@@ -2451,53 +2463,41 @@
         const useFlowLayout = contentCells.length >= 2;
 
         if (useFlowLayout) {
-          // Build one continuous list of items (headers + lines)
-          const allItems = [];
-          for (const cell of contentCells) {
-            allItems.push({ type: 'header', html: `<div class="flow-section-header ${theme}">${escapeHtml(cell.header)}</div>` });
+          // Build sections: each has a header + lines
+          const sections = contentCells.map(cell => {
             let inWarmup = false;
-            for (const line of cell.lines) {
+            const linesHTML = cell.lines.map(line => {
               if (/warm\s*up/i.test(line)) inWarmup = true;
               else if (/^\d+[\.\)]\s|^[A-C][\.\)]\s|amrap|emom|for time|every\s+\d/i.test(line)) inWarmup = false;
               const parsed = parseLine(line);
-              allItems.push({ type: 'line', html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}" dir="auto">${parsed.html}</div>` });
-            }
-          }
+              return `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}" dir="auto">${parsed.html}</div>`;
+            });
+            return { header: cell.header, lines: linesHTML, lineCount: cell.lines.length };
+          });
 
-          // Split items evenly into flex columns
-          const numCols = totalContentLines <= 10 ? 2 : totalContentLines <= 20 ? 3 : 4;
+          // For each section, determine how many columns its content needs
+          // Then render: header spanning all its columns, columns below it
+          let flowHTML = '';
+          for (const sec of sections) {
+            const secCols = sec.lineCount <= 5 ? 1 : sec.lineCount <= 12 ? 2 : 3;
+            const headerHTML = `<div class="flow-section-header ${theme}" style="${secCols > 1 ? 'grid-column: span ' + secCols : ''}">${escapeHtml(sec.header)}</div>`;
 
-          // Smart column splitting: prefer breaking at section headers
-          // so numbers (1, 2, 3) appear at the TOP of columns, not the bottom
-          const headerIndices = allItems.map((it, i) => it.type === 'header' ? i : -1).filter(i => i >= 0);
-          const perCol = Math.ceil(allItems.length / numCols);
-          const breaks = [0]; // start of each column
-          for (let col = 1; col < numCols; col++) {
-            const idealBreak = col * perCol;
-            // Find nearest section header within 4 items of ideal break
-            let bestBreak = idealBreak;
-            let bestDist = 999;
-            for (const hi of headerIndices) {
-              const dist = Math.abs(hi - idealBreak);
-              if (dist <= 4 && dist < bestDist) {
-                bestBreak = hi;
-                bestDist = dist;
-              }
-            }
-            // Only use header break if it doesn't create a very unbalanced column
-            if (bestBreak > breaks[breaks.length - 1] + 2) {
-              breaks.push(bestBreak);
+            if (secCols === 1) {
+              flowHTML += `<div class="flow-section">
+                ${headerHTML}
+                <div class="flow-section-body">${sec.lines.join('')}</div>
+              </div>`;
             } else {
-              breaks.push(idealBreak);
-            }
-          }
-          breaks.push(allItems.length);
-
-          let colsHTML = '';
-          for (let i = 0; i < breaks.length - 1; i++) {
-            const colItems = allItems.slice(breaks[i], breaks[i + 1]);
-            if (colItems.length > 0) {
-              colsHTML += `<div class="flow-col">${colItems.map(it => it.html).join('')}</div>`;
+              const perCol = Math.ceil(sec.lines.length / secCols);
+              let colsHTML = '';
+              for (let i = 0; i < secCols; i++) {
+                const colLines = sec.lines.slice(i * perCol, (i + 1) * perCol);
+                colsHTML += `<div class="flow-col">${colLines.join('')}</div>`;
+              }
+              flowHTML += `<div class="flow-section">
+                ${headerHTML}
+                <div class="flow-section-cols">${colsHTML}</div>
+              </div>`;
             }
           }
 
@@ -2516,7 +2516,7 @@
             </div>`;
           }).join('');
 
-          cardsHTML = `<div class="flow-columns">${colsHTML}</div>${safetyHTML}`;
+          cardsHTML = `<div class="flow-columns">${flowHTML}</div>${safetyHTML}`;
 
         } else if (contentCells.length === 1 && totalContentLines > 3) {
           // Merge all content cells into one wide card with multi-column layout
