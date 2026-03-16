@@ -2676,8 +2676,15 @@
       // Toggle: if already filtering this section, show all
       sectionFilter = (sectionFilter === section) ? null : section;
       applySectionFilter();
-      // Re-fit font for new visible content — double rAF ensures DOM has updated display:none
-      requestAnimationFrame(() => requestAnimationFrame(() => autoFitFontSize()));
+      // Reset font scale to minimum first, then re-fit
+      // This prevents the binary search from being stuck at a previously small value
+      document.documentElement.style.setProperty('--font-scale', '0.4');
+      // Multiple retries: flex layout needs time to stabilize after display:none changes
+      requestAnimationFrame(() => {
+        autoFitFontSize();
+        setTimeout(() => autoFitFontSize(), 150);
+        setTimeout(() => autoFitFontSize(), 400);
+      });
     }
 
     function getSectionLabels() {
@@ -2926,8 +2933,8 @@
           setDisplayMode(next);
         }
         // 1-4: switch display mode AND reset section filter
-        if (e.key === '1') { sectionFilter = null; applySectionFilter(); setDisplayMode('wod'); }
-        if (e.key === '2') { sectionFilter = null; applySectionFilter(); setDisplayMode('split'); }
+        if (e.key === '1') { sectionFilter = null; applySectionFilter(); document.documentElement.style.setProperty('--font-scale', '0.4'); setDisplayMode('wod'); }
+        if (e.key === '2') { sectionFilter = null; applySectionFilter(); document.documentElement.style.setProperty('--font-scale', '0.4'); setDisplayMode('split'); }
         if (e.key === '3') { sectionFilter = null; applySectionFilter(); setDisplayMode('scoreboard'); }
         if (e.key === '4') { sectionFilter = null; applySectionFilter(); setDisplayMode('pr'); }
         // Q / 9: toggle QR
@@ -2983,7 +2990,12 @@
           if (displayMode !== 'wod' && displayMode !== 'split') setDisplayMode('wod');
           sectionFilter = null;
           applySectionFilter();
-          requestAnimationFrame(() => requestAnimationFrame(() => autoFitFontSize()));
+          document.documentElement.style.setProperty('--font-scale', '0.4');
+          requestAnimationFrame(() => {
+            autoFitFontSize();
+            setTimeout(() => autoFitFontSize(), 150);
+            setTimeout(() => autoFitFontSize(), 400);
+          });
         }
         // R / 8: refresh now
         if (e.key === 'r' || e.key === '8') {
