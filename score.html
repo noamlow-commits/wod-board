@@ -343,7 +343,9 @@
       <div class="rx-selector">
         <button class="rx-btn active" onclick="selectRx(this,'Rx')">Rx</button>
         <button class="rx-btn" onclick="selectRx(this,'Scaled')">Scaled</button>
+        <button class="rx-btn" onclick="selectRx(this,'custom')">אחר</button>
       </div>
+      <input type="text" id="rxCustomInput" placeholder="לדוגמה: 75%, 30kg, Rx+..." dir="auto" style="display:none;width:100%;padding:0.6rem;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#f0f0f0;font-size:0.95rem;margin-bottom:0.8rem;">
 
       <button class="submit-btn wod-btn" onclick="submitWod()">שלח תוצאה</button>
 
@@ -445,7 +447,9 @@
         <div class="rx-selector">
           <button class="rx-btn active" onclick="selectBmRx(this,'Rx')">Rx</button>
           <button class="rx-btn" onclick="selectBmRx(this,'Scaled')">Scaled</button>
+          <button class="rx-btn" onclick="selectBmRx(this,'custom')">אחר</button>
         </div>
+        <input type="text" id="bmRxCustomInput" placeholder="לדוגמה: 75%, 30kg, Rx+..." dir="auto" style="display:none;width:100%;padding:0.6rem;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#f0f0f0;font-size:0.95rem;margin-bottom:0.8rem;">
 
         <button class="submit-btn benchmark-btn" onclick="submitBenchmark()">שלח תוצאה</button>
       </div>
@@ -590,6 +594,13 @@
       selectedRx = val;
       document.querySelectorAll('#panel-wod .rx-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      const customInput = document.getElementById('rxCustomInput');
+      if (val === 'custom') {
+        customInput.style.display = '';
+        customInput.focus();
+      } else {
+        customInput.style.display = 'none';
+      }
     }
 
     function selectUnit(btn, unit) {
@@ -678,6 +689,13 @@
       selectedBmRx = val;
       document.querySelectorAll('#panel-benchmark .rx-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      const customInput = document.getElementById('bmRxCustomInput');
+      if (val === 'custom') {
+        customInput.style.display = '';
+        customInput.focus();
+      } else {
+        customInput.style.display = 'none';
+      }
     }
 
     function showBenchmarkPR(wod) {
@@ -752,7 +770,8 @@
       if (!API_URL) { showToast('API URL missing', 'error'); return; }
 
       const today = localToday();
-      const payload = { name, score: scoreData.score, scoreType: scoreData.scoreType, rawValue: scoreData.rawValue, rx: selectedRx, workoutDate: today };
+      const rxValue = selectedRx === 'custom' ? (document.getElementById('rxCustomInput').value.trim() || 'אחר') : selectedRx;
+      const payload = { name, score: scoreData.score, scoreType: scoreData.scoreType, rawValue: scoreData.rawValue, rx: rxValue, workoutDate: today };
 
       await doSubmit(payload, 'wod');
     }
@@ -837,9 +856,10 @@
         rawValue = rounds * 1000 + reps;
       }
 
+      const bmRxValue = selectedBmRx === 'custom' ? (document.getElementById('bmRxCustomInput').value.trim() || 'אחר') : selectedBmRx;
       const payload = {
         action: 'benchmark', name, wod: selectedBenchmark.name,
-        score, scoreType: st, rawValue, rx: selectedBmRx,
+        score, scoreType: st, rawValue, rx: bmRxValue,
         workoutDate: localToday()
       };
 
