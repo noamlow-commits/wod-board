@@ -297,11 +297,15 @@
       margin: 0.15rem 0;
       border-radius: 5px;
       text-align: center;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1.5px solid rgba(255, 255, 255, 0.15);
       text-shadow: 0 1px 4px rgba(0,0,0,0.5);
       letter-spacing: 0.05em;
     }
+    /* Section header colors match the row theme */
+    .flow-section-header.warmup { background: linear-gradient(135deg, var(--warmup-start), var(--warmup-end)); }
+    .flow-section-header.skill { background: linear-gradient(135deg, var(--skill-start), var(--skill-end)); }
+    .flow-section-header.metcon { background: linear-gradient(135deg, var(--metcon-start), var(--metcon-end)); }
+    .flow-section-header.cooldown { background: linear-gradient(135deg, var(--cooldown-start), var(--cooldown-end)); }
+    .flow-section-header.default { background: linear-gradient(135deg, var(--default-start), var(--default-end)); }
     .flow-col > .flow-section-header:first-child {
       margin-top: 0;
     }
