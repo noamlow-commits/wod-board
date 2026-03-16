@@ -1645,8 +1645,15 @@ function handleGetAnnouncements_(e) {
 function handleGetWorkoutSheet_(e) {
   var tabName = e.parameter.tab || '';
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = tabName ? ss.getSheetByName(tabName) : ss.getSheets()[0];
-  if (!sheet) return respondWithCallback_(e, { error: 'Sheet not found', rows: [] });
+  var sheet = null;
+  if (tabName) {
+    sheet = ss.getSheetByName(tabName);
+    // Try without/with space variations for Hebrew tab names
+    if (!sheet) sheet = ss.getSheetByName(tabName.replace(/\s+/g, ''));
+    if (!sheet) sheet = ss.getSheetByName(tabName.replace(/(\d)/, ' $1'));
+  }
+  // Fallback to first sheet
+  if (!sheet) sheet = ss.getSheets()[0];
 
   var range = sheet.getDataRange();
   var values = range.getValues();
