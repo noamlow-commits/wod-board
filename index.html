@@ -2248,6 +2248,16 @@
       // This is resilient to column reordering, insertion, or deletion.
       const LABEL_MAX_LEN = 30;
 
+      // DEBUG: log raw data to console (remove after debugging)
+      console.log('parseTableData headers:', headers);
+      console.log('parseTableData dataRows count:', dataRows.length);
+      dataRows.forEach((row, ri) => {
+        if (row.c) {
+          const vals = row.c.map((c, ci) => ci + ':' + (c && c.v ? String(c.v).substring(0, 30) : '(null)'));
+          console.log('Row ' + ri + ' (' + row.c.length + ' cells):', vals.join(' | '));
+        }
+      });
+
       const rows = [];
       for (const row of dataRows) {
         if (!row.c) continue;
