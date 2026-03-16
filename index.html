@@ -50,14 +50,14 @@
     }
 
     .top-bar .clock {
-      font-size: calc(2.2rem * var(--font-scale));
+      font-size: 2.2rem;
       font-weight: 900;
       letter-spacing: 0.05em;
       font-variant-numeric: tabular-nums;
     }
 
     .top-bar .date-display {
-      font-size: calc(1.1rem * var(--font-scale));
+      font-size: 1.1rem;
       color: var(--text-dim);
       font-weight: 300;
     }
@@ -66,7 +66,7 @@
       display: flex;
       align-items: center;
       gap: 0.6rem;
-      font-size: calc(1.6rem * var(--font-scale));
+      font-size: 1.6rem;
       font-weight: 900;
       text-transform: uppercase;
     }
@@ -79,7 +79,7 @@
     }
 
     .top-bar .logo .logo-img {
-      height: calc(3.8rem * var(--font-scale));
+      height: 3.8rem;
       width: auto;
       border-radius: 6px;
     }
@@ -2247,6 +2247,10 @@
       // Long/multi-line cells = workout content
       // This is resilient to column reordering, insertion, or deletion.
       const LABEL_MAX_LEN = 30;
+
+      // Debug: log row structure (temporary)
+      console.log('[WOD-DEBUG] headers(' + headers.length + '):', headers.filter(h=>h).join(', '));
+      dataRows.forEach((r,i) => { if(r.c) console.log('[WOD-DEBUG] row'+i+' c.length='+r.c.length+' vals:', r.c.map((c,j)=>j+':'+(c&&c.v?String(c.v).substr(0,20):'NULL')).join('|')); });
 
       const rows = [];
       for (const row of dataRows) {
