@@ -235,8 +235,9 @@
     }
 
     .workout-card.safety-card {
-      flex: 0 0 160px;
-      max-width: 220px;
+      flex: 0 1 auto;
+      min-width: 120px;
+      max-width: 280px;
       border: 2px solid rgba(250, 204, 21, 0.5);
       background: rgba(250, 204, 21, 0.08);
     }
@@ -2394,7 +2395,8 @@
 
         // Count how many cells have content (excluding safety)
         const contentCells = row.cells.filter(c => c.lines.length > 0 && !isSafetyColumn(c.header));
-        const safetyCells = row.cells.filter(c => c.lines.length > 0 && isSafetyColumn(c.header));
+        // Safety card only shown when it has real content (not just whitespace)
+        const safetyCells = row.cells.filter(c => isSafetyColumn(c.header) && c.lines.some(l => l.trim().length > 0));
 
         let cardsHTML = '';
 
@@ -2479,7 +2481,9 @@
           }).join('');
         } else {
           // Balanced cards — render separately, split long ones into 2 columns
-          const MULTI_COL_THRESHOLD = 5;
+          // Only split internally when there are few cards (≤2 content cards), otherwise too cramped
+          const totalCards = contentCells.length + safetyCells.length;
+          const MULTI_COL_THRESHOLD = totalCards <= 2 ? 5 : 999; // disable split when 3+ cards
 
           cardsHTML = row.cells
             .filter(cell => cell.lines.length > 0)
