@@ -2634,13 +2634,18 @@
       const url = settings.appsScriptUrl + '?action=getWorkoutSheet' + tab + '&pin=' + encodeURIComponent(gymPin);
       try {
         const resp = await fetch(url, { redirect: 'follow' });
-        const json = await resp.json();
+        const text = await resp.text();
+        console.log('[WORKOUT-FETCH] status:', resp.status, 'length:', text.length, 'preview:', text.substring(0, 200));
+        const json = JSON.parse(text);
         if (json && json.rows && json.rows.length > 0) {
-          return parseAppsScriptData(json.rows);
+          const parsed = parseAppsScriptData(json.rows);
+          console.log('[WORKOUT-FETCH] parsed:', parsed.rows.length, 'sections, cells per section:', parsed.rows.map(r => r.label + ':' + r.cells.length));
+          return parsed;
         }
+        console.log('[WORKOUT-FETCH] no rows in response');
         return null;
       } catch (err) {
-        console.warn('Apps Script workout fetch failed:', err);
+        console.warn('[WORKOUT-FETCH] failed:', err.message);
         return null;
       }
     }
