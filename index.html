@@ -2248,10 +2248,6 @@
       // This is resilient to column reordering, insertion, or deletion.
       const LABEL_MAX_LEN = 30;
 
-      // Debug: log row structure (temporary)
-      console.log('[WOD-DEBUG] headers(' + headers.length + '):', headers.filter(h=>h).join(', '));
-      dataRows.forEach((r,i) => { if(r.c) console.log('[WOD-DEBUG] row'+i+' c.length='+r.c.length+' vals:', r.c.map((c,j)=>j+':'+(c&&c.v?String(c.v).substr(0,20):'NULL')).join('|')); });
-
       const rows = [];
       for (const row of dataRows) {
         if (!row.c) continue;
@@ -2631,27 +2627,22 @@
     // Main app loop
     // ════════════════════════════════════════
     // Fetch workout via Apps Script (reads sheet directly, no gviz caching issues)
-    function fetchWorkoutViaAppsScript(tabName) {
-      if (!settings.appsScriptUrl) return Promise.resolve(null);
+    async function fetchWorkoutViaAppsScript(tabName) {
+      if (!settings.appsScriptUrl) return null;
       const gymPin = localStorage.getItem('wodboard-gym-pin') || '';
-      return new Promise((resolve) => {
-        const cbName = '_wsCb_' + Date.now();
-        const script = document.createElement('script');
-        let done = false;
-        const finish = (result) => { if (done) return; done = true; delete window[cbName]; if (script.parentNode) script.remove(); resolve(result); };
-        window[cbName] = function(res) {
-          if (res && res.rows) {
-            finish(parseAppsScriptData(res.rows));
-          } else {
-            finish(null);
-          }
-        };
-        script.onerror = () => finish(null);
-        setTimeout(() => finish(null), 15000);
-        const tab = tabName ? '&tab=' + encodeURIComponent(tabName) : '';
-        script.src = settings.appsScriptUrl + '?action=getWorkoutSheet' + tab + '&pin=' + encodeURIComponent(gymPin) + '&callback=' + cbName;
-        document.head.appendChild(script);
-      });
+      const tab = tabName ? '&tab=' + encodeURIComponent(tabName) : '';
+      const url = settings.appsScriptUrl + '?action=getWorkoutSheet' + tab + '&pin=' + encodeURIComponent(gymPin);
+      try {
+        const resp = await fetch(url, { redirect: 'follow' });
+        const json = await resp.json();
+        if (json && json.rows && json.rows.length > 0) {
+          return parseAppsScriptData(json.rows);
+        }
+        return null;
+      } catch (err) {
+        console.warn('Apps Script workout fetch failed:', err);
+        return null;
+      }
     }
 
     // Parse Apps Script response into the same format as parseTableData
