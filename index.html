@@ -273,14 +273,18 @@
       min-width: 0;
     }
     .flow-section-header {
-      font-size: calc(1.15rem * var(--font-scale));
+      font-size: calc(1.3rem * var(--font-scale));
       font-weight: 900;
       color: #fff;
-      padding: 0.2rem 0.5rem;
-      margin: 0.3rem 0 0.15rem 0;
-      border-radius: 4px;
+      padding: 0.25rem 0.6rem;
+      margin: 0.4rem 0 0.2rem 0;
+      border-radius: 6px;
       text-align: center;
       break-inside: avoid;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1.5px solid rgba(255, 255, 255, 0.15);
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+      letter-spacing: 0.05em;
     }
     .flow-section-header:first-child {
       margin-top: 0;
@@ -289,7 +293,10 @@
       break-inside: avoid;
     }
     .flow-columns .exercise-line.warmup-line {
-      background: rgba(245, 158, 11, 0.06);
+      background: rgba(245, 158, 11, 0.08);
+      border-right: 3px solid rgba(245, 158, 11, 0.4);
+      border-radius: 3px;
+      padding-right: 0.3rem;
     }
 
     /* Merged spread: single list split across columns, looks like one card */
@@ -2444,11 +2451,14 @@
         if (useFlowLayout) {
           // Build one continuous flow of lines with section headers
           const allFlowHTML = contentCells.map(cell => {
-            const isWarmup = /warm\s*up/i.test(cell.lines[0] || '');
             const headerHTML = `<div class="flow-section-header ${theme}">${escapeHtml(cell.header)}</div>`;
+            // Track warm-up zone: lines after "warm up" until next sub-header
+            let inWarmup = false;
             const linesHTML = cell.lines.map(line => {
+              if (/warm\s*up/i.test(line)) inWarmup = true;
+              else if (/^\d+[\.\)]\s|^[A-C][\.\)]\s|amrap|emom|for time|every\s+\d/i.test(line)) inWarmup = false;
               const parsed = parseLine(line);
-              return `<div class="exercise-line ${parsed.type}${isWarmup ? ' warmup-line' : ''}" dir="auto">${parsed.html}</div>`;
+              return `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}" dir="auto">${parsed.html}</div>`;
             }).join('');
             return headerHTML + linesHTML;
           }).join('');
