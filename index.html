@@ -1697,8 +1697,13 @@
       // Show/hide QR based on mode + setting
       updateQR();
 
-      // Re-fit font for new layout
-      requestAnimationFrame(() => autoFitFontSize());
+      // Re-fit font for new layout — double rAF + delayed retry
+      // ensures display:none/flex transitions are fully applied before measuring
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        autoFitFontSize();
+        // Extra retry for heavy mode transitions (PR → WOD)
+        setTimeout(() => autoFitFontSize(), 200);
+      }));
     }
 
     function updateQR() {
