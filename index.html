@@ -3054,7 +3054,11 @@
             setTimeout(() => autoFitFontSize(), 400);
           });
         }
-        // R / 8: refresh now
+        // 7: full page reload (location.reload)
+        if (e.key === '7') {
+          location.reload();
+        }
+        // R / 8: refresh now (data only)
         if (e.key === 'r' || e.key === '8') {
           lastDataJSON = '';
           startApp();
