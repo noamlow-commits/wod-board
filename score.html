@@ -530,10 +530,12 @@
     let myPRs = {}; // { "exercise|type": { best, bestRaw, reps, date } }
 
     const urlParams = new URLSearchParams(window.location.search);
+    const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbz119Ay6EWG5rWjQkxqlkyOKLwBP9A3pJzGdrYrxGYerIJeIDfV5ymYRLVL61ToMUBKMQ/exec';
     let API_URL = urlParams.get('api') || localStorage.getItem('wodboard-api') || '';
     if (!API_URL) {
       try { API_URL = JSON.parse(localStorage.getItem('wodboard') || '{}').appsScriptUrl || ''; } catch(e) {}
     }
+    if (!API_URL) API_URL = DEFAULT_API;
 
     // ═══════════════════════════════
     // Init

@@ -1543,7 +1543,7 @@
     // Settings persistence
     // ════════════════════════════════════════
     function loadSettings() {
-      const defaults = { sheetId: '', tabs: [], gymName: 'CrossFit Gush Etzion', refreshInterval: 30, fontSize: 100, appsScriptUrl: '', showQR: true, showQRinWod: true, autoSplitOnScores: true };
+      const defaults = { sheetId: '1EgwRwRJ6vyPOYAQ5wxtVZ4RB4AH2usr-jalNpPDt8hQ', tabs: ['גיליון 1'], gymName: 'CrossFit Gush Etzion', refreshInterval: 30, fontSize: 100, appsScriptUrl: 'https://script.google.com/macros/s/AKfycbz119Ay6EWG5rWjQkxqlkyOKLwBP9A3pJzGdrYrxGYerIJeIDfV5ymYRLVL61ToMUBKMQ/exec', showQR: true, showQRinWod: true, autoSplitOnScores: true };
       try {
         return { ...defaults, ...JSON.parse(localStorage.getItem('wodboard') || '{}') };
       } catch { return defaults; }

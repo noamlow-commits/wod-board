@@ -729,6 +729,7 @@ const BADGE_DEFS = [
 (function init() {
   const urlParams = new URLSearchParams(window.location.search);
   // Try all possible sources for the API URL
+  var DEFAULT_API = 'https://script.google.com/macros/s/AKfycbz119Ay6EWG5rWjQkxqlkyOKLwBP9A3pJzGdrYrxGYerIJeIDfV5ymYRLVL61ToMUBKMQ/exec';
   API_URL = urlParams.get('api') || localStorage.getItem('wodboard-api') || '';
   if (!API_URL) {
     try {
@@ -736,6 +737,7 @@ const BADGE_DEFS = [
       API_URL = wbSettings.appsScriptUrl || '';
     } catch(e) {}
   }
+  if (!API_URL) API_URL = DEFAULT_API;
 
   if (API_URL) {
     localStorage.setItem('wodboard-api', API_URL);
