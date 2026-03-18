@@ -1217,7 +1217,7 @@
       box-shadow: 0 2px 12px rgba(0,0,0,0.5);
       z-index: 9400;
       opacity: 1;
-      transition: top 0.4s ease, bottom 0.4s ease, left 0.4s ease, right 0.4s ease;
+      transition: top 0.3s ease, bottom 0.3s ease, left 0.3s ease, right 0.3s ease;
     }
 
     .qr-overlay img {
@@ -1921,64 +1921,72 @@
       }
     }
 
-    // Smart QR repositioning: find the corner with least text overlap
+    // Smart QR repositioning: bottom corners preferred, fall back to top only on significant overlap
     function repositionQR() {
       const qr = document.getElementById('qrOverlay');
       if (qr.classList.contains('hidden')) return;
 
-      const margin = 8;
+      const margin = 10;
+      const navClearance = 72;  // height of floating nav panel
+      const topBarH = 84;       // height of top bar
       const qrRect = qr.getBoundingClientRect();
-      const qrW = qrRect.width;
-      const qrH = qrRect.height;
+      const qrW = qrRect.width  || 110;
+      const qrH = qrRect.height || 110;
       const winW = window.innerWidth;
       const winH = window.innerHeight;
 
-      // 4 candidate positions: bottom-right, bottom-left, top-right, top-left
+      // Bottom positions clear the nav panel; top positions clear the header bar.
+      // Order = preference: bottom-right → bottom-left → top-right → top-left
       const candidates = [
-        { label: 'br', top: winH - qrH - margin, left: winW - qrW - margin },
-        { label: 'bl', top: winH - qrH - margin, left: margin },
-        { label: 'tr', top: margin + 60, left: winW - qrW - margin }, // 60px below top bar
-        { label: 'tl', top: margin + 60, left: margin },
+        { label: 'br', isBottom: true,  top: winH - qrH - navClearance, left: winW - qrW - margin },
+        { label: 'bl', isBottom: true,  top: winH - qrH - navClearance, left: margin },
+        { label: 'tr', isBottom: false, top: topBarH + margin,          left: winW - qrW - margin },
+        { label: 'tl', isBottom: false, top: topBarH + margin,          left: margin },
       ];
 
-      // Collect bounding rects of all visible text elements
+      // Collect visible text element rects (board + center overlay)
       const textEls = document.querySelectorAll(
-        '.scoreboard-table td, .scoreboard-table th, .scoreboard-header, ' +
-        '.lift-row, .lifts-header, .workout-card, .card-body, .exercise-line, ' +
-        '.section-title, .top-bar .clock, .top-bar .logo'
+        '.exercise-line, .flow-section-header, .card-body, .workout-card, ' +
+        '#tvoCenterBody .exercise-line, #tvoCenterHeader, ' +
+        '.scoreboard-table td, .scoreboard-table th, .lift-row'
       );
-
       const textRects = [];
       textEls.forEach(el => {
         const r = el.getBoundingClientRect();
         if (r.width > 0 && r.height > 0) textRects.push(r);
       });
 
-      // Score each candidate by overlap area with text elements
-      let bestPos = candidates[0];
-      let bestOverlap = Infinity;
-
-      for (const pos of candidates) {
-        const qrBox = { left: pos.left, top: pos.top, right: pos.left + qrW, bottom: pos.top + qrH };
-        let totalOverlap = 0;
-
+      function overlapArea(pos) {
+        const box = { left: pos.left, top: pos.top, right: pos.left + qrW, bottom: pos.top + qrH };
+        let total = 0;
         for (const tr of textRects) {
-          const overlapX = Math.max(0, Math.min(qrBox.right, tr.right) - Math.max(qrBox.left, tr.left));
-          const overlapY = Math.max(0, Math.min(qrBox.bottom, tr.bottom) - Math.max(qrBox.top, tr.top));
-          totalOverlap += overlapX * overlapY;
+          const ox = Math.max(0, Math.min(box.right, tr.right)  - Math.max(box.left, tr.left));
+          const oy = Math.max(0, Math.min(box.bottom, tr.bottom) - Math.max(box.top,  tr.top));
+          total += ox * oy;
         }
-
-        if (totalOverlap < bestOverlap) {
-          bestOverlap = totalOverlap;
-          bestPos = pos;
-        }
+        return total;
       }
 
-      // Apply position
-      qr.style.top = bestPos.top + 'px';
-      qr.style.left = bestPos.left + 'px';
+      // Try bottom positions first; only abandon them if they have meaningful overlap
+      // and a top position is clearly better (threshold: 500px² ≈ a few lines of text)
+      const OVERLAP_THRESHOLD = 500;
+      let chosen = candidates[0];
+      const bottomScores = candidates.filter(c => c.isBottom).map(c => ({ ...c, score: overlapArea(c) }));
+      const bestBottom  = bottomScores.reduce((a, b) => a.score <= b.score ? a : b);
+
+      if (bestBottom.score <= OVERLAP_THRESHOLD) {
+        chosen = bestBottom; // bottom corner is fine
+      } else {
+        // Bottom overlap too high — find the best top corner
+        const topScores = candidates.filter(c => !c.isBottom).map(c => ({ ...c, score: overlapArea(c) }));
+        const bestTop   = topScores.reduce((a, b) => a.score <= b.score ? a : b);
+        chosen = bestTop.score < bestBottom.score ? bestTop : bestBottom;
+      }
+
+      qr.style.top    = chosen.top  + 'px';
+      qr.style.left   = chosen.left + 'px';
       qr.style.bottom = 'auto';
-      qr.style.right = 'auto';
+      qr.style.right  = 'auto';
     }
 
     // ════════════════════════════════════════
@@ -3039,6 +3047,7 @@
         hdrDiv.style.background = headerBg || 'linear-gradient(135deg,#ea580c,#f97316)';
         bodyDiv.innerHTML = bodyHTML;
         overlay.classList.add('open');
+        requestAnimationFrame(() => repositionQR());
 
         // Binary-search the largest font size that fits without clipping
         requestAnimationFrame(() => {
@@ -3058,6 +3067,7 @@
 
       } else {
         overlay.classList.remove('open');
+        requestAnimationFrame(() => repositionQR());
       }
       updateTvNav();
     }
