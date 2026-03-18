@@ -2692,14 +2692,29 @@
             }
           }
 
-          // Split into columns, ensuring headers start at top of columns
+          // Split into columns: mandatory break at every header, plus sub-splits for long sections
           const headerIndices = allItems.map((it, i) => it.type === 'header' ? i : -1).filter(i => i >= 0);
-          // Use number of headers as column count — each section gets its own column
-          const numCols = Math.max(2, headerIndices.length);
-          // Force breaks at every header boundary so each part gets its own column
-          const breaks = [...headerIndices];
-          if (breaks[0] !== 0) breaks.unshift(0);
-          breaks.push(allItems.length);
+          // Start with mandatory breaks at every header
+          const mandatoryBreaks = [...headerIndices];
+          if (mandatoryBreaks[0] !== 0) mandatoryBreaks.unshift(0);
+          mandatoryBreaks.push(allItems.length);
+          // Sub-split long sections into newspaper columns (max ~8 items per column)
+          const MAX_PER_COL = Math.max(8, Math.ceil(allItems.length / 4));
+          const breaks = [mandatoryBreaks[0]];
+          for (let b = 1; b < mandatoryBreaks.length; b++) {
+            const start = breaks[breaks.length - 1];
+            const end = mandatoryBreaks[b];
+            const colSize = end - start;
+            if (colSize > MAX_PER_COL) {
+              // Split this section into sub-columns (newspaper flow)
+              const numSub = Math.ceil(colSize / MAX_PER_COL);
+              const subSize = Math.ceil(colSize / numSub);
+              for (let s = 1; s < numSub; s++) {
+                breaks.push(start + s * subSize);
+              }
+            }
+            breaks.push(end);
+          }
 
           // Build columns, tracking which section spans multiple columns
           const columns = [];
