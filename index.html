@@ -1944,7 +1944,9 @@
         { top: topBarH + margin,          left: margin               }, // top-left
       ];
 
-      // Use precise line-level elements only (no large containers)
+      // Use precise line-level elements only (no large containers).
+      // Measure CONTENT rect (createRange) not block rect, so full-width block elements
+      // don't cause false overlaps when text is narrower than the column.
       const textEls = document.querySelectorAll(
         '.exercise-line, .flow-section-header, ' +
         '#tvoCenterBody .exercise-line, #tvoCenterHeader, ' +
@@ -1952,8 +1954,15 @@
       );
       const textRects = [];
       textEls.forEach(el => {
-        const r = el.getBoundingClientRect();
-        if (r.width > 0 && r.height > 0) textRects.push(r);
+        try {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const r = range.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) textRects.push(r);
+        } catch(e) {
+          const r = el.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) textRects.push(r);
+        }
       });
 
       let chosen = candidates[0];
