@@ -1273,6 +1273,37 @@
       }
     }
 
+    /* ── TV Center Focus Mode ── */
+    .main-content.tv-center-active {
+      justify-content: center;
+    }
+    .main-content.tv-center-active #wodArea {
+      flex: 1;
+      justify-content: center;
+    }
+    .main-content.tv-center-active .workout-row {
+      flex: 1;
+      height: 100%;
+    }
+    .main-content.tv-center-active .row-cells {
+      flex: 1;
+      height: 100%;
+    }
+    .main-content.tv-center-active .flow-columns {
+      flex: 1;
+      height: 100%;
+    }
+    .main-content.tv-center-active .part-block {
+      flex: 1 1 100% !important;
+      height: 100%;
+      display: flex !important;
+      flex-direction: column;
+    }
+    .main-content.tv-center-active .flow-span-cols,
+    .main-content.tv-center-active .card-body {
+      flex: 1;
+    }
+
     /* ── TV Remote Navigation Panel ── */
     .tv-nav {
       position: fixed;
@@ -2944,14 +2975,13 @@
     function applyCenterFocus() {
       const mainContent = document.getElementById('mainContent');
       if (!mainContent) return;
-      if (centerFocus && partFocusIndex !== null) {
-        mainContent.style.justifyContent = 'center';
-        mainContent.style.alignItems = 'center';
-      } else {
-        mainContent.style.justifyContent = '';
-        mainContent.style.alignItems = '';
-      }
+      const active = centerFocus && partFocusIndex !== null;
+      mainContent.classList.toggle('tv-center-active', active);
       updateTvNav();
+      if (active) {
+        document.documentElement.style.setProperty('--font-scale', '0.4');
+        requestAnimationFrame(() => { autoFitFontSize(); setTimeout(() => autoFitFontSize(), 200); setTimeout(() => autoFitFontSize(), 500); });
+      }
     }
 
     function toggleCenterFocus() {
