@@ -1919,67 +1919,55 @@
       }
     }
 
-    // Smart QR repositioning: bottom corners preferred, fall back to top only on significant overlap
+    // QR positioning: always bottom-right (above nav panel).
+    // In center overlay only: check if centered text overlaps and switch to bottom-left.
     function repositionQR() {
       const qr = document.getElementById('qrOverlay');
       if (qr.classList.contains('hidden')) return;
 
+      const overlayOpen = document.getElementById('tvCenterOverlay')?.classList.contains('open');
       const margin = 10;
-      const navClearance = 72;  // height of floating nav panel
-      const topBarH = 84;       // height of top bar
+      const navClearance = 72;
       const qrRect = qr.getBoundingClientRect();
       const qrW = qrRect.width  || 110;
       const qrH = qrRect.height || 110;
       const winW = window.innerWidth;
       const winH = window.innerHeight;
 
-      // Bottom positions clear the nav panel; top positions clear the header bar.
-      // Order = preference: bottom-right → bottom-left → top-right → top-left
+      const bottomY = winH - qrH - navClearance;
+
+      if (!overlayOpen) {
+        // Normal board: always bottom-right, no detection needed
+        qr.style.top    = bottomY + 'px';
+        qr.style.left   = (winW - qrW - margin) + 'px';
+        qr.style.bottom = 'auto';
+        qr.style.right  = 'auto';
+        return;
+      }
+
+      // Center overlay: check if overlay text overlaps bottom-right; if so, use bottom-left
       const candidates = [
-        { label: 'br', isBottom: true,  top: winH - qrH - navClearance, left: winW - qrW - margin },
-        { label: 'bl', isBottom: true,  top: winH - qrH - navClearance, left: margin },
-        { label: 'tr', isBottom: false, top: topBarH + margin,          left: winW - qrW - margin },
-        { label: 'tl', isBottom: false, top: topBarH + margin,          left: margin },
+        { top: bottomY,                  left: winW - qrW - margin }, // bottom-right
+        { top: bottomY,                  left: margin },               // bottom-left
       ];
 
-      // Collect visible text element rects — use precise line-level elements only
-      // (avoid large containers like .workout-card/.card-body that cause false positives)
-      const textEls = document.querySelectorAll(
-        '.exercise-line, .flow-section-header, ' +
-        '#tvoCenterBody .exercise-line, #tvoCenterHeader, ' +
-        '.scoreboard-table td, .lift-row'
-      );
+      const textEls = document.querySelectorAll('#tvoCenterBody .exercise-line, #tvoCenterHeader');
       const textRects = [];
       textEls.forEach(el => {
         const r = el.getBoundingClientRect();
         if (r.width > 0 && r.height > 0) textRects.push(r);
       });
 
-      function overlapArea(pos) {
+      let chosen = candidates[0];
+      for (const pos of candidates) {
         const box = { left: pos.left, top: pos.top, right: pos.left + qrW, bottom: pos.top + qrH };
-        let total = 0;
+        let overlap = 0;
         for (const tr of textRects) {
           const ox = Math.max(0, Math.min(box.right, tr.right)  - Math.max(box.left, tr.left));
           const oy = Math.max(0, Math.min(box.bottom, tr.bottom) - Math.max(box.top,  tr.top));
-          total += ox * oy;
+          overlap += ox * oy;
         }
-        return total;
-      }
-
-      // Try bottom positions first; only abandon them if they have meaningful overlap
-      // and a top position is clearly better (threshold: 500px² ≈ a few lines of text)
-      const OVERLAP_THRESHOLD = 500;
-      let chosen = candidates[0];
-      const bottomScores = candidates.filter(c => c.isBottom).map(c => ({ ...c, score: overlapArea(c) }));
-      const bestBottom  = bottomScores.reduce((a, b) => a.score <= b.score ? a : b);
-
-      if (bestBottom.score <= OVERLAP_THRESHOLD) {
-        chosen = bestBottom; // bottom corner is fine
-      } else {
-        // Bottom overlap too high — find the best top corner
-        const topScores = candidates.filter(c => !c.isBottom).map(c => ({ ...c, score: overlapArea(c) }));
-        const bestTop   = topScores.reduce((a, b) => a.score <= b.score ? a : b);
-        chosen = bestTop.score < bestBottom.score ? bestTop : bestBottom;
+        if (overlap === 0) { chosen = pos; break; } // first clear corner wins
       }
 
       qr.style.top    = chosen.top  + 'px';
