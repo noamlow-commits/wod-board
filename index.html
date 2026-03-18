@@ -1919,39 +1919,36 @@
       }
     }
 
-    // QR positioning: always bottom-right (above nav panel).
-    // In center overlay only: check if centered text overlaps and switch to bottom-left.
+    // QR positioning: try bottom-right → bottom-left → top-right → top-left.
+    // Switch only when overlap covers >25% of QR area (genuine blocking, not just proximity).
     function repositionQR() {
       const qr = document.getElementById('qrOverlay');
       if (qr.classList.contains('hidden')) return;
 
-      const overlayOpen = document.getElementById('tvCenterOverlay')?.classList.contains('open');
       const margin = 10;
-      const navClearance = 72;
+      const navClearance = 72; // clear floating nav panel
+      const topBarH = 86;      // clear header bar
       const qrRect = qr.getBoundingClientRect();
       const qrW = qrRect.width  || 110;
       const qrH = qrRect.height || 110;
       const winW = window.innerWidth;
       const winH = window.innerHeight;
+      // Only switch corner when overlap exceeds 25% of QR area
+      const BLOCK_THRESHOLD = qrW * qrH * 0.25;
 
-      const bottomY = winH - qrH - navClearance;
-
-      if (!overlayOpen) {
-        // Normal board: always bottom-right, no detection needed
-        qr.style.top    = bottomY + 'px';
-        qr.style.left   = (winW - qrW - margin) + 'px';
-        qr.style.bottom = 'auto';
-        qr.style.right  = 'auto';
-        return;
-      }
-
-      // Center overlay: check if overlay text overlaps bottom-right; if so, use bottom-left
       const candidates = [
-        { top: bottomY,                  left: winW - qrW - margin }, // bottom-right
-        { top: bottomY,                  left: margin },               // bottom-left
+        { top: winH - qrH - navClearance, left: winW - qrW - margin }, // bottom-right
+        { top: winH - qrH - navClearance, left: margin               }, // bottom-left
+        { top: topBarH + margin,          left: winW - qrW - margin  }, // top-right
+        { top: topBarH + margin,          left: margin               }, // top-left
       ];
 
-      const textEls = document.querySelectorAll('#tvoCenterBody .exercise-line, #tvoCenterHeader');
+      // Use precise line-level elements only (no large containers)
+      const textEls = document.querySelectorAll(
+        '.exercise-line, .flow-section-header, ' +
+        '#tvoCenterBody .exercise-line, #tvoCenterHeader, ' +
+        '.scoreboard-table td, .lift-row'
+      );
       const textRects = [];
       textEls.forEach(el => {
         const r = el.getBoundingClientRect();
@@ -1966,8 +1963,9 @@
           const ox = Math.max(0, Math.min(box.right, tr.right)  - Math.max(box.left, tr.left));
           const oy = Math.max(0, Math.min(box.bottom, tr.bottom) - Math.max(box.top,  tr.top));
           overlap += ox * oy;
+          if (overlap >= BLOCK_THRESHOLD) break; // no need to sum further
         }
-        if (overlap === 0) { chosen = pos; break; } // first clear corner wins
+        if (overlap < BLOCK_THRESHOLD) { chosen = pos; break; }
       }
 
       qr.style.top    = chosen.top  + 'px';
