@@ -2610,20 +2610,49 @@
           // Build one continuous list of items with section ownership
           const allItems = [];
           let currentSection = '';
-          // Check if first content cell has no header — treat as WARMUP
-          const firstHasNoHeader = contentCells.length > 0 && !contentCells[0].header;
+          const partLineRe = /^part\s*(\d+)\s*:?\s*$/i;
           for (const cell of contentCells) {
             currentSection = cell.header;
-            // Cells with empty header that appear before first numbered header = WARMUP
+            // Check if this cell contains "part N:" lines — if so, lines before first one = warmup
+            const hasPartLines = cell.lines.some(l => partLineRe.test(l.trim()));
             const isUntitledWarmup = !cell.header;
+
             if (isUntitledWarmup) {
-              // Use "WARM UP" as the display header for untitled pre-header content
               allItems.push({ type: 'header', section: currentSection, html: 'WARM UP', isWarmupHeader: true });
+            } else if (hasPartLines) {
+              // Don't emit the cell header yet — we'll emit WARM UP for pre-part content,
+              // then each "part N:" becomes its own header
             } else {
               allItems.push({ type: 'header', section: currentSection, html: escapeHtml(cell.header) });
             }
+
             let inWarmup = isUntitledWarmup;
+            let reachedFirstPart = !hasPartLines; // if no part lines, behave as before
+            let emittedWarmupHeader = isUntitledWarmup; // track if we already emitted warmup header
+
             for (const line of cell.lines) {
+              const trimmed = line.trim();
+              const pm = trimmed.match(partLineRe);
+
+              if (pm) {
+                // "part N:" line → emit as a section header with the number
+                reachedFirstPart = true;
+                inWarmup = false;
+                const partNum = pm[1];
+                currentSection = partNum;
+                allItems.push({ type: 'header', section: currentSection, html: escapeHtml(partNum) });
+                continue;
+              }
+
+              // Lines before first "part N:" in a cell that has part lines = warmup
+              if (hasPartLines && !reachedFirstPart) {
+                if (!emittedWarmupHeader) {
+                  allItems.push({ type: 'header', section: '', html: 'WARM UP', isWarmupHeader: true });
+                  emittedWarmupHeader = true;
+                }
+                inWarmup = true;
+              }
+
               if (/warm\s*up/i.test(line)) inWarmup = true;
               else if (/\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom/i.test(line)) inWarmup = false;
               const parsed = parseLine(line);
