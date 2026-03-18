@@ -2693,24 +2693,12 @@
           }
 
           // Split into columns, ensuring headers start at top of columns
-          const numCols = totalContentLines <= 10 ? 2 : totalContentLines <= 20 ? 3 : 4;
           const headerIndices = allItems.map((it, i) => it.type === 'header' ? i : -1).filter(i => i >= 0);
-          const perCol = Math.ceil(allItems.length / numCols);
-          const breaks = [0];
-          for (let col = 1; col < numCols; col++) {
-            const idealBreak = col * perCol;
-            let bestBreak = idealBreak;
-            let bestDist = 999;
-            for (const hi of headerIndices) {
-              const dist = Math.abs(hi - idealBreak);
-              if (dist <= 4 && dist < bestDist) { bestBreak = hi; bestDist = dist; }
-            }
-            if (bestBreak > breaks[breaks.length - 1] + 2) {
-              breaks.push(bestBreak);
-            } else {
-              breaks.push(idealBreak);
-            }
-          }
+          // Use number of headers as column count — each section gets its own column
+          const numCols = Math.max(2, headerIndices.length);
+          // Force breaks at every header boundary so each part gets its own column
+          const breaks = [...headerIndices];
+          if (breaks[0] !== 0) breaks.unshift(0);
           breaks.push(allItems.length);
 
           // Build columns, tracking which section spans multiple columns
