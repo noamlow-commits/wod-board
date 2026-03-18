@@ -2594,9 +2594,41 @@
         const theme = detectSectionTheme(row.label);
 
         // Count how many cells have content (excluding safety)
-        const contentCells = row.cells.filter(c => c.lines.length > 0 && !isSafetyColumn(c.header));
+        let contentCells = row.cells.filter(c => c.lines.length > 0 && !isSafetyColumn(c.header));
         // Safety card only shown when it has real content (not just whitespace)
         const safetyCells = row.cells.filter(c => isSafetyColumn(c.header) && c.lines.some(l => l.trim().length > 0));
+
+        // Pre-process: split cells that contain "part N:" lines into virtual cells.
+        // Lines before first "part N:" become a WARM UP cell; each "part N:" starts a new cell.
+        const partLineRe = /^part\s*(\d+)\s*:?\s*$/i;
+        const expandedCells = [];
+        for (const cell of contentCells) {
+          const hasPartLines = cell.lines.some(l => partLineRe.test(l.trim()));
+          if (!hasPartLines) {
+            expandedCells.push(cell);
+            continue;
+          }
+          // Split by "part N:" boundaries
+          let currentLines = [];
+          let currentHeader = ''; // empty = warmup (pre-part content)
+          for (const line of cell.lines) {
+            const pm = line.trim().match(partLineRe);
+            if (pm) {
+              // Flush previous group
+              if (currentLines.length > 0) {
+                expandedCells.push({ header: currentHeader, lines: currentLines });
+              }
+              currentHeader = pm[1]; // "1", "2", "3"
+              currentLines = [];
+            } else {
+              currentLines.push(line);
+            }
+          }
+          if (currentLines.length > 0) {
+            expandedCells.push({ header: currentHeader, lines: currentLines });
+          }
+        }
+        contentCells = expandedCells;
 
         let cardsHTML = '';
 
