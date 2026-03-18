@@ -1767,12 +1767,8 @@
       if (!wodArea || !wodArea.children.length) return;
 
       const userScale = (settings.fontSize || 100) / 100;
-      // Cap scale based on how many part-blocks are currently visible
-      // (many visible columns → lower max to avoid overflow-wrapping)
-      const visibleParts = wodArea.querySelectorAll('.part-block:not([style*="display: none"])').length;
-      const maxScale = visibleParts > 2 ? Math.max(userScale, 1.2)
-                     : visibleParts > 1 ? Math.max(userScale, 1.8)
-                     : Math.max(userScale, 2.5);
+      // Let binary search find the real max — hasOverflow() will stop it when text wraps
+      const maxScale = Math.max(userScale, 2.5);
       let lo = 0.4, hi = maxScale;
       const root = document.documentElement;
 
