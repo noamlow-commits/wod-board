@@ -369,6 +369,14 @@
       background: rgba(245, 158, 11, 0.08);
     }
 
+    /* Warm-up part block — amber border frame (flow layout) */
+    .part-block.warmup-part {
+      border: 2px solid rgba(245, 158, 11, 0.55);
+      border-radius: 6px;
+      background: rgba(245, 158, 11, 0.05);
+      box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.12);
+    }
+
     .card-body {
       flex: 1;
       padding: 0.6rem 1rem;
@@ -1760,8 +1768,12 @@
       if (!wodArea || !wodArea.children.length) return;
 
       const userScale = (settings.fontSize || 100) / 100;
-      // Allow auto-fit up to 2.5x when content is sparse (e.g., single filtered section)
-      const maxScale = Math.max(userScale, 2.5);
+      // Cap scale based on how many part-blocks are currently visible
+      // (many visible columns → lower max to avoid overflow-wrapping)
+      const visibleParts = wodArea.querySelectorAll('.part-block:not([style*="display: none"])').length;
+      const maxScale = visibleParts > 2 ? Math.max(userScale, 1.2)
+                     : visibleParts > 1 ? Math.max(userScale, 1.8)
+                     : Math.max(userScale, 2.5);
       let lo = 0.4, hi = maxScale;
       const root = document.documentElement;
 
@@ -2601,7 +2613,7 @@
             let inWarmup = false;
             for (const line of cell.lines) {
               if (/warm\s*up/i.test(line)) inWarmup = true;
-              else if (/^\d+[\.\)]\s|^[A-C][\.\)]\s|amrap|emom|for time|every\s+\d/i.test(line)) inWarmup = false;
+              else if (/\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom/i.test(line)) inWarmup = false;
               const parsed = parseLine(line);
               allItems.push({ type: 'line', section: currentSection, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}" dir="auto">${parsed.html}</div>` });
             }
@@ -2829,14 +2841,21 @@
         container.innerHTML = rowsHTML;
         container.classList.add('fade-enter');
         setTimeout(() => container.classList.remove('fade-enter'), 500);
-        // Apply section filter, part focus + auto-fit
-        requestAnimationFrame(() => { applySectionFilter(); applyPartFocus(); autoFitFontSize(); });
+        // Apply section filter, part focus, warmup frames + auto-fit
+        requestAnimationFrame(() => { applySectionFilter(); applyPartFocus(); applyWarmupFrames(); autoFitFontSize(); });
       }
     }
 
     // ════════════════════════════════════════
     // Section filter (W = WOD only, C = CARDIO only, A = all)
     // ════════════════════════════════════════
+    // Tag part-blocks that contain warm-up content with .warmup-part for visual framing
+    function applyWarmupFrames() {
+      document.querySelectorAll('#wodArea .part-block').forEach(block => {
+        block.classList.toggle('warmup-part', block.querySelectorAll('.warmup-line').length > 0);
+      });
+    }
+
     function applySectionFilter() {
       const rows = document.querySelectorAll('#wodArea .workout-row');
       rows.forEach(row => {
