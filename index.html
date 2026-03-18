@@ -1301,11 +1301,15 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
+      align-items: center;
+      text-align: center;
       overflow: hidden;
     }
     #tvCenterOverlay .exercise-line {
       padding: 0.2em 0;
       line-height: 1.4;
+      text-align: center;
+      width: 100%;
     }
 
     /* ── TV Remote Navigation Panel ── */
@@ -3016,18 +3020,6 @@
         bodyDiv.innerHTML = bodyHTML;
 
         overlay.classList.add('open');
-
-        // Fit font to overlay body
-        const lines = bodyDiv.querySelectorAll('.exercise-line');
-        let lo = 1, hi = 12;
-        for (let i = 0; i < 12; i++) {
-          const mid = (lo + hi) / 2;
-          lines.forEach(l => l.style.fontSize = mid + 'rem');
-          overlay.offsetHeight; // force reflow
-          if (bodyDiv.scrollHeight > bodyDiv.clientHeight) hi = mid;
-          else lo = mid;
-        }
-        lines.forEach(l => l.style.fontSize = lo.toFixed(2) + 'rem');
 
       } else {
         overlay.classList.remove('open');
