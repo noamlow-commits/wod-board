@@ -1273,35 +1273,39 @@
       }
     }
 
-    /* ── TV Center Focus Mode ── */
-    .main-content.tv-center-active {
-      justify-content: center;
-    }
-    .main-content.tv-center-active #wodArea {
-      flex: 1;
-      justify-content: center;
-    }
-    .main-content.tv-center-active .workout-row {
-      flex: 1;
-      height: 100%;
-    }
-    .main-content.tv-center-active .row-cells {
-      flex: 1;
-      height: 100%;
-    }
-    .main-content.tv-center-active .flow-columns {
-      flex: 1;
-      height: 100%;
-    }
-    .main-content.tv-center-active .part-block {
-      flex: 1 1 100% !important;
-      height: 100%;
-      display: flex !important;
+    /* ── TV Center Overlay ── */
+    #tvCenterOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9200;
+      background: #111;
       flex-direction: column;
+      padding: 2rem 3rem 6rem;
+      box-sizing: border-box;
+      overflow: hidden;
     }
-    .main-content.tv-center-active .flow-span-cols,
-    .main-content.tv-center-active .card-body {
+    #tvCenterOverlay.open { display: flex; }
+    #tvCenterOverlay .tvo-header {
+      color: #fff;
+      font-size: 2rem;
+      font-weight: 900;
+      text-align: center;
+      padding: 0.6rem 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1.2rem;
+      flex-shrink: 0;
+    }
+    #tvCenterOverlay .tvo-body {
       flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      overflow: hidden;
+    }
+    #tvCenterOverlay .exercise-line {
+      padding: 0.2em 0;
+      line-height: 1.4;
     }
 
     /* ── TV Remote Navigation Panel ── */
@@ -1318,7 +1322,7 @@
       border: 1px solid rgba(255,255,255,0.12);
       border-radius: 2rem;
       padding: 0.55rem 1.1rem;
-      z-index: 8500;
+      z-index: 9300;
       box-shadow: 0 4px 24px rgba(0,0,0,0.5);
     }
     .tv-btn {
@@ -1447,6 +1451,12 @@
   <!-- QR Code floating overlay -->
   <div class="qr-overlay hidden" id="qrOverlay">
     <img id="qrImg" src="" alt="QR">
+  </div>
+
+  <!-- TV Center Overlay — full-screen view of a single focused part -->
+  <div id="tvCenterOverlay">
+    <div class="tvo-header" id="tvoCenterHeader"></div>
+    <div class="tvo-body" id="tvoCenterBody"></div>
   </div>
 
   <!-- TV Navigation Panel (floating, controlled by remote D-pad) -->
@@ -2973,19 +2983,60 @@
     let centerFocus = false;
 
     function applyCenterFocus() {
-      const mainContent = document.getElementById('mainContent');
-      if (!mainContent) return;
-      const active = centerFocus && partFocusIndex !== null;
-      mainContent.classList.toggle('tv-center-active', active);
-      updateTvNav();
-      if (active) {
-        document.documentElement.style.setProperty('--font-scale', '0.4');
-        requestAnimationFrame(() => { autoFitFontSize(); setTimeout(() => autoFitFontSize(), 200); setTimeout(() => autoFitFontSize(), 500); });
+      const overlay = document.getElementById('tvCenterOverlay');
+      if (!overlay) return;
+
+      if (centerFocus && partFocusIndex !== null) {
+        // Find the focused part-block across all visible rows
+        const visibleRows = document.querySelectorAll('#wodArea .workout-row:not(.section-hidden)');
+        let headerText = '';
+        let bodyHTML = '';
+        let headerBg = '';
+
+        visibleRows.forEach(row => {
+          const part = row.querySelector(`.part-block[data-part-idx="${partFocusIndex}"]`);
+          if (!part) return;
+          // Get header text from flow-section-header or card-header
+          const hdrEl = part.querySelector('.flow-section-header, .card-header');
+          if (hdrEl && !headerText) {
+            headerText = hdrEl.textContent.trim();
+            // Copy background gradient from header element
+            headerBg = getComputedStyle(hdrEl).background;
+          }
+          // Get body content (everything except the header element)
+          const clone = part.cloneNode(true);
+          clone.querySelectorAll('.flow-section-header, .card-header').forEach(el => el.remove());
+          bodyHTML += clone.innerHTML;
+        });
+
+        const hdrDiv = document.getElementById('tvoCenterHeader');
+        const bodyDiv = document.getElementById('tvoCenterBody');
+        hdrDiv.textContent = headerText;
+        hdrDiv.style.background = headerBg || 'linear-gradient(135deg,#ea580c,#f97316)';
+        bodyDiv.innerHTML = bodyHTML;
+
+        overlay.classList.add('open');
+
+        // Fit font to overlay body
+        const lines = bodyDiv.querySelectorAll('.exercise-line');
+        let lo = 1, hi = 12;
+        for (let i = 0; i < 12; i++) {
+          const mid = (lo + hi) / 2;
+          lines.forEach(l => l.style.fontSize = mid + 'rem');
+          overlay.offsetHeight; // force reflow
+          if (bodyDiv.scrollHeight > bodyDiv.clientHeight) hi = mid;
+          else lo = mid;
+        }
+        lines.forEach(l => l.style.fontSize = lo.toFixed(2) + 'rem');
+
+      } else {
+        overlay.classList.remove('open');
       }
+      updateTvNav();
     }
 
     function toggleCenterFocus() {
-      if (partFocusIndex === null) return; // only makes sense when a part is selected
+      if (partFocusIndex === null) return;
       centerFocus = !centerFocus;
       applyCenterFocus();
     }
