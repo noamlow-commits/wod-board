@@ -1944,11 +1944,12 @@
         { label: 'tl', isBottom: false, top: topBarH + margin,          left: margin },
       ];
 
-      // Collect visible text element rects (board + center overlay)
+      // Collect visible text element rects — use precise line-level elements only
+      // (avoid large containers like .workout-card/.card-body that cause false positives)
       const textEls = document.querySelectorAll(
-        '.exercise-line, .flow-section-header, .card-body, .workout-card, ' +
+        '.exercise-line, .flow-section-header, ' +
         '#tvoCenterBody .exercise-line, #tvoCenterHeader, ' +
-        '.scoreboard-table td, .scoreboard-table th, .lift-row'
+        '.scoreboard-table td, .lift-row'
       );
       const textRects = [];
       textEls.forEach(el => {
