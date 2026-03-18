@@ -1895,6 +1895,7 @@
         autoFitFontSize();
         // Extra retry for heavy mode transitions (PR → WOD)
         setTimeout(() => autoFitFontSize(), 200);
+        setTimeout(() => repositionQR(), 350);
       }));
     }
 
@@ -3212,6 +3213,7 @@
           autoFitFontSize();
           setTimeout(() => autoFitFontSize(), 300);
           setTimeout(() => autoFitFontSize(), 800);
+          setTimeout(() => repositionQR(), 900); // after layout fully settles
         });
       }
     }
