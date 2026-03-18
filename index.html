@@ -1269,6 +1269,63 @@
         min-height: 200px;
       }
     }
+
+    /* ── TV Remote Navigation Panel ── */
+    .tv-nav {
+      position: fixed;
+      bottom: 1.4rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(10, 10, 10, 0.82);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 2rem;
+      padding: 0.55rem 1.1rem;
+      z-index: 8500;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    }
+    .tv-btn {
+      background: rgba(255,255,255,0.08);
+      color: #e5e7eb;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 0.65rem;
+      padding: 0.45rem 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      min-width: 2.8rem;
+      transition: background 0.15s, outline 0.1s;
+      white-space: nowrap;
+    }
+    .tv-btn:hover,
+    .tv-btn:focus {
+      background: rgba(255,255,255,0.22);
+      outline: 2px solid #fbbf24;
+      outline-offset: 2px;
+    }
+    .tv-btn.tv-active {
+      background: #ef4444;
+      color: #fff;
+      border-color: #ef4444;
+    }
+    .tv-part-label {
+      color: #fbbf24;
+      font-weight: 700;
+      font-size: 0.95rem;
+      min-width: 7rem;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .tv-sep {
+      width: 1px;
+      height: 1.8rem;
+      background: rgba(255,255,255,0.18);
+      margin: 0 0.2rem;
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -1356,6 +1413,19 @@
   <!-- QR Code floating overlay -->
   <div class="qr-overlay hidden" id="qrOverlay">
     <img id="qrImg" src="" alt="QR">
+  </div>
+
+  <!-- TV Navigation Panel (floating, controlled by remote D-pad) -->
+  <div id="tvNav" class="tv-nav" style="display:none;">
+    <button class="tv-btn" id="tvPrev" onclick="navigatePart(-1)" tabindex="0" title="חלק קודם">◄</button>
+    <span class="tv-part-label" id="tvPartLabel">כל החלקים</span>
+    <button class="tv-btn" id="tvNext" onclick="navigatePart(1)" tabindex="0" title="חלק הבא">►</button>
+    <div class="tv-sep"></div>
+    <button class="tv-btn tv-active" id="tvBtnAll" onclick="setTvSection(null)" tabindex="0">הכל</button>
+    <button class="tv-btn" id="tvBtnWod" data-section="WOD" onclick="setTvSection('WOD')" tabindex="0">WOD</button>
+    <button class="tv-btn" id="tvBtnCardio" data-section="CARDIO" onclick="setTvSection('CARDIO')" tabindex="0">CARDIO</button>
+    <div class="tv-sep"></div>
+    <button class="tv-btn" onclick="partFocusIndex=null;setTvSection(null);" tabindex="0" title="חזרה לכל הלוח">🏠</button>
   </div>
 
   <!-- Settings Modal -->
@@ -1522,6 +1592,7 @@
     let scoreRefreshTimer = null;
     let displayMode = 'wod';
     let sectionFilter = null; // null = show all, or 'WOD', 'CARDIO', etc.
+    let partFocusIndex = null; // null = all parts, 0/1/2 = focused part index
     let liftDisplayMode = 'inline'; // 'inline' = in athlete row, 'separate' = own section
     let todayLifts = [];
     let lastLiftJSON = '';
@@ -1755,6 +1826,7 @@
 
       // Show/hide QR based on mode + setting
       updateQR();
+      updateTvNav();
 
       // Re-fit font for new layout — double rAF + delayed retry
       // ensures display:none/flex transitions are fully applied before measuring
@@ -2655,7 +2727,7 @@
 
           cardsHTML = row.cells
             .filter(cell => cell.lines.length > 0)
-            .map(cell => {
+            .map((cell, cellIdx) => {
               const safety = isSafetyColumn(cell.header);
               const allText = cell.lines.join(' ');
               const hebrewChars = (allText.match(/[\u0590-\u05FF]/g) || []).length;
@@ -2685,7 +2757,7 @@
 
               const isWarmupCard = !safety && (theme === 'warmup' || (cell.lines.length > 0 && /warm\s*up/i.test(cell.lines[0])));
               return `
-                <div class="workout-card${safety ? ' safety-card' : ''}${isWarmupCard ? ' warmup-card' : ''}">
+                <div class="workout-card${safety ? ' safety-card' : ''}${isWarmupCard ? ' warmup-card' : ''}" data-part-idx="${cellIdx}">
                   <div class="card-header ${safety ? 'warmup' : theme}">${escapeHtml(cell.header)}</div>
                   ${bodyHTML}
                 </div>`;
@@ -2705,8 +2777,8 @@
         container.innerHTML = rowsHTML;
         container.classList.add('fade-enter');
         setTimeout(() => container.classList.remove('fade-enter'), 500);
-        // Apply section filter + auto-fit
-        requestAnimationFrame(() => { applySectionFilter(); autoFitFontSize(); });
+        // Apply section filter, part focus + auto-fit
+        requestAnimationFrame(() => { applySectionFilter(); applyPartFocus(); autoFitFontSize(); });
       }
     }
 
@@ -2731,6 +2803,7 @@
       } else {
         lbl.style.display = 'none';
       }
+      updateTvNav();
     }
 
     function toggleSectionFilter(section) {
@@ -2756,6 +2829,90 @@
         if (s && !labels.includes(s)) labels.push(s);
       });
       return labels;
+    }
+
+    // ════════════════════════════════════════
+    // Part Focus — zoom into one column at a time
+    // ════════════════════════════════════════
+    function applyPartFocus() {
+      const visibleRows = document.querySelectorAll('#wodArea .workout-row:not(.section-hidden)');
+      visibleRows.forEach(row => {
+        const cards = row.querySelectorAll('.workout-card');
+        cards.forEach(card => {
+          const idx = parseInt(card.dataset.partIdx, 10);
+          if (partFocusIndex === null) {
+            card.style.display = '';
+            card.style.flex = '';
+            card.style.minWidth = '';
+          } else {
+            if (idx === partFocusIndex) {
+              card.style.display = '';
+              card.style.flex = '1 1 100%';
+              card.style.minWidth = '0';
+            } else {
+              card.style.display = 'none';
+            }
+          }
+        });
+      });
+      updateTvNav();
+      document.documentElement.style.setProperty('--font-scale', '0.4');
+      requestAnimationFrame(() => { autoFitFontSize(); setTimeout(() => autoFitFontSize(), 200); });
+    }
+
+    function getMaxParts() {
+      const visibleRows = document.querySelectorAll('#wodArea .workout-row:not(.section-hidden)');
+      let max = 0;
+      visibleRows.forEach(row => {
+        const count = row.querySelectorAll('.workout-card').length;
+        if (count > max) max = count;
+      });
+      return max;
+    }
+
+    function navigatePart(dir) {
+      const max = getMaxParts();
+      if (max === 0) return;
+      if (partFocusIndex === null) {
+        partFocusIndex = dir > 0 ? 0 : max - 1;
+      } else {
+        partFocusIndex += dir;
+        if (partFocusIndex < 0 || partFocusIndex >= max) partFocusIndex = null;
+      }
+      applyPartFocus();
+    }
+
+    function setTvSection(section) {
+      sectionFilter = section;
+      partFocusIndex = null;
+      applySectionFilter();
+      applyPartFocus();
+    }
+
+    function updateTvNav() {
+      const panel = document.getElementById('tvNav');
+      if (!panel) return;
+
+      // Show/hide panel based on display mode
+      const visible = (displayMode === 'wod' || displayMode === 'split');
+      panel.style.display = visible ? 'flex' : 'none';
+      if (!visible) return;
+
+      // Part label
+      const max = getMaxParts();
+      const lbl = document.getElementById('tvPartLabel');
+      if (lbl) lbl.textContent = partFocusIndex === null ? 'כל החלקים' : `חלק ${partFocusIndex + 1} / ${max}`;
+
+      // Section buttons
+      const allSections = getSectionLabels().map(s => s.toUpperCase());
+      ['tvBtnWod', 'tvBtnCardio'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        const sec = btn.dataset.section;
+        btn.style.display = allSections.includes(sec) ? '' : 'none';
+        btn.classList.toggle('tv-active', sectionFilter && sectionFilter.toUpperCase() === sec);
+      });
+      document.getElementById('tvBtnAll')?.classList.toggle('tv-active', sectionFilter === null);
     }
 
     // ════════════════════════════════════════

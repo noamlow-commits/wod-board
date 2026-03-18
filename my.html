@@ -1041,7 +1041,6 @@
   <div class="logo">CROSSFIT GUSH ETZION</div>
   <div class="header-links">
     <a href="score.html" id="linkScore">הזנת תוצאה</a>
-    <a href="index.html" id="linkBoard">לוח</a>
     <a href="coach.html" id="linkCoach">מאמן</a>
   </div>
 </div>
@@ -1223,14 +1222,6 @@ let leaderboardGenderFilter = '';
     document.getElementById('linkScore').href = 'score.html?' + apiParam;
     document.getElementById('linkCoach').href = 'coach.html?' + apiParam;
 
-    // Build index.html link with sheet+tab from settings
-    var boardUrl = 'index.html?' + apiParam;
-    try {
-      var wbS = JSON.parse(localStorage.getItem('wodboard') || '{}');
-      if (wbS.sheetId) boardUrl += '&sheet=' + encodeURIComponent(wbS.sheetId);
-      if (wbS.tabs && wbS.tabs[0]) boardUrl += '&tab=' + encodeURIComponent(wbS.tabs[0]);
-    } catch(e) {}
-    document.getElementById('linkBoard').href = boardUrl;
   }
 
   myName = localStorage.getItem('wodboard-athlete-name') || '';
