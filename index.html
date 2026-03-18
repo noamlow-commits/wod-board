@@ -1209,13 +1209,13 @@
     /* QR code overlay */
     .qr-overlay {
       position: fixed;
-      bottom: 0.8rem;
+      bottom: 5rem;
       right: 0.8rem;
       background: #fff;
       border-radius: 6px;
       padding: 5px;
       box-shadow: 0 2px 12px rgba(0,0,0,0.5);
-      z-index: 50;
+      z-index: 9400;
       opacity: 1;
       transition: top 0.4s ease, bottom 0.4s ease, left 0.4s ease, right 0.4s ease;
     }
@@ -3039,7 +3039,6 @@
         hdrDiv.style.background = headerBg || 'linear-gradient(135deg,#ea580c,#f97316)';
         bodyDiv.innerHTML = bodyHTML;
         overlay.classList.add('open');
-        document.getElementById('qrOverlay')?.classList.add('hidden');
 
         // Binary-search the largest font size that fits without clipping
         requestAnimationFrame(() => {
@@ -3059,7 +3058,6 @@
 
       } else {
         overlay.classList.remove('open');
-        updateQR(); // restore QR visibility based on settings
       }
       updateTvNav();
     }
