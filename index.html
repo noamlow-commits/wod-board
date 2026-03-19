@@ -2571,6 +2571,8 @@
       // Highlight time patterns
       html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
       html = html.replace(/\b(EMOM|AMRAP|FOR TIME|E2MOM|E3MOM|TABATA|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
+      // Highlight time cap numbers: "t.c 37", "tc 12:00", "t.c- 5"
+      html = html.replace(/\b(t\.?c[\-\s]*)\s*(\d+(?::\d{2})?)/gi, '$1<span class="time-badge">$2</span>');
 
       return { type: 'exercise', html };
     }
