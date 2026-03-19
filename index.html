@@ -2600,14 +2600,17 @@
 
         // Pre-process: split cells that contain "part N:" lines into virtual cells.
         // Lines before first "part N:" become a WARM UP cell; each "part N:" starts a new cell.
+        // After splitting, merge all cells before first part into a single WARM UP cell.
         const partLineRe = /^part\s*(\d+)\s*:?\s*$/i;
         const expandedCells = [];
+        let hadPartSplit = false;
         for (const cell of contentCells) {
           const hasPartLines = cell.lines.some(l => partLineRe.test(l.trim()));
           if (!hasPartLines) {
-            expandedCells.push(cell);
+            expandedCells.push({ header: cell.header, lines: cell.lines, isPartCell: false });
             continue;
           }
+          hadPartSplit = true;
           // Split by "part N:" boundaries
           let currentLines = [];
           let currentHeader = ''; // empty = warmup (pre-part content)
@@ -2616,7 +2619,7 @@
             if (pm) {
               // Flush previous group
               if (currentLines.length > 0) {
-                expandedCells.push({ header: currentHeader, lines: currentLines });
+                expandedCells.push({ header: currentHeader, lines: currentLines, isPartCell: !!currentHeader });
               }
               currentHeader = pm[1]; // "1", "2", "3"
               currentLines = [];
@@ -2625,7 +2628,18 @@
             }
           }
           if (currentLines.length > 0) {
-            expandedCells.push({ header: currentHeader, lines: currentLines });
+            expandedCells.push({ header: currentHeader, lines: currentLines, isPartCell: true });
+          }
+        }
+        // Merge all cells before first part-split numbered cell into a single WARM UP cell
+        if (hadPartSplit) {
+          const firstPartIdx = expandedCells.findIndex(c => c.isPartCell && /^\d+$/.test(c.header));
+          if (firstPartIdx > 0) {
+            const warmupLines = [];
+            for (let i = 0; i < firstPartIdx; i++) {
+              warmupLines.push(...expandedCells[i].lines);
+            }
+            expandedCells.splice(0, firstPartIdx, { header: '', lines: warmupLines, isPartCell: false });
           }
         }
         contentCells = expandedCells;
