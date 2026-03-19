@@ -2491,10 +2491,11 @@
         // If no label found, merge cells into the previous labeled row
         // This handles vertically merged cells in Google Sheets where gviz
         // splits data across multiple rows
+        // Skip cells whose only content matches the column header (section-number rows)
         if (!label && rows.length > 0) {
           const prevRow = rows[rows.length - 1];
           for (const cell of cells) {
-            // Try to merge into existing cell with same header, or add new
+            if (cell.lines.length === 1 && cell.lines[0] === cell.header) continue;
             const existing = prevRow.cells.find(c => c.header === cell.header);
             if (existing) {
               existing.lines.push(...cell.lines);
@@ -3223,9 +3224,12 @@
         if (cells.length === 0) continue;
 
         // Merge label-less rows into previous labeled row
+        // Skip cells whose only content matches the column header (e.g., "1" under header "1")
+        // — these are section-number rows the coach uses for organization, not real content
         if (!label && result.length > 0) {
           const prevRow = result[result.length - 1];
           for (const cell of cells) {
+            if (cell.lines.length === 1 && cell.lines[0] === cell.header) continue;
             const existing = prevRow.cells.find(c => c.header === cell.header);
             if (existing) { existing.lines.push(...cell.lines); } else { prevRow.cells.push(cell); }
           }
