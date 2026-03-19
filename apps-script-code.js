@@ -25,6 +25,7 @@
 // - Athletes    — registered athletes with gender (permanent)
 // - WODs        — daily WOD definitions by coach (permanent)
 // - Announcements — coach messages to athletes (permanent)
+// - TimerState  — single-row timer command state (overwritten each command)
 //
 // COACH SETUP:
 // Run this once in Apps Script console to set coach password:
@@ -95,6 +96,10 @@ function getWODsSheet_() {
 
 function getAnnouncementsSheet_() {
   return ensureTab_('Announcements', ['ID', 'Title', 'Message', 'CreatedBy', 'CreatedAt', 'ExpiresAt', 'Status']);
+}
+
+function getTimerStateSheet_() {
+  return ensureTab_('TimerState', ['Command', 'Type', 'Config', 'Timestamp']);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -189,6 +194,12 @@ function doPost(e) {
     }
     PropertiesService.getScriptProperties().setProperty('GYM_PIN', newPin);
     return jsonResponse_({ status: 'ok', message: 'Gym PIN set' });
+  }
+  if (action === 'timerCommand') {
+    if (!verifyCoach_(data.coachKey || '')) {
+      return jsonResponse_({ status: 'error', message: 'Unauthorized' });
+    }
+    return handleTimerCommand_(data);
   }
   // Default: daily WOD score (existing behavior)
   return handleScorePost_(data);
@@ -344,6 +355,9 @@ function doGet(e) {
 
   // ── Workout sheet is public read (no sensitive data) ──
   if (action === 'getWorkoutSheet') return handleGetWorkoutSheet_(e);
+
+  // ── Timer state is public read (board polls this) ──
+  if (action === 'getTimerState') return handleGetTimerState_(e);
 
   // ── All other endpoints require valid Gym PIN ──
   if (!verifyGymPin_(e.parameter.pin || '')) {
@@ -1766,6 +1780,42 @@ function checkBadgesAfterPR_(athleteName) {
 // ═══════════════════════════════════════════════════════
 // Response helpers
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// Timer state management
+// ═══════════════════════════════════════════════════════
+
+function handleTimerCommand_(data) {
+  var sheet = getTimerStateSheet_();
+  var command = data.command || 'reset';  // configure|start|pause|resume|reset
+  var type = data.type || '';              // amrap|fortime|emom|tabata|mix
+  var config = data.config ? JSON.stringify(data.config) : '{}';
+  var ts = String(data.ts || Date.now());
+
+  // Always overwrite row 2 (single-row state)
+  if (sheet.getLastRow() < 2) {
+    sheet.appendRow([command, type, config, ts]);
+  } else {
+    sheet.getRange(2, 1, 1, 4).setValues([[command, type, config, ts]]);
+  }
+  return jsonResponse_({ status: 'ok', command: command, ts: ts });
+}
+
+function handleGetTimerState_(e) {
+  var sheet = getTimerStateSheet_();
+  if (sheet.getLastRow() < 2) {
+    return respondWithCallback_(e, { command: 'reset', type: '', config: {}, ts: '0' });
+  }
+  var row = sheet.getRange(2, 1, 1, 4).getValues()[0];
+  var config = {};
+  try { config = JSON.parse(row[2] || '{}'); } catch(err) {}
+  return respondWithCallback_(e, {
+    command: String(row[0] || 'reset'),
+    type: String(row[1] || ''),
+    config: config,
+    ts: String(row[3] || '0')
+  });
+}
+
 function jsonResponse_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);

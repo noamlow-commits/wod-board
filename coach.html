@@ -460,6 +460,7 @@
     <button class="tab-btn" data-tab="announcements">📢 הודעות</button>
     <button class="tab-btn" data-tab="badges">🏅 באדג'ים</button>
     <button class="tab-btn" data-tab="data">📊 נתונים</button>
+    <button class="tab-btn" data-tab="timer">⏱ טיימר</button>
   </div>
 
   <!-- Tab: WOD -->
@@ -562,6 +563,105 @@
     </div>
     <div id="badgesByAthlete">
       <div class="loading"><div class="spinner"></div><div>טוען...</div></div>
+    </div>
+  </div>
+
+  <!-- Tab: Timer -->
+  <div class="tab-panel" id="panel-timer">
+    <h3 style="font-size:1rem;margin-bottom:1rem;">⏱ טיימר אימון</h3>
+
+    <!-- Timer Type Selector -->
+    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1rem;">
+      <button class="btn btn-outline" onclick="selectTimerType('amrap')" id="ttype-amrap" style="flex:1;min-width:60px;">AMRAP</button>
+      <button class="btn btn-outline" onclick="selectTimerType('fortime')" id="ttype-fortime" style="flex:1;min-width:60px;">For Time</button>
+      <button class="btn btn-outline" onclick="selectTimerType('emom')" id="ttype-emom" style="flex:1;min-width:60px;">EMOM</button>
+      <button class="btn btn-outline" onclick="selectTimerType('tabata')" id="ttype-tabata" style="flex:1;min-width:60px;">Tabata</button>
+      <button class="btn btn-outline" onclick="selectTimerType('mix')" id="ttype-mix" style="flex:1;min-width:60px;">MIX</button>
+    </div>
+
+    <!-- AMRAP Config -->
+    <div class="card" id="tcfg-amrap" style="display:none;">
+      <div class="card-title">AMRAP — כמה שיותר סבבים</div>
+      <div class="form-group">
+        <label>זמן כולל</label>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <input type="number" id="amrap-min" value="12" min="0" max="99" style="width:70px;text-align:center;font-size:1.2rem;"> <span>דק׳</span>
+          <input type="number" id="amrap-sec" value="0" min="0" max="59" style="width:70px;text-align:center;font-size:1.2rem;"> <span>שנ׳</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- For Time Config -->
+    <div class="card" id="tcfg-fortime" style="display:none;">
+      <div class="card-title">For Time — כמה שיותר מהר</div>
+      <div class="form-group">
+        <label>Time Cap (אופציונלי, 0 = ללא)</label>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <input type="number" id="fortime-min" value="0" min="0" max="99" style="width:70px;text-align:center;font-size:1.2rem;"> <span>דק׳</span>
+          <input type="number" id="fortime-sec" value="0" min="0" max="59" style="width:70px;text-align:center;font-size:1.2rem;"> <span>שנ׳</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- EMOM Config -->
+    <div class="card" id="tcfg-emom" style="display:none;">
+      <div class="card-title">EMOM — כל דקה על הדקה</div>
+      <div class="form-group">
+        <label>זמן כולל (דקות)</label>
+        <input type="number" id="emom-total-min" value="10" min="1" max="99" style="width:70px;text-align:center;font-size:1.2rem;">
+      </div>
+      <div class="form-group">
+        <label>אורך אינטרוול</label>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <input type="number" id="emom-iv-min" value="1" min="0" max="10" style="width:70px;text-align:center;font-size:1.2rem;"> <span>דק׳</span>
+          <input type="number" id="emom-iv-sec" value="0" min="0" max="59" style="width:70px;text-align:center;font-size:1.2rem;"> <span>שנ׳</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabata Config -->
+    <div class="card" id="tcfg-tabata" style="display:none;">
+      <div class="card-title">Tabata — עבודה / מנוחה</div>
+      <div style="display:flex;gap:1rem;">
+        <div class="form-group" style="flex:1;">
+          <label>עבודה (שנ׳)</label>
+          <input type="number" id="tabata-work" value="20" min="1" max="300" style="width:100%;text-align:center;font-size:1.2rem;">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>מנוחה (שנ׳)</label>
+          <input type="number" id="tabata-rest" value="10" min="0" max="300" style="width:100%;text-align:center;font-size:1.2rem;">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>סבבים</label>
+          <input type="number" id="tabata-rounds" value="8" min="1" max="50" style="width:100%;text-align:center;font-size:1.2rem;">
+        </div>
+      </div>
+    </div>
+
+    <!-- MIX Config -->
+    <div class="card" id="tcfg-mix" style="display:none;">
+      <div class="card-title">MIX — אינטרוולים מותאמים</div>
+      <div id="mix-intervals"></div>
+      <button class="btn btn-outline btn-sm" onclick="addMixInterval()" style="margin-bottom:0.6rem;">+ הוסף אינטרוול</button>
+      <div class="form-group">
+        <label>סבבים</label>
+        <input type="number" id="mix-rounds" value="5" min="1" max="50" style="width:70px;text-align:center;font-size:1.2rem;">
+      </div>
+    </div>
+
+    <!-- Timer Controls -->
+    <div id="timer-controls" style="display:none;margin-top:1rem;">
+      <div style="display:flex;gap:0.5rem;">
+        <button class="btn" onclick="sendTimerCmd('start')" style="flex:1;background:#22c55e;color:#fff;font-size:1.1rem;padding:0.8rem;">▶ START</button>
+        <button class="btn" onclick="sendTimerCmd('pause')" style="flex:1;background:#eab308;color:#000;font-size:1.1rem;padding:0.8rem;">⏸ PAUSE</button>
+        <button class="btn" onclick="sendTimerCmd('resume')" style="flex:1;background:#3b82f6;color:#fff;font-size:1.1rem;padding:0.8rem;">▶ RESUME</button>
+      </div>
+      <button class="btn" onclick="sendTimerCmd('reset')" style="width:100%;margin-top:0.5rem;background:#ef4444;color:#fff;font-size:1rem;padding:0.6rem;">⏹ RESET</button>
+    </div>
+
+    <!-- Timer Status -->
+    <div id="timer-status" style="margin-top:1rem;padding:0.8rem;background:rgba(255,255,255,0.05);border-radius:8px;text-align:center;color:#888;font-size:0.9rem;">
+      בחר סוג טיימר למעלה
     </div>
   </div>
 
@@ -1328,6 +1428,113 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
+
+// ════════════════════════════════════════
+// Timer Control Panel
+// ════════════════════════════════════════
+let selectedTimerType = null;
+
+function selectTimerType(type) {
+  selectedTimerType = type;
+  // Highlight selected button
+  document.querySelectorAll('[id^="ttype-"]').forEach(b => {
+    b.classList.toggle('btn-primary', b.id === 'ttype-' + type);
+    b.classList.toggle('btn-outline', b.id !== 'ttype-' + type);
+  });
+  // Show matching config card
+  document.querySelectorAll('[id^="tcfg-"]').forEach(c => {
+    c.style.display = c.id === 'tcfg-' + type ? '' : 'none';
+  });
+  // Show controls
+  document.getElementById('timer-controls').style.display = '';
+  // Init MIX intervals if empty
+  if (type === 'mix' && document.getElementById('mix-intervals').children.length === 0) {
+    addMixInterval('Work', 40);
+    addMixInterval('Rest', 20);
+  }
+  updateTimerStatus('מוכן — לחץ START');
+}
+
+function addMixInterval(name, sec) {
+  const container = document.getElementById('mix-intervals');
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:0.4rem;align-items:center;margin-bottom:0.4rem;';
+  row.innerHTML = `
+    <input type="text" class="mix-name" value="${name || ''}" placeholder="שם" style="flex:1;font-size:0.9rem;">
+    <input type="number" class="mix-sec" value="${sec || 30}" min="1" max="600" style="width:60px;text-align:center;font-size:0.9rem;">
+    <span style="font-size:0.8rem;">שנ׳</span>
+    <button class="btn btn-outline btn-sm" onclick="this.parentElement.remove()" style="padding:0.2rem 0.5rem;color:#ef4444;">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+function getTimerConfig() {
+  if (!selectedTimerType) return null;
+  switch (selectedTimerType) {
+    case 'amrap': return {
+      totalSeconds: (parseInt(document.getElementById('amrap-min').value) || 0) * 60 +
+                    (parseInt(document.getElementById('amrap-sec').value) || 0)
+    };
+    case 'fortime': return {
+      capSeconds: (parseInt(document.getElementById('fortime-min').value) || 0) * 60 +
+                  (parseInt(document.getElementById('fortime-sec').value) || 0)
+    };
+    case 'emom': return {
+      totalSeconds: (parseInt(document.getElementById('emom-total-min').value) || 10) * 60,
+      intervalSeconds: (parseInt(document.getElementById('emom-iv-min').value) || 0) * 60 +
+                       (parseInt(document.getElementById('emom-iv-sec').value) || 0) || 60
+    };
+    case 'tabata': return {
+      workSeconds: parseInt(document.getElementById('tabata-work').value) || 20,
+      restSeconds: parseInt(document.getElementById('tabata-rest').value) || 10,
+      rounds: parseInt(document.getElementById('tabata-rounds').value) || 8
+    };
+    case 'mix': {
+      const intervals = [];
+      document.querySelectorAll('#mix-intervals > div').forEach(row => {
+        const name = row.querySelector('.mix-name').value || 'Interval';
+        const sec = parseInt(row.querySelector('.mix-sec').value) || 30;
+        intervals.push({ name, seconds: sec });
+      });
+      return { intervals, rounds: parseInt(document.getElementById('mix-rounds').value) || 5 };
+    }
+    default: return {};
+  }
+}
+
+function sendTimerCmd(command) {
+  if (!selectedTimerType && command !== 'reset') {
+    updateTimerStatus('⚠️ בחר סוג טיימר קודם');
+    return;
+  }
+  const config = getTimerConfig();
+  const payload = {
+    action: 'timerCommand',
+    coachKey: coachKey,
+    command: command,
+    type: selectedTimerType || '',
+    config: config || {},
+    ts: String(Date.now())
+  };
+
+  updateTimerStatus('שולח...');
+  postData(payload).then(res => {
+    if (res && res.status === 'ok') {
+      const labels = { start: '▶ הטיימר הופעל!', pause: '⏸ הטיימר הושהה', resume: '▶ הטיימר ממשיך', reset: '⏹ הטיימר אופס', configure: '✓ הוגדר' };
+      updateTimerStatus(labels[command] || '✓ נשלח');
+    } else {
+      updateTimerStatus('❌ שגיאה: ' + (res?.message || 'unknown'));
+    }
+  }).catch(err => {
+    updateTimerStatus('❌ שגיאת רשת');
+  });
+}
+
+function updateTimerStatus(msg) {
+  const el = document.getElementById('timer-status');
+  if (el) el.textContent = msg;
+}
+
 </script>
 </body>
 </html>

@@ -3645,6 +3645,67 @@
       }
     }
 
+    // ════════════════════════════════════════
+    // Timer state polling (coach → board sync)
+    // ════════════════════════════════════════
+    let timerPollTimer = null;
+
+    function fetchTimerState() {
+      if (!settings.appsScriptUrl) return;
+      const cb = '_timerCb_' + Date.now();
+      const url = settings.appsScriptUrl + '?action=getTimerState&callback=' + cb;
+      const script = document.createElement('script');
+      let done = false;
+
+      window[cb] = function(data) {
+        done = true;
+        delete window[cb];
+        script.remove();
+        if (!data || !data.ts) return;
+        // Only process new commands
+        if (data.ts === lastTimerCommandTs) return;
+        lastTimerCommandTs = data.ts;
+        processTimerCommand(data);
+      };
+
+      script.src = url;
+      script.onerror = () => { if (!done) { delete window[cb]; script.remove(); } };
+      document.body.appendChild(script);
+      setTimeout(() => { if (!done) { delete window[cb]; script.remove(); } }, 5000);
+    }
+
+    function processTimerCommand(data) {
+      const cmd = data.command;
+      const type = data.type;
+      const config = data.config || {};
+
+      if (cmd === 'start') {
+        // Auto-switch to timer mode
+        if (displayMode !== 'timer') {
+          timerPrevMode = displayMode;
+          setDisplayMode('timer');
+        }
+        configureTimer(type, config);
+        startTimer();
+      } else if (cmd === 'pause') {
+        pauseTimer();
+      } else if (cmd === 'resume') {
+        resumeTimer();
+      } else if (cmd === 'reset') {
+        resetTimer();
+        // Optionally switch back to previous mode
+        if (displayMode === 'timer' && timerPrevMode) {
+          setDisplayMode(timerPrevMode);
+        }
+      } else if (cmd === 'configure') {
+        if (displayMode !== 'timer') {
+          timerPrevMode = displayMode;
+          setDisplayMode('timer');
+        }
+        configureTimer(type, config);
+      }
+    }
+
     async function startApp() {
       applySettings();
       renderTabBar();
@@ -3669,6 +3730,10 @@
           fetchTodayLifts();
           fetchTodayBenchmarks();
         }, 5000);
+        // Start timer state polling (every 2 seconds)
+        fetchTimerState();
+        if (timerPollTimer) clearInterval(timerPollTimer);
+        timerPollTimer = setInterval(fetchTimerState, 2000);
       }
 
       // Apply display mode (now runs AFTER data is rendered)
