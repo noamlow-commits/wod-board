@@ -99,7 +99,7 @@ Call `repositionQR()` 900ms after render and 350ms after mode switches.
 
 | Key | Action |
 |-----|--------|
-| ←→ | Cycle display modes (WOD/SPLIT/BOARD/PR) — always resets section filter |
+| ←→ | Cycle display modes (WOD/SPLIT/BOARD/PR/TIMER) — always resets section filter |
 | 1-4 | Direct mode select — always resets section filter |
 | ↑↓ | Cycle section filter |
 | 5/6 | WOD/CARDIO filter (double-press = show all) |
@@ -107,6 +107,9 @@ Call `repositionQR()` 900ms after render and 350ms after mode switches.
 | 8 | Refresh |
 | 9 | Toggle QR |
 | Enter | Fullscreen |
+| t | Timer mode |
+| Space | Start/pause/resume timer (timer mode only) |
+| Backspace | Reset timer (timer mode only) |
 
 ## Security
 - Two-layer auth: Gym PIN (all members) + Coach Password (admin)
@@ -121,8 +124,25 @@ Call `repositionQR()` 900ms after render and 350ms after mode switches.
 | Benchmarks | Never delete |
 | PRs | Never delete, only update |
 | Athletes, Badges, Challenges, Reactions, WODs, Announcements | Permanent |
+| TimerState | Single row, overwritten each command |
 
-## Open Questions (as of 2026-03-18)
-- Does coach prefer WOD + CARDIO on one screen or separate pages?
+## Timer System (added 2026-03-19)
+
+5th display mode (`mode-timer`). Timer engine runs client-side via `requestAnimationFrame`. Coach controls via Apps Script.
+
+**5 types:** AMRAP (countdown), For Time (count up + cap), EMOM (interval beeps), Tabata (work/rest), MIX (custom intervals)
+
+**State machine:** `idle → configured → countdown321 → running → paused → finished`
+
+**Audio:** Web Audio API — `TimerAudio` object with synthesized beeps, no external files.
+
+**Sync:** Coach POSTs `timerCommand` to Apps Script. Board polls `getTimerState` every 2s via JSONP. Timer runs locally (no network latency). `getTimerState` is exempt from PIN (like `getWorkoutSheet`).
+
+**Coach panel:** "⏱ טיימר" tab in coach.html. Type selector → config form → START/PAUSE/RESUME/RESET.
+
+**Status:** Phases 1-6 complete. **Apps Script must be redeployed** to coach's sheet for sync to work. Phase 7 (polish) pending.
+
+## Open Questions (as of 2026-03-19)
 - Remove debug `[WORKOUT-FETCH]` console.log lines when stable
 - Test font sizes on actual gym TV
+- Deploy updated Apps Script for timer support
