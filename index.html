@@ -273,13 +273,17 @@
       min-width: 0;
     }
     .flow-col {
-      flex: 1;
+      flex-grow: 1;
+      flex-shrink: 1;
+      flex-basis: 0%;
       min-width: 0;
       overflow: hidden;
     }
     /* Spanning section: header covers multiple columns */
     .flow-span {
-      flex: 1;
+      flex-grow: 1;
+      flex-shrink: 1;
+      flex-basis: 0%;
       display: flex;
       flex-direction: column;
       min-width: 0;
@@ -2711,7 +2715,7 @@
                 for (let j = i + 1; j < spanEnd; j++) {
                   innerCols += `<div class="flow-col">${columns[j].items.map(it => it.html).join('')}</div>`;
                 }
-                colsHTML += `<div class="flow-span part-block" ${partAttr} style="flex:${flexVal};">
+                colsHTML += `<div class="flow-span part-block" ${partAttr} style="flex-grow:${flexVal};">
                   <div class="flow-section-header ${headerTheme}">${headerItem.html}</div>
                   <div class="flow-span-cols">${innerCols}</div>
                 </div>`;
@@ -2721,7 +2725,7 @@
                 const headerItem = col.items[0];
                 const headerTheme = headerItem.isWarmupHeader ? 'warmup' : theme;
                 const content = col.items.slice(1);
-                colsHTML += `<div class="flow-col part-block" ${partAttr} style="flex:${flexVal};">
+                colsHTML += `<div class="flow-col part-block" ${partAttr} style="flex-grow:${flexVal};">
                   <div class="flow-section-header ${headerTheme}">${headerItem.html}</div>
                   ${content.map(it => it.html).join('')}
                 </div>`;
