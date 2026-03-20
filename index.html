@@ -2954,6 +2954,13 @@
       return SAFETY_KEYWORDS.some(kw => lower.includes(kw));
     }
 
+    // Detect Rx cells: short cells starting with "rx:" or containing only rx prescription info
+    function isRxCell(cell) {
+      if (!cell || !cell.lines || cell.lines.length === 0) return false;
+      const first = cell.lines[0].trim().toLowerCase();
+      return /^rx\s*[:\/]/.test(first) || (cell.lines.length <= 3 && cell.lines.some(l => /^rx\s*[:\/]/i.test(l.trim())));
+    }
+
     function renderWorkout(data) {
       const container = document.getElementById('wodArea');
 
@@ -2970,10 +2977,12 @@
       const rowsHTML = data.rows.map((row, rowIdx) => {
         const theme = detectSectionTheme(row.label);
 
-        // Count how many cells have content (excluding safety)
-        let contentCells = row.cells.filter(c => c.lines.length > 0 && !isSafetyColumn(c.header));
+        // Count how many cells have content (excluding safety and Rx)
+        let contentCells = row.cells.filter(c => c.lines.length > 0 && !isSafetyColumn(c.header) && !isRxCell(c));
         // Safety card only shown when it has real content (not just whitespace)
         const safetyCells = row.cells.filter(c => isSafetyColumn(c.header) && c.lines.some(l => l.trim().length > 0));
+        // Rx cells — rendered as a floating badge
+        const rxCells = row.cells.filter(c => c.lines.length > 0 && isRxCell(c));
 
         // "part N:" lines within a cell are sub-headers of one continuous workout — NOT separate sections.
         // Only sheet columns create separate sections. No cell splitting needed.
@@ -3127,7 +3136,15 @@
             </div>`;
           }).join('');
 
-          cardsHTML = `<div class="flow-columns">${colsHTML}</div>${safetyHTML}`;
+          // Rx badge: compact display for prescription info (rx: 22.5/15)
+          const rxHTML = rxCells.map(cell => {
+            const rxText = cell.lines.map(l => escapeHtml(l)).join(' &nbsp;|&nbsp; ');
+            return `<div class="rx-badge" style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;padding:0.3rem 0.8rem;border-radius:8px;font-weight:700;font-size:calc(1.1rem * var(--font-scale));white-space:nowrap;display:flex;align-items:center;gap:0.4rem;">
+              💊 ${rxText}
+            </div>`;
+          }).join('');
+
+          cardsHTML = `<div class="flow-columns">${colsHTML}</div>${rxHTML}${safetyHTML}`;
 
         } else if (contentCells.length === 1 && totalContentLines > 3) {
           // Merge all content cells into one wide card with multi-column layout
