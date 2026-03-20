@@ -3486,9 +3486,12 @@
             // Copy background gradient from header element
             headerBg = getComputedStyle(hdrEl).background;
           }
-          // Get body content: extract exercise-lines only (flatten newspaper columns)
-          const lines = part.querySelectorAll('.exercise-line');
-          lines.forEach(l => { bodyHTML += l.outerHTML; });
+          // Get body content (preserve newspaper column structure)
+          const clone = part.cloneNode(true);
+          clone.querySelectorAll('.flow-section-header, .card-header').forEach(el => el.remove());
+          // Remove percentage width constraints so content fills overlay
+          clone.style.cssText = 'flex:1;max-width:100%;width:100%;';
+          bodyHTML += clone.innerHTML;
         });
 
         const hdrDiv = document.getElementById('tvoCenterHeader');
@@ -3503,7 +3506,11 @@
         requestAnimationFrame(() => {
           const lines = bodyDiv.querySelectorAll('.exercise-line');
           if (!lines.length) return;
-          let lo = 1, hi = 10;
+          // Ensure flow columns fill the overlay width
+          bodyDiv.querySelectorAll('.flow-span-cols, .flow-columns').forEach(el => {
+            el.style.width = '100%';
+          });
+          let lo = 0.5, hi = 6;
           for (let i = 0; i < 14; i++) {
             const mid = (lo + hi) / 2;
             lines.forEach(l => l.style.fontSize = mid + 'rem');
