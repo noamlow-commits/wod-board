@@ -3367,11 +3367,13 @@
             part.style.display = '';
             part.style.flex = '';
             part.style.minWidth = '';
+            part.style.maxWidth = '';
           } else {
             if (idx === partFocusIndex) {
               part.style.display = '';
               part.style.flex = '1 1 100%';
               part.style.minWidth = '0';
+              part.style.maxWidth = '100%';
             } else {
               part.style.display = 'none';
             }
