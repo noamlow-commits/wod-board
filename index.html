@@ -2914,7 +2914,11 @@
         || /^\d+\s*(rounds?|min)\b/i.test(text)
         || /^(every|each)\s+\d/i.test(text)
         || /\brounds?\s*(for time|x\s*\d)/i.test(text)
-        || /^stay\s+\d/i.test(text);
+        || /^stay\s+\d/i.test(text)
+        || /\bcomplete\s+\d+\s*rounds?\b/i.test(text)
+        || /\bI go\s*(you|u)\s*go\b/i.test(text)
+        || /\bIN TEAMS OF\b/i.test(text)
+        || /\bmin rest\b/i.test(text);
 
       if (isInstruction) {
         let html = escapeHtml(text);
@@ -3023,6 +3027,11 @@
               allItems.push({ type: 'line', section: currentSection, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}" dir="auto">${parsed.html}</div>` });
             }
           }
+          // Inject Rx cells as a badge at the end of the last section (appears under the main workout)
+          if (rxCells.length > 0) {
+            const rxText = rxCells.flatMap(c => c.lines).map(l => escapeHtml(l)).join(' | ');
+            allItems.push({ type: 'line', section: currentSection, html: `<div class="exercise-line sub-header" dir="auto" style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;border-radius:6px;padding:0.2rem 0.6rem;margin-top:0.3rem;font-weight:700;text-align:center;">💊 ${rxText}</div>` });
+          }
 
           // Split into columns: mandatory break at every header, plus sub-splits for long sections
           const headerIndices = allItems.map((it, i) => it.type === 'header' ? i : -1).filter(i => i >= 0);
@@ -3031,18 +3040,36 @@
           if (mandatoryBreaks[0] !== 0) mandatoryBreaks.unshift(0);
           mandatoryBreaks.push(allItems.length);
           // Sub-split long sections into newspaper columns (max ~8 items per column)
+          // Prefer breaking at sub-header items so instructions start at the top of a column
           const MAX_PER_COL = Math.max(8, Math.ceil(allItems.length / 4));
+          // Find all sub-header positions within items (for smart break points)
+          const subHeaderIndices = allItems.map((it, idx) => {
+            if (it.type !== 'line') return -1;
+            // Check if the exercise-line contains sub-header class
+            return it.html.includes('sub-header') ? idx : -1;
+          }).filter(idx => idx >= 0);
+
           const breaks = [mandatoryBreaks[0]];
           for (let b = 1; b < mandatoryBreaks.length; b++) {
             const start = breaks[breaks.length - 1];
             const end = mandatoryBreaks[b];
             const colSize = end - start;
             if (colSize > MAX_PER_COL) {
-              // Split this section into sub-columns (newspaper flow)
               const numSub = Math.ceil(colSize / MAX_PER_COL);
               const subSize = Math.ceil(colSize / numSub);
               for (let s = 1; s < numSub; s++) {
-                breaks.push(start + s * subSize);
+                const idealBreak = start + s * subSize;
+                // Look for nearest sub-header within ±3 of ideal break
+                let bestBreak = idealBreak;
+                let bestDist = 999;
+                for (const sh of subHeaderIndices) {
+                  if (sh <= start || sh >= end) continue;
+                  const dist = Math.abs(sh - idealBreak);
+                  if (dist <= 3 && dist < bestDist) { bestBreak = sh; bestDist = dist; }
+                }
+                if (bestBreak > breaks[breaks.length - 1] + 2) {
+                  breaks.push(bestBreak);
+                }
               }
             }
             breaks.push(end);
@@ -3136,15 +3163,7 @@
             </div>`;
           }).join('');
 
-          // Rx badge: compact display for prescription info (rx: 22.5/15)
-          const rxHTML = rxCells.map(cell => {
-            const rxText = cell.lines.map(l => escapeHtml(l)).join(' &nbsp;|&nbsp; ');
-            return `<div class="rx-badge" style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;padding:0.3rem 0.8rem;border-radius:8px;font-weight:700;font-size:calc(1.1rem * var(--font-scale));white-space:nowrap;display:flex;align-items:center;gap:0.4rem;">
-              💊 ${rxText}
-            </div>`;
-          }).join('');
-
-          cardsHTML = `<div class="flow-columns">${colsHTML}</div>${rxHTML}${safetyHTML}`;
+          cardsHTML = `<div class="flow-columns">${colsHTML}</div>${safetyHTML}`;
 
         } else if (contentCells.length === 1 && totalContentLines > 3) {
           // Merge all content cells into one wide card with multi-column layout
@@ -3904,6 +3923,20 @@
     updateClock();
     setInterval(updateClock, 1000);
     startApp();
+
+    // Auto-fullscreen on load (may be blocked by browser without user gesture)
+    try { document.documentElement.requestFullscreen().catch(() => {}); } catch(e) {}
+
+    // Fallback: enter fullscreen on first user interaction if not already fullscreen
+    function enterFullscreenOnce() {
+      if (!document.fullscreenElement) {
+        try { document.documentElement.requestFullscreen().catch(() => {}); } catch(e) {}
+      }
+      document.removeEventListener('click', enterFullscreenOnce);
+      document.removeEventListener('keydown', enterFullscreenOnce);
+    }
+    document.addEventListener('click', enterFullscreenOnce);
+    document.addEventListener('keydown', enterFullscreenOnce);
   </script>
 </body>
 </html>
