@@ -3400,9 +3400,15 @@
       if (max === 0) return;
       if (partFocusIndex === null) {
         partFocusIndex = dir > 0 ? 0 : max - 1;
+        centerFocus = true; // Auto-center when entering part focus
       } else {
         partFocusIndex += dir;
-        if (partFocusIndex < 0 || partFocusIndex >= max) { partFocusIndex = null; centerFocus = false; }
+        if (partFocusIndex < 0 || partFocusIndex >= max) {
+          partFocusIndex = null;
+          centerFocus = false;
+        } else {
+          centerFocus = true; // Auto-center when navigating between parts
+        }
       }
       applyPartFocus();
       applyCenterFocus();
@@ -3873,6 +3879,15 @@
               requestAnimationFrame(() => requestAnimationFrame(() => autoFitFontSize()));
             }
           }
+        }
+        // Channel Up/Down or PageUp/PageDown: cycle parts (Samsung TV remote)
+        if (e.key === 'ChannelUp' || e.key === 'PageUp') {
+          e.preventDefault();
+          navigatePart(-1);
+        }
+        if (e.key === 'ChannelDown' || e.key === 'PageDown') {
+          e.preventDefault();
+          navigatePart(1);
         }
         // Delete: clear today's scores (with confirmation)
         if (e.key === 'Delete') {
