@@ -3486,10 +3486,9 @@
             // Copy background gradient from header element
             headerBg = getComputedStyle(hdrEl).background;
           }
-          // Get body content (everything except the header element)
-          const clone = part.cloneNode(true);
-          clone.querySelectorAll('.flow-section-header, .card-header').forEach(el => el.remove());
-          bodyHTML += clone.innerHTML;
+          // Get body content: extract exercise-lines only (flatten newspaper columns)
+          const lines = part.querySelectorAll('.exercise-line');
+          lines.forEach(l => { bodyHTML += l.outerHTML; });
         });
 
         const hdrDiv = document.getElementById('tvoCenterHeader');
