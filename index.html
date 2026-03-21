@@ -1488,12 +1488,23 @@
     <div class="tvo-body" id="tvoCenterBody"></div>
   </div>
 
+  <!-- Floating Timer Bar (shows over WOD content when timer is running) -->
+  <div id="floatingTimerBar" style="display:none;position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:9100;background:rgba(0,0,0,0.85);border:2px solid #f97316;border-radius:12px;padding:0.4rem 1.5rem;display:none;align-items:center;gap:1rem;font-variant-numeric:tabular-nums;backdrop-filter:blur(8px);">
+    <span id="ftbType" style="color:#f97316;font-weight:700;font-size:1rem;text-transform:uppercase;"></span>
+    <span id="ftbTime" style="color:#fff;font-weight:900;font-size:2.2rem;letter-spacing:0.05em;"></span>
+    <span id="ftbRound" style="color:#888;font-size:0.9rem;"></span>
+    <span id="ftbPhase" style="font-weight:700;font-size:1rem;"></span>
+    <button onclick="pauseTimer();updateFloatingTimerBar();" style="background:none;border:1px solid #666;border-radius:6px;color:#fbbf24;padding:0.2rem 0.5rem;cursor:pointer;font-size:0.9rem;" title="השהה">⏸</button>
+    <button onclick="resetTimer();hideFloatingTimerBar();" style="background:none;border:1px solid #666;border-radius:6px;color:#ef4444;padding:0.2rem 0.5rem;cursor:pointer;font-size:0.9rem;" title="אפס">⏹</button>
+  </div>
+
   <!-- TV Navigation Panel (floating, controlled by remote D-pad) -->
   <div id="tvNav" class="tv-nav" style="display:none;">
     <button class="tv-btn" id="tvPrev" onclick="navigatePart(-1)" tabindex="0" title="חלק קודם">◄</button>
     <span class="tv-part-label" id="tvPartLabel">כל החלקים</span>
     <button class="tv-btn" id="tvNext" onclick="navigatePart(1)" tabindex="0" title="חלק הבא">►</button>
     <button class="tv-btn" id="tvCenterBtn" onclick="toggleCenterFocus()" tabindex="0" title="מרכז את החלק במסך">⊙</button>
+    <button class="tv-btn" id="tvTimerBtn" onclick="startPartTimer()" tabindex="0" title="הפעל טיימר לחלק זה" style="display:none;">▶ <span id="tvTimerLabel"></span></button>
     <div class="tv-sep"></div>
     <button class="tv-btn tv-active" id="tvBtnAll" onclick="setTvSection(null)" tabindex="0">הכל</button>
     <button class="tv-btn" id="tvBtnWod" data-section="WOD" onclick="setTvSection('WOD')" tabindex="0">WOD</button>
@@ -1742,6 +1753,58 @@
       tabataRest() { this.beep(500, 0.3, 1); }
     };
 
+    // Extract timer config from workout text lines
+    function extractTimerConfig(lines) {
+      if (!lines || lines.length === 0) return null;
+      const text = lines.join('\n');
+      const lower = text.toLowerCase();
+      let tcMatch = text.match(/\bt\.?c[\-\s]*(\d+(?::\d{2})?)/i);
+      let capSeconds = 0;
+      if (tcMatch) {
+        const tv = tcMatch[1];
+        capSeconds = tv.includes(':') ? parseInt(tv.split(':')[0])*60 + parseInt(tv.split(':')[1]) : parseInt(tv)*60;
+      }
+
+      // AMRAP N: or AMRAP N min
+      let m = text.match(/\bAMRAP\s+(\d+)\s*:?/i);
+      if (m) return { type: 'amrap', totalSeconds: parseInt(m[1]) * 60, label: `AMRAP ${m[1]}′` };
+
+      // EMOM N: or E2MOM/E3MOM
+      m = text.match(/\bE(\d)MOM\b/i);
+      if (m) {
+        const iv = parseInt(m[1]) * 60;
+        const totalMatch = text.match(/\bE\dMOM\s+(\d+)/i);
+        const total = totalMatch ? parseInt(totalMatch[1]) * 60 : 600;
+        return { type: 'emom', totalSeconds: total, intervalSeconds: iv, label: `E${m[1]}MOM` };
+      }
+      m = text.match(/\bEMOM\s+(\d+)\s*:?/i);
+      if (m) return { type: 'emom', totalSeconds: parseInt(m[1]) * 60, intervalSeconds: 60, label: `EMOM ${m[1]}′` };
+
+      // every X:XX xN
+      m = text.match(/\bevery\s+(\d+):(\d{2})\s*(?:x|×)\s*(\d+)/i);
+      if (m) {
+        const iv = parseInt(m[1])*60 + parseInt(m[2]);
+        const rounds = parseInt(m[3]);
+        return { type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv, label: `Every ${m[1]}:${m[2]} ×${rounds}` };
+      }
+
+      // Tabata patterns
+      m = text.match(/\btabata\b/i);
+      if (m) return { type: 'tabata', workSeconds: 20, restSeconds: 10, rounds: 8, label: 'Tabata' };
+
+      // FOR TIME
+      if (/\bfor\s+time\b/i.test(text)) {
+        return { type: 'fortime', capSeconds: capSeconds, label: capSeconds ? `For Time (TC ${Math.floor(capSeconds/60)}′)` : 'For Time' };
+      }
+
+      // Standalone time cap without explicit type → For Time
+      if (capSeconds > 0) {
+        return { type: 'fortime', capSeconds: capSeconds, label: `TC ${Math.floor(capSeconds/60)}′` };
+      }
+
+      return null;
+    }
+
     function configureTimer(type, config) {
       timerType = type;
       timerConfig = config || {};
@@ -1974,6 +2037,8 @@
 
     // Placeholder render — will be replaced in Phase 2 with DOM updates
     function renderTimerDisplay() {
+      // Update floating timer bar if visible (runs at 60fps from timerTick)
+      updateFloatingTimerBar();
       const area = document.getElementById('timerArea');
       if (!area) return;
       if (timerState === 'idle') {
@@ -3005,10 +3070,15 @@
           let seqNum = 0;
           const allItems = [];
           let currentSection = '';
+          const cellTimerConfigs = {}; // map section → extracted timer config
           for (const cell of contentCells) {
             currentSection = cell.header;
             const isUntitledWarmup = !cell.header;
             const isNumericHeader = /^\d+$/.test(cell.header);
+
+            // Extract timer config from cell content
+            const detectedTimer = extractTimerConfig(cell.lines);
+            if (detectedTimer) cellTimerConfigs[cell.header] = detectedTimer;
 
             if (isUntitledWarmup) {
               allItems.push({ type: 'header', section: currentSection, html: 'WARM UP', isWarmupHeader: true });
@@ -3124,7 +3194,11 @@
               continue;
             }
 
-            const partAttr = `data-part-idx="${flowPartIdx++}"`;
+            const partIdx = flowPartIdx++;
+            const partSection = col.firstSection;
+            const partTimerCfg = cellTimerConfigs[partSection];
+            const timerAttr = partTimerCfg ? ` data-timer-config='${JSON.stringify(partTimerCfg).replace(/'/g, '&#39;')}'` : '';
+            const partAttr = `data-part-idx="${partIdx}"${timerAttr}`;
             const headerItem = col.items[0];
             const headerTheme = headerItem.isWarmupHeader ? 'warmup' : theme;
             const sizeStyle = `flex: 0 0 ${widthPct}%; max-width: ${widthPct}%;`;
@@ -3457,6 +3531,95 @@
         const canCenter = partFocusIndex !== null;
         centerBtn.classList.toggle('tv-active', centerFocus && canCenter);
         centerBtn.style.opacity = canCenter ? '1' : '0.35';
+      }
+      // Timer button: show if focused part has a detected timer config
+      const timerBtn = document.getElementById('tvTimerBtn');
+      const timerLabel = document.getElementById('tvTimerLabel');
+      if (timerBtn) {
+        const cfg = getPartTimerConfig();
+        if (cfg && partFocusIndex !== null) {
+          timerBtn.style.display = '';
+          timerLabel.textContent = cfg.label || cfg.type;
+          timerBtn.classList.toggle('tv-active', timerState === 'running' || timerState === 'countdown321');
+        } else {
+          timerBtn.style.display = 'none';
+        }
+      }
+    }
+
+    // Get timer config from the currently focused part-block
+    function getPartTimerConfig() {
+      if (partFocusIndex === null) return null;
+      const visibleRows = document.querySelectorAll('#wodArea .workout-row:not(.section-hidden)');
+      for (const row of visibleRows) {
+        const part = row.querySelector(`.part-block[data-part-idx="${partFocusIndex}"]`);
+        if (part && part.dataset.timerConfig) {
+          try { return JSON.parse(part.dataset.timerConfig); } catch(e) {}
+        }
+      }
+      return null;
+    }
+
+    // Start timer for the currently focused part
+    function startPartTimer() {
+      const cfg = getPartTimerConfig();
+      if (!cfg) return;
+      TimerAudio.init();
+      const { type, ...config } = cfg;
+      delete config.label;
+      configureTimer(type, config);
+      // Don't switch to timer mode — use floating bar instead
+      startTimer();
+      showFloatingTimerBar();
+    }
+
+    // Floating timer bar control
+    function showFloatingTimerBar() {
+      document.getElementById('floatingTimerBar').style.display = 'flex';
+      updateFloatingTimerBar();
+    }
+
+    function hideFloatingTimerBar() {
+      document.getElementById('floatingTimerBar').style.display = 'none';
+    }
+
+    function updateFloatingTimerBar() {
+      const bar = document.getElementById('floatingTimerBar');
+      if (!bar || bar.style.display === 'none') return;
+      if (timerState === 'idle') { hideFloatingTimerBar(); return; }
+
+      document.getElementById('ftbType').textContent = timerType ? timerType.toUpperCase() : '';
+
+      if (timerState === 'countdown321') {
+        document.getElementById('ftbTime').textContent = timerCountdownNum;
+        document.getElementById('ftbRound').textContent = '';
+        document.getElementById('ftbPhase').textContent = '';
+        return;
+      }
+      if (timerState === 'finished') {
+        document.getElementById('ftbTime').textContent = '🏁 TIME!';
+        document.getElementById('ftbRound').textContent = '';
+        document.getElementById('ftbPhase').textContent = '';
+        return;
+      }
+      if (timerState === 'paused') {
+        document.getElementById('ftbType').textContent = '⏸ PAUSED';
+      }
+
+      const d = getTimerDisplayData();
+      const timeStr = `${String(d.mins).padStart(2,'0')}:${String(d.secs).padStart(2,'0')}`;
+      document.getElementById('ftbTime').textContent = timeStr;
+      document.getElementById('ftbRound').textContent = d.totalRounds > 0 ? `R${d.round}/${d.totalRounds}` : '';
+
+      const phaseEl = document.getElementById('ftbPhase');
+      if (timerType === 'tabata' && timerState === 'running') {
+        phaseEl.textContent = d.tabataPhase === 'work' ? 'WORK' : 'REST';
+        phaseEl.style.color = d.tabataPhase === 'work' ? '#22c55e' : '#ef4444';
+      } else if (timerType === 'mix' && d.mixIntervalName) {
+        phaseEl.textContent = d.mixIntervalName;
+        phaseEl.style.color = '#60a5fa';
+      } else {
+        phaseEl.textContent = '';
       }
     }
 
@@ -3849,8 +4012,18 @@
         if (e.key === '4') { sectionFilter = null; applySectionFilter(); setDisplayMode('pr'); }
         // T: timer mode
         if (e.key === 't') { setDisplayMode('timer'); }
-        // Space: start/pause timer (only in timer mode)
-        if (e.key === ' ' && displayMode === 'timer') { e.preventDefault(); toggleTimerPause(); }
+        // Space or MediaPlayPause: start/pause timer (timer mode OR when floating bar is visible)
+        if (e.key === ' ' || e.key === 'MediaPlayPause') {
+          const floatingVisible = document.getElementById('floatingTimerBar')?.style.display === 'flex';
+          if (displayMode === 'timer' || floatingVisible || timerState === 'running' || timerState === 'paused') {
+            e.preventDefault();
+            if (timerState === 'idle' && partFocusIndex !== null) {
+              startPartTimer(); // Start timer from focused part's auto-detected config
+            } else {
+              toggleTimerPause();
+            }
+          }
+        }
         // Backspace: reset timer (only in timer mode)
         if (e.key === 'Backspace' && displayMode === 'timer') { e.preventDefault(); resetTimer(); }
         // Q / 9: toggle QR
