@@ -3486,16 +3486,18 @@
       const max = getMaxParts();
       if (max === 0) return;
       partTimerCycleIdx = 0; // Reset timer cycle when changing parts
+      // Don't auto-center in SPLIT mode — scoreboard must stay visible
+      const autoCenter = displayMode !== 'split';
       if (partFocusIndex === null) {
         partFocusIndex = dir > 0 ? 0 : max - 1;
-        centerFocus = true; // Auto-center when entering part focus
+        centerFocus = autoCenter;
       } else {
         partFocusIndex += dir;
         if (partFocusIndex < 0 || partFocusIndex >= max) {
           partFocusIndex = null;
           centerFocus = false;
         } else {
-          centerFocus = true; // Auto-center when navigating between parts
+          centerFocus = autoCenter;
         }
       }
       applyPartFocus();
