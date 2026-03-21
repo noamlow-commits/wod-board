@@ -1504,7 +1504,8 @@
     <span class="tv-part-label" id="tvPartLabel">כל החלקים</span>
     <button class="tv-btn" id="tvNext" onclick="navigatePart(1)" tabindex="0" title="חלק הבא">►</button>
     <button class="tv-btn" id="tvCenterBtn" onclick="toggleCenterFocus()" tabindex="0" title="מרכז את החלק במסך">⊙</button>
-    <button class="tv-btn" id="tvTimerBtn" onclick="startPartTimer()" tabindex="0" title="הפעל טיימר לחלק זה" style="display:none;">▶ <span id="tvTimerLabel"></span></button>
+    <button class="tv-btn" id="tvTimerBtn" onclick="startPartTimer()" tabindex="0" title="הפעל טיימר — לחיצה ארוכה לסייקול" style="display:none;">▶ <span id="tvTimerLabel"></span></button>
+    <button class="tv-btn" id="tvTimerCycleBtn" onclick="cyclePartTimer()" tabindex="0" title="החלף טיימר" style="display:none;">⏱↻</button>
     <div class="tv-sep"></div>
     <button class="tv-btn tv-active" id="tvBtnAll" onclick="setTvSection(null)" tabindex="0">הכל</button>
     <button class="tv-btn" id="tvBtnWod" data-section="WOD" onclick="setTvSection('WOD')" tabindex="0">WOD</button>
@@ -1753,11 +1754,13 @@
       tabataRest() { this.beep(500, 0.3, 1); }
     };
 
-    // Extract timer config from workout text lines
-    function extractTimerConfig(lines) {
-      if (!lines || lines.length === 0) return null;
+    // Extract ALL timer configs from workout text lines (returns array)
+    function extractTimerConfigs(lines) {
+      if (!lines || lines.length === 0) return [];
+      const results = [];
       const text = lines.join('\n');
-      const lower = text.toLowerCase();
+
+      // Global time cap
       let tcMatch = text.match(/\bt\.?c[\-\s]*(\d+(?::\d{2})?)/i);
       let capSeconds = 0;
       if (tcMatch) {
@@ -1765,44 +1768,54 @@
         capSeconds = tv.includes(':') ? parseInt(tv.split(':')[0])*60 + parseInt(tv.split(':')[1]) : parseInt(tv)*60;
       }
 
-      // AMRAP N: or AMRAP N min
-      let m = text.match(/\bAMRAP\s+(\d+)\s*:?/i);
-      if (m) return { type: 'amrap', totalSeconds: parseInt(m[1]) * 60, label: `AMRAP ${m[1]}′` };
+      // Find ALL AMRAP patterns (e.g., "30 MIN AMRAP", "AMRAP 15:", "amrap 10")
+      const amrapRe = /\b(?:(\d+)\s*(?:min\s+)?AMRAP|AMRAP\s+(\d+))\s*:?/gi;
+      let m;
+      while ((m = amrapRe.exec(text)) !== null) {
+        const mins = parseInt(m[1] || m[2]);
+        results.push({ type: 'amrap', totalSeconds: mins * 60, label: `AMRAP ${mins}′` });
+      }
 
-      // EMOM N: or E2MOM/E3MOM
+      // EMOM patterns
       m = text.match(/\bE(\d)MOM\b/i);
       if (m) {
         const iv = parseInt(m[1]) * 60;
         const totalMatch = text.match(/\bE\dMOM\s+(\d+)/i);
         const total = totalMatch ? parseInt(totalMatch[1]) * 60 : 600;
-        return { type: 'emom', totalSeconds: total, intervalSeconds: iv, label: `E${m[1]}MOM` };
+        results.push({ type: 'emom', totalSeconds: total, intervalSeconds: iv, label: `E${m[1]}MOM` });
       }
       m = text.match(/\bEMOM\s+(\d+)\s*:?/i);
-      if (m) return { type: 'emom', totalSeconds: parseInt(m[1]) * 60, intervalSeconds: 60, label: `EMOM ${m[1]}′` };
+      if (m && !results.some(r => r.type === 'emom')) {
+        results.push({ type: 'emom', totalSeconds: parseInt(m[1]) * 60, intervalSeconds: 60, label: `EMOM ${m[1]}′` });
+      }
 
       // every X:XX xN
       m = text.match(/\bevery\s+(\d+):(\d{2})\s*(?:x|×)\s*(\d+)/i);
       if (m) {
         const iv = parseInt(m[1])*60 + parseInt(m[2]);
         const rounds = parseInt(m[3]);
-        return { type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv, label: `Every ${m[1]}:${m[2]} ×${rounds}` };
+        results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv, label: `Every ${m[1]}:${m[2]} ×${rounds}` });
       }
 
-      // Tabata patterns
-      m = text.match(/\btabata\b/i);
-      if (m) return { type: 'tabata', workSeconds: 20, restSeconds: 10, rounds: 8, label: 'Tabata' };
+      // Tabata
+      if (/\btabata\b/i.test(text)) {
+        results.push({ type: 'tabata', workSeconds: 20, restSeconds: 10, rounds: 8, label: 'Tabata' });
+      }
 
       // FOR TIME
       if (/\bfor\s+time\b/i.test(text)) {
-        return { type: 'fortime', capSeconds: capSeconds, label: capSeconds ? `For Time (TC ${Math.floor(capSeconds/60)}′)` : 'For Time' };
+        results.push({ type: 'fortime', capSeconds: capSeconds, label: capSeconds ? `For Time (TC ${Math.floor(capSeconds/60)}′)` : 'For Time' });
+      } else if (capSeconds > 0 && results.length === 0) {
+        results.push({ type: 'fortime', capSeconds: capSeconds, label: `TC ${Math.floor(capSeconds/60)}′` });
       }
 
-      // Standalone time cap without explicit type → For Time
-      if (capSeconds > 0) {
-        return { type: 'fortime', capSeconds: capSeconds, label: `TC ${Math.floor(capSeconds/60)}′` };
-      }
+      return results;
+    }
 
-      return null;
+    // Legacy single-result wrapper
+    function extractTimerConfig(lines) {
+      const all = extractTimerConfigs(lines);
+      return all.length > 0 ? all[0] : null;
     }
 
     function configureTimer(type, config) {
@@ -3076,9 +3089,9 @@
             const isUntitledWarmup = !cell.header;
             const isNumericHeader = /^\d+$/.test(cell.header);
 
-            // Extract timer config from cell content
-            const detectedTimer = extractTimerConfig(cell.lines);
-            if (detectedTimer) cellTimerConfigs[cell.header] = detectedTimer;
+            // Extract ALL timer configs from cell content
+            const detectedTimers = extractTimerConfigs(cell.lines);
+            if (detectedTimers.length > 0) cellTimerConfigs[cell.header] = detectedTimers;
 
             if (isUntitledWarmup) {
               allItems.push({ type: 'header', section: currentSection, html: 'WARM UP', isWarmupHeader: true });
@@ -3196,8 +3209,8 @@
 
             const partIdx = flowPartIdx++;
             const partSection = col.firstSection;
-            const partTimerCfg = cellTimerConfigs[partSection];
-            const timerAttr = partTimerCfg ? ` data-timer-config='${JSON.stringify(partTimerCfg).replace(/'/g, '&#39;')}'` : '';
+            const partTimerCfgs = cellTimerConfigs[partSection];
+            const timerAttr = partTimerCfgs ? ` data-timer-configs='${JSON.stringify(partTimerCfgs).replace(/'/g, '&#39;')}'` : '';
             const partAttr = `data-part-idx="${partIdx}"${timerAttr}`;
             const headerItem = col.items[0];
             const headerTheme = headerItem.isWarmupHeader ? 'warmup' : theme;
@@ -3472,6 +3485,7 @@
     function navigatePart(dir) {
       const max = getMaxParts();
       if (max === 0) return;
+      partTimerCycleIdx = 0; // Reset timer cycle when changing parts
       if (partFocusIndex === null) {
         partFocusIndex = dir > 0 ? 0 : max - 1;
         centerFocus = true; // Auto-center when entering part focus
@@ -3532,43 +3546,64 @@
         centerBtn.classList.toggle('tv-active', centerFocus && canCenter);
         centerBtn.style.opacity = canCenter ? '1' : '0.35';
       }
-      // Timer button: show if focused part has a detected timer config
+      // Timer button: show if focused part has detected timer(s)
       const timerBtn = document.getElementById('tvTimerBtn');
       const timerLabel = document.getElementById('tvTimerLabel');
       if (timerBtn) {
-        const cfg = getPartTimerConfig();
-        if (cfg && partFocusIndex !== null) {
+        const cfgs = getPartTimerConfigs();
+        if (cfgs.length > 0 && partFocusIndex !== null) {
           timerBtn.style.display = '';
-          timerLabel.textContent = cfg.label || cfg.type;
+          const selected = cfgs[partTimerCycleIdx % cfgs.length];
+          const countStr = cfgs.length > 1 ? ` (${(partTimerCycleIdx % cfgs.length) + 1}/${cfgs.length})` : '';
+          timerLabel.textContent = (selected.label || selected.type) + countStr;
           timerBtn.classList.toggle('tv-active', timerState === 'running' || timerState === 'countdown321');
+          // Show cycle button only when multiple timers detected
+          const cycleBtn = document.getElementById('tvTimerCycleBtn');
+          if (cycleBtn) cycleBtn.style.display = cfgs.length > 1 ? '' : 'none';
         } else {
           timerBtn.style.display = 'none';
+          const cycleBtn = document.getElementById('tvTimerCycleBtn');
+          if (cycleBtn) cycleBtn.style.display = 'none';
         }
       }
     }
 
-    // Get timer config from the currently focused part-block
-    function getPartTimerConfig() {
-      if (partFocusIndex === null) return null;
+    // Get ALL timer configs from the currently focused part-block
+    let partTimerCycleIdx = 0; // which timer is selected in the cycle
+
+    function getPartTimerConfigs() {
+      if (partFocusIndex === null) return [];
       const visibleRows = document.querySelectorAll('#wodArea .workout-row:not(.section-hidden)');
       for (const row of visibleRows) {
         const part = row.querySelector(`.part-block[data-part-idx="${partFocusIndex}"]`);
-        if (part && part.dataset.timerConfig) {
-          try { return JSON.parse(part.dataset.timerConfig); } catch(e) {}
+        if (part && part.dataset.timerConfigs) {
+          try { return JSON.parse(part.dataset.timerConfigs); } catch(e) {}
         }
       }
-      return null;
+      return [];
     }
 
-    // Start timer for the currently focused part
+    function getSelectedPartTimer() {
+      const cfgs = getPartTimerConfigs();
+      if (cfgs.length === 0) return null;
+      return cfgs[partTimerCycleIdx % cfgs.length];
+    }
+
+    // Cycle through available timers for this part
+    function cyclePartTimer() {
+      const cfgs = getPartTimerConfigs();
+      if (cfgs.length === 0) return;
+      partTimerCycleIdx = (partTimerCycleIdx + 1) % cfgs.length;
+      updateTvNav();
+    }
+
+    // Start timer for the currently selected config
     function startPartTimer() {
-      const cfg = getPartTimerConfig();
+      const cfg = getSelectedPartTimer();
       if (!cfg) return;
       TimerAudio.init();
-      const { type, ...config } = cfg;
-      delete config.label;
+      const { type, label, ...config } = cfg;
       configureTimer(type, config);
-      // Don't switch to timer mode — use floating bar instead
       startTimer();
       showFloatingTimerBar();
     }
@@ -4012,16 +4047,21 @@
         if (e.key === '4') { sectionFilter = null; applySectionFilter(); setDisplayMode('pr'); }
         // T: timer mode
         if (e.key === 't') { setDisplayMode('timer'); }
-        // Space or MediaPlayPause: start/pause timer (timer mode OR when floating bar is visible)
+        // Space or MediaPlayPause: start/pause timer
         if (e.key === ' ' || e.key === 'MediaPlayPause') {
           const floatingVisible = document.getElementById('floatingTimerBar')?.style.display === 'flex';
           if (displayMode === 'timer' || floatingVisible || timerState === 'running' || timerState === 'paused') {
             e.preventDefault();
             if (timerState === 'idle' && partFocusIndex !== null) {
-              startPartTimer(); // Start timer from focused part's auto-detected config
+              startPartTimer();
             } else {
               toggleTimerPause();
+              updateFloatingTimerBar();
             }
+          } else if (partFocusIndex !== null && getSelectedPartTimer()) {
+            // Start timer from focused part even if no timer is running yet
+            e.preventDefault();
+            startPartTimer();
           }
         }
         // Backspace: reset timer (only in timer mode)
