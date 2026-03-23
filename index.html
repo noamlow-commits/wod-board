@@ -2981,8 +2981,8 @@
     }
 
     function parseLine(text) {
-      // Detect sub-headers (lines ending with :, all-caps, or exercise labels like A., A1., B2-)
-      if (/^[A-Z\s]{4,}:?$/.test(text) || /^.{2,}:$/.test(text) || /^[A-Z]\d*[\.\-]\s/i.test(text)) {
+      // Detect sub-headers (lines ending with : or all-caps)
+      if (/^[A-Z\s]{4,}:?$/.test(text) || /^.{2,}:$/.test(text)) {
         return { type: 'sub-header', html: escapeHtml(text) };
       }
 
@@ -3012,6 +3012,9 @@
       }
 
       let html = escapeHtml(text);
+
+      // Highlight exercise labels at start of line (A., A1., B2-, etc.) as a badge
+      html = html.replace(/^([A-Z]\d*[\.\-])\s/i, '<span class="time-badge">$1</span> ');
 
       // Highlight numbers at start of line (reps)
       html = html.replace(/^(\d+[\-x×]?\d*)\s/, '<span class="rep-number">$1</span> ');
