@@ -2981,8 +2981,8 @@
     }
 
     function parseLine(text) {
-      // Detect sub-headers (lines ending with : or all-caps)
-      if (/^[A-Z\s]{4,}:?$/.test(text) || /^.{2,}:$/.test(text)) {
+      // Detect sub-headers (lines ending with :, all-caps, or exercise labels like A., A1., B2-)
+      if (/^[A-Z\s]{4,}:?$/.test(text) || /^.{2,}:$/.test(text) || /^[A-Z]\d*[\.\-]\s/i.test(text)) {
         return { type: 'sub-header', html: escapeHtml(text) };
       }
 
