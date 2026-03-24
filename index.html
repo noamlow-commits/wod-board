@@ -1318,6 +1318,26 @@
       margin-bottom: 1.2rem;
       flex-shrink: 0;
     }
+    .overlay-row-label {
+      width: 100%;
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 0.4em 0 0.2em;
+      margin-top: 0.6em;
+      border-bottom: 3px solid;
+    }
+    .overlay-row-label:first-child { margin-top: 0; }
+    .overlay-wod {
+      color: #f97316;
+      border-color: #f97316;
+    }
+    .overlay-cardio {
+      color: #a855f7;
+      border-color: #a855f7;
+    }
     #tvCenterOverlay .tvo-body {
       flex: 1;
       display: flex;
@@ -3679,23 +3699,35 @@
         let bodyHTML = '';
         let headerBg = '';
 
+        const rowParts = [];
         visibleRows.forEach(row => {
           const part = row.querySelector(`.part-block[data-part-idx="${partFocusIndex}"]`);
           if (!part) return;
+          const rowLabel = row.querySelector('.row-label')?.textContent.trim() || '';
           // Get header text from flow-section-header or card-header
           const hdrEl = part.querySelector('.flow-section-header, .card-header');
           if (hdrEl && !headerText) {
             headerText = hdrEl.textContent.trim();
-            // Copy background gradient from header element
             headerBg = getComputedStyle(hdrEl).background;
           }
           // Get body content (preserve newspaper column structure)
           const clone = part.cloneNode(true);
           clone.querySelectorAll('.flow-section-header, .card-header').forEach(el => el.remove());
-          // Remove percentage width constraints so content fills overlay
           clone.style.cssText = 'flex:1;max-width:100%;width:100%;';
-          bodyHTML += clone.innerHTML;
+          rowParts.push({ label: rowLabel, html: clone.innerHTML });
         });
+        // If multiple rows contribute content, add row-label separators
+        if (rowParts.length > 1) {
+          rowParts.forEach(rp => {
+            if (rp.label) {
+              const labelCls = rp.label.toLowerCase().includes('cardio') ? 'cardio' : 'wod';
+              bodyHTML += `<div class="overlay-row-label overlay-${labelCls}">${rp.label}</div>`;
+            }
+            bodyHTML += rp.html;
+          });
+        } else if (rowParts.length === 1) {
+          bodyHTML = rowParts[0].html;
+        }
 
         const hdrDiv = document.getElementById('tvoCenterHeader');
         const bodyDiv = document.getElementById('tvoCenterBody');
