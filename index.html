@@ -2939,7 +2939,21 @@
           } else {
             // Content cell — use column header, or fallback to column letter
             // Filter out lines that are bare URLs (e.g. emergency links stored in the sheet)
-            const lines = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*/)).map(l => l.trim()).filter(l => l.length > 0 && !/^https?:\/\/\S+$/.test(l));
+            const rawLines = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*/)).map(l => l.trim());
+            // Preserve empty lines as '__SPACER__', filter bare URLs
+            const lines = [];
+            let lastWasContent = false;
+            for (const l of rawLines) {
+              if (l.length === 0) {
+                if (lastWasContent) lines.push('__SPACER__');
+                lastWasContent = false;
+              } else if (/^https?:\/\/\S+$/.test(l)) {
+                continue; // skip bare URLs
+              } else {
+                lines.push(l);
+                lastWasContent = true;
+              }
+            }
             if (lines.length === 0) continue; // skip cell if only URLs remained
             let cellHeader = isNamedHeader ? header : (label ? '' : String.fromCharCode(65 + colIdx));
             // Normalize "part N" / "Part 2:" etc. → just the number "N"
@@ -3001,6 +3015,10 @@
     }
 
     function parseLine(text) {
+      // Spacer (preserved empty line from sheet)
+      if (text === '__SPACER__') {
+        return { type: 'spacer', html: '' };
+      }
       // Detect sub-headers (lines ending with : or all-caps)
       if (/^[A-Z\s]{4,}:?$/.test(text) || /^.{2,}:$/.test(text)) {
         return { type: 'sub-header', html: escapeHtml(text) };
@@ -3868,7 +3886,13 @@
           if (!label && val.length <= LABEL_MAX_LEN && lineCount === 1 && !isNamedHeader) {
             label = val;
           } else {
-            const lines = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*/)).map(l => l.trim()).filter(l => l.length > 0);
+            const rawLines2 = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*/)).map(l => l.trim());
+            const lines = [];
+            let lastWas2 = false;
+            for (const l of rawLines2) {
+              if (l.length === 0) { if (lastWas2) lines.push('__SPACER__'); lastWas2 = false; }
+              else { lines.push(l); lastWas2 = true; }
+            }
             let cellHeader = isNamedHeader ? header : (label ? '' : String.fromCharCode(65 + colIdx));
             // Normalize "part N" / "Part 2:" etc. → just the number "N"
             const partMatch = cellHeader.match(/^part\s*(\d+)\s*:?\s*$/i);
