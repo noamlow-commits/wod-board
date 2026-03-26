@@ -2939,7 +2939,7 @@
           } else {
             // Content cell — use column header, or fallback to column letter
             // Filter out lines that are bare URLs (e.g. emergency links stored in the sheet)
-            const lines = val.split(/\n/).map(l => l.trim()).filter(l => l.length > 0 && !/^https?:\/\/\S+$/.test(l));
+            const lines = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*/)).map(l => l.trim()).filter(l => l.length > 0 && !/^https?:\/\/\S+$/.test(l));
             if (lines.length === 0) continue; // skip cell if only URLs remained
             let cellHeader = isNamedHeader ? header : (label ? '' : String.fromCharCode(65 + colIdx));
             // Normalize "part N" / "Part 2:" etc. → just the number "N"
@@ -3035,6 +3035,9 @@
 
       // Highlight exercise labels at start of line (A., A1., B2-, etc.) as a badge
       html = html.replace(/^([A-Z]\d*[\.\-])\s/i, '<span class="time-badge">$1</span> ');
+
+      // Highlight step numbers with # (1#, 2#, 3#) as orange badge
+      html = html.replace(/^(\d+#)/, '<span class="rep-number">$1</span>');
 
       // Highlight numbers at start of line (reps)
       html = html.replace(/^(\d+[\-x×]?\d*)\s/, '<span class="rep-number">$1</span> ');
@@ -3865,7 +3868,7 @@
           if (!label && val.length <= LABEL_MAX_LEN && lineCount === 1 && !isNamedHeader) {
             label = val;
           } else {
-            const lines = val.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
+            const lines = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*/)).map(l => l.trim()).filter(l => l.length > 0);
             let cellHeader = isNamedHeader ? header : (label ? '' : String.fromCharCode(65 + colIdx));
             // Normalize "part N" / "Part 2:" etc. → just the number "N"
             const partMatch = cellHeader.match(/^part\s*(\d+)\s*:?\s*$/i);
