@@ -1531,7 +1531,7 @@
     <button class="tv-btn" id="tvBtnWod" data-section="WOD" onclick="setTvSection('WOD')" tabindex="0">WOD</button>
     <button class="tv-btn" id="tvBtnCardio" data-section="CARDIO" onclick="setTvSection('CARDIO')" tabindex="0">CARDIO</button>
     <div class="tv-sep"></div>
-    <button class="tv-btn" onclick="partFocusIndex=null;centerFocus=false;setTvSection('WOD');applyCenterFocus();" tabindex="0" title="חזרה לכל הלוח">🏠</button>
+    <button class="tv-btn" onclick="partFocusIndex=null;centerFocus=false;sectionFilter=null;applySectionFilter();applyCenterFocus();document.documentElement.style.setProperty('--font-scale','0.4');requestAnimationFrame(()=>autoFitFontSize());" tabindex="0" title="חזרה לכל הלוח">🏠</button>
   </div>
 
   <!-- Settings Modal -->
