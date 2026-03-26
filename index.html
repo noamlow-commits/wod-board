@@ -1344,10 +1344,12 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      align-items: center;
+      justify-content: flex-start;
+      align-items: stretch;
       text-align: center;
-      overflow: hidden;
+      overflow: auto;
+      max-width: 95vw;
+      margin: 0 auto;
     }
     #tvCenterOverlay .exercise-line {
       padding: 0.2em 0;
@@ -3737,6 +3739,12 @@
           const clone = part.cloneNode(true);
           clone.querySelectorAll('.flow-section-header, .card-header').forEach(el => el.remove());
           clone.style.cssText = 'flex:1;max-width:100%;width:100%;';
+          // Deep-reset inherited width constraints from children
+          clone.querySelectorAll('.flow-span, .flow-columns, .workout-card, .flow-span-cols, .flow-col, .part-block').forEach(el => {
+            el.style.maxWidth = '';
+            el.style.flex = '';
+            el.style.width = '';
+          });
           rowParts.push({ label: rowLabel, html: clone.innerHTML });
         });
         // If multiple rows contribute content, add row-label separators
@@ -3762,22 +3770,37 @@
 
         // Binary-search the largest font size that fits without clipping
         requestAnimationFrame(() => {
-          const lines = bodyDiv.querySelectorAll('.exercise-line');
-          if (!lines.length) return;
+          const allLines = bodyDiv.querySelectorAll('.exercise-line');
+          if (!allLines.length) return;
+          // Separate content lines from spacers
+          const contentLines = bodyDiv.querySelectorAll('.exercise-line:not(.spacer)');
+          const spacers = bodyDiv.querySelectorAll('.exercise-line.spacer');
           // Ensure flow columns fill the overlay width
+          bodyDiv.querySelectorAll('.flow-span-cols, .flow-columns, .flow-span, .flow-col').forEach(el => {
+            el.style.width = '';
+            el.style.maxWidth = '';
+          });
           bodyDiv.querySelectorAll('.flow-span-cols, .flow-columns').forEach(el => {
             el.style.width = '100%';
           });
-          let lo = 0.5, hi = 6;
+          // Measure fixed overhead (headers, labels, gaps)
+          contentLines.forEach(l => l.style.fontSize = '1rem');
+          spacers.forEach(s => s.style.fontSize = '1rem');
+          bodyDiv.offsetHeight;
+          const overhead = bodyDiv.querySelectorAll('.overlay-row-label');
+          let lo = 0.5, hi = 5;
           for (let i = 0; i < 14; i++) {
             const mid = (lo + hi) / 2;
-            lines.forEach(l => l.style.fontSize = mid + 'rem');
+            contentLines.forEach(l => l.style.fontSize = mid + 'rem');
+            spacers.forEach(s => s.style.fontSize = (mid * 0.4) + 'rem'); // spacers scale smaller
             bodyDiv.offsetHeight; // force reflow
             const overflows = bodyDiv.scrollHeight > bodyDiv.clientHeight + 2
                            || bodyDiv.scrollWidth  > bodyDiv.clientWidth  + 2;
             if (overflows) hi = mid; else lo = mid;
           }
-          lines.forEach(l => l.style.fontSize = (lo * 0.92).toFixed(3) + 'rem'); // 8% safety margin
+          const finalSize = (lo * 0.90).toFixed(3);
+          contentLines.forEach(l => l.style.fontSize = finalSize + 'rem');
+          spacers.forEach(s => s.style.fontSize = (lo * 0.35).toFixed(3) + 'rem');
         });
 
       } else {
