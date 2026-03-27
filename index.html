@@ -3030,7 +3030,7 @@
 
       // Detect instruction lines: workout format acronyms + rep/time schemes
       // e.g. "E2MOM x 6", "18 min amrap", "2 rounds", "For Time", "Tabata 8 rounds"
-      const isInstruction = /\b(EMOM|AMRAP|FOR TIME|E2MOM|E3MOM|TABATA|RFT|YGIG)\b/i.test(text)
+      const isInstruction = /\b(EMOM|AMRAP|FOR TIME|E\d*MOM|TABATA|RFT|YGIG)\b/i.test(text)
         || /^\d+\s*(rounds?|min)\b/i.test(text)
         || /^(every|each)\s+\d/i.test(text)
         || /\brounds?\s*(for time|x\s*\d)/i.test(text)
@@ -3043,7 +3043,7 @@
       if (isInstruction) {
         let html = escapeHtml(text);
         // Keep time-badge highlighting inside instruction lines
-        html = html.replace(/\b(EMOM|AMRAP|FOR TIME|E2MOM|E3MOM|TABATA|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
+        html = html.replace(/\b(EMOM|AMRAP|FOR TIME|E\d*MOM|TABATA|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
         html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
         return { type: 'sub-header', html };
       }
@@ -3066,7 +3066,7 @@
 
       // Highlight time patterns
       html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
-      html = html.replace(/\b(EMOM|AMRAP|FOR TIME|E2MOM|E3MOM|TABATA|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
+      html = html.replace(/\b(EMOM|AMRAP|FOR TIME|E\d*MOM|TABATA|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
       // Highlight time cap numbers: "t.c 37", "tc 12:00", "t.c- 5"
       html = html.replace(/\b(t\.?c[\-\s]*)\s*(\d+(?::\d{2})?)/gi, '$1<span class="time-badge">$2</span>');
 
@@ -3191,12 +3191,20 @@
               for (let s = 1; s < numSub; s++) {
                 const idealBreak = start + s * subSize;
                 // Look for nearest sub-header within ±3 of ideal break
+                // Prefer workout-type headers (AMRAP/EMOM/FOR TIME) over rest lines
                 let bestBreak = idealBreak;
                 let bestDist = 999;
+                let bestIsWorkout = false;
                 for (const sh of subHeaderIndices) {
                   if (sh <= start || sh >= end) continue;
                   const dist = Math.abs(sh - idealBreak);
-                  if (dist <= 3 && dist < bestDist) { bestBreak = sh; bestDist = dist; }
+                  if (dist > 4) continue;
+                  const isWorkout = /time-badge/.test(allItems[sh].html); // AMRAP/EMOM/etc have time-badge
+                  // Prefer workout headers: treat their distance as halved
+                  const effectiveDist = isWorkout ? dist * 0.5 : dist;
+                  if (effectiveDist < bestDist || (isWorkout && !bestIsWorkout && dist <= 4)) {
+                    bestBreak = sh; bestDist = effectiveDist; bestIsWorkout = isWorkout;
+                  }
                 }
                 if (bestBreak > breaks[breaks.length - 1] + 2) {
                   breaks.push(bestBreak);
