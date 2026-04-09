@@ -3054,6 +3054,12 @@
         return { type: 'spacer', html: '' };
       }
 
+      // Inline Rx line: "rx: 22.5/15", "rx (15/22.5)", "Rx - ..."
+      // Render as Rx badge (same styling as standalone rx cell)
+      if (/^rx\s*[:\(\-]/i.test(text)) {
+        return { type: 'exercise', html: `<span class="rx-badge">💊 ${escapeHtml(text)}</span>` };
+      }
+
       let html = escapeHtml(text);
 
       // Highlight exercise labels at start of line (A., A1., B2-, etc.) as a badge
@@ -3061,6 +3067,10 @@
 
       // Highlight step numbers with # (1#, 2#, 3#) as orange badge
       html = html.replace(/^(\d+#)/, '<span class="rep-number">$1</span>');
+
+      // Highlight rep schemes at start of line: "22-16-10", "10-9-8-7-6-5-4-3-2-1"
+      // (3+ numbers separated by dashes or dots)
+      html = html.replace(/^((?:\d+[\-\.]){2,}\d+)(\s|$)/, '<span class="rep-number">$1</span>$2');
 
       // Highlight numbers at start of line (reps)
       html = html.replace(/^(\d+[\-x×]?\d*)\s/, '<span class="rep-number">$1</span> ');
