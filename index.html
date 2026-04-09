@@ -3063,7 +3063,8 @@
       let html = escapeHtml(text);
 
       // Highlight exercise labels at start of line (A., A1., B2-, etc.) as a badge
-      html = html.replace(/^([A-Z]\d*[\.\-])\s/i, '<span class="time-badge">$1</span> ');
+      // Space after label is optional (handles "A5.sholder" without space)
+      html = html.replace(/^([A-Z]\d*[\.\-])\s?/i, '<span class="time-badge">$1</span> ');
 
       // Highlight step numbers with # (1#, 2#, 3#) as orange badge
       html = html.replace(/^(\d+#)/, '<span class="rep-number">$1</span>');
