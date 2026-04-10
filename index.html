@@ -477,6 +477,38 @@
       font-size: 90%;
     }
 
+    .exercise-line .work-badge,
+    .exercise-line .hold-badge {
+      display: inline-block;
+      padding: 0.15rem 0.6rem;
+      border-radius: 6px;
+      font-weight: 800;
+      font-size: 92%;
+      margin-inline-end: 0.35rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      vertical-align: baseline;
+    }
+    .exercise-line .work-badge {
+      background: linear-gradient(135deg, #16a34a, #22c55e);
+      color: #fff;
+      box-shadow: 0 0 0 1px rgba(34,197,94,0.35), 0 2px 6px rgba(34,197,94,0.25);
+    }
+    .exercise-line .hold-badge {
+      background: linear-gradient(135deg, #b45309, #f59e0b);
+      color: #fff;
+      box-shadow: 0 0 0 1px rgba(245,158,11,0.35), 0 2px 6px rgba(245,158,11,0.25);
+    }
+    /* Tint the whole line subtly so Work/Hold are visually grouped */
+    .exercise-line.work-line {
+      border-inline-start: 3px solid rgba(34,197,94,0.55);
+      padding-inline-start: 0.55rem;
+    }
+    .exercise-line.hold-line {
+      border-inline-start: 3px solid rgba(245,158,11,0.55);
+      padding-inline-start: 0.55rem;
+    }
+
     .exercise-line.spacer {
       height: 0.6em;
       min-height: 0.4rem;
@@ -3023,6 +3055,26 @@
       if (text === '__SPACER__') {
         return { type: 'spacer', html: '' };
       }
+      // Detect Work:/Hold: prefixed station lines BEFORE the generic ":$" sub-header rule
+      // (so "Work: 14 calorie row" becomes a highlighted station line, not a sub-header)
+      const workHoldMatch = text.match(/^\s*(work|hold)\s*[:\-]\s*(.*)$/i);
+      if (workHoldMatch) {
+        const kind = workHoldMatch[1].toLowerCase(); // 'work' or 'hold'
+        const rest = workHoldMatch[2];
+        const badgeClass = kind === 'work' ? 'work-badge' : 'hold-badge';
+        const badgeText = kind === 'work' ? 'WORK' : 'HOLD';
+        // Parse the remainder of the line for rep/time highlights
+        let restHtml = escapeHtml(rest);
+        restHtml = restHtml.replace(/^(\d+[\-x×]?\d*)\s/, '<span class="rep-number">$1</span> ');
+        restHtml = restHtml.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
+        restHtml = restHtml.replace(/\b(\d+)\s*min\b/gi, '<span class="time-badge">$1 min</span>');
+        restHtml = restHtml.replace(/\b(\d+)\s*sec\b/gi, '<span class="time-badge">$1 sec</span>');
+        return {
+          type: 'exercise',
+          extraClass: kind === 'work' ? 'work-line' : 'hold-line',
+          html: `<span class="${badgeClass}">${badgeText}</span>${restHtml}`
+        };
+      }
       // Detect sub-headers (lines ending with : or all-caps)
       if (/^[A-Z\s]{4,}:?$/.test(text) || /^.{2,}:$/.test(text)) {
         return { type: 'sub-header', html: escapeHtml(text) };
@@ -3167,7 +3219,8 @@
               if (/warm\s*up/i.test(line)) inWarmup = true;
               else if (/\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom/i.test(line)) inWarmup = false;
               const parsed = parseLine(line);
-              allItems.push({ type: 'line', section: currentSection, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}" dir="auto">${parsed.html}</div>` });
+              const ec = parsed.extraClass ? ' ' + parsed.extraClass : '';
+              allItems.push({ type: 'line', section: currentSection, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}" dir="auto">${parsed.html}</div>` });
             }
           }
           // Inject Rx cells as a badge at the end of the last section (appears under the main workout)
@@ -3310,7 +3363,7 @@
             const rtl = hc > at.length * 0.3;
             const lh = cell.lines.map(line => {
               const parsed = parseLine(line);
-              return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
+              return `<div class="exercise-line ${parsed.type}${parsed.extraClass ? ' ' + parsed.extraClass : ''}" dir="auto">${parsed.html}</div>`;
             }).join('');
             return `<div class="workout-card safety-card">
               <div class="card-header warmup">${escapeHtml(cell.header)}</div>
@@ -3366,7 +3419,7 @@
                 return `<div class="exercise-line merged-section-header" dir="auto">${hdrText}</div>`;
               }
               const parsed = parseLine(line);
-              return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
+              return `<div class="exercise-line ${parsed.type}${parsed.extraClass ? ' ' + parsed.extraClass : ''}" dir="auto">${parsed.html}</div>`;
             }).join('');
             colsHTML += `<div class="spread-col${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>`;
           }
@@ -3382,7 +3435,7 @@
             const rtl = hc > at.length * 0.3;
             const lh = cell.lines.map(line => {
               const parsed = parseLine(line);
-              return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
+              return `<div class="exercise-line ${parsed.type}${parsed.extraClass ? ' ' + parsed.extraClass : ''}" dir="auto">${parsed.html}</div>`;
             }).join('');
             return `
               <div class="workout-card safety-card">
@@ -3410,7 +3463,7 @@
                 const col2Lines = cell.lines.slice(mid);
                 const renderCol = (lines) => lines.map(line => {
                   const parsed = parseLine(line);
-                  return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
+                  return `<div class="exercise-line ${parsed.type}${parsed.extraClass ? ' ' + parsed.extraClass : ''}" dir="auto">${parsed.html}</div>`;
                 }).join('');
                 bodyHTML = `<div class="card-body-columns${isRtl ? ' rtl-content' : ''}">
                   <div class="card-body-col">${renderCol(col1Lines)}</div>
@@ -3419,7 +3472,7 @@
               } else {
                 const linesHTML = cell.lines.map(line => {
                   const parsed = parseLine(line);
-                  return `<div class="exercise-line ${parsed.type}" dir="auto">${parsed.html}</div>`;
+                  return `<div class="exercise-line ${parsed.type}${parsed.extraClass ? ' ' + parsed.extraClass : ''}" dir="auto">${parsed.html}</div>`;
                 }).join('');
                 bodyHTML = `<div class="card-body${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>`;
               }
