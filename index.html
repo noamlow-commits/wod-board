@@ -1551,7 +1551,8 @@
     <span id="ftbRound" style="color:#888;font-size:0.9rem;"></span>
     <span id="ftbPhase" style="font-weight:700;font-size:1rem;"></span>
     <button onclick="pauseTimer();updateFloatingTimerBar();" style="background:none;border:1px solid #666;border-radius:6px;color:#fbbf24;padding:0.2rem 0.5rem;cursor:pointer;font-size:0.9rem;" title="השהה">⏸</button>
-    <button onclick="resetTimer();hideFloatingTimerBar();" style="background:none;border:1px solid #666;border-radius:6px;color:#ef4444;padding:0.2rem 0.5rem;cursor:pointer;font-size:0.9rem;" title="אפס">⏹</button>
+    <button id="ftbVoiceBtn" onclick="toggleTimerVoice();" style="background:none;border:1px solid #666;border-radius:6px;color:#22c55e;padding:0.2rem 0.5rem;cursor:pointer;font-size:0.9rem;" title="קול מאמן (כן/לא)">🔊</button>
+    <button onclick="coachStopTimer();hideFloatingTimerBar();" style="background:none;border:1px solid #666;border-radius:6px;color:#ef4444;padding:0.2rem 0.5rem;cursor:pointer;font-size:0.9rem;" title="עצור">⏹</button>
   </div>
 
   <!-- TV Navigation Panel (floating, controlled by remote D-pad) -->
@@ -1757,18 +1758,63 @@
     let timerRafId = null;      // requestAnimationFrame ID
     let timerCountdownNum = 0;  // 3, 2, 1 during countdown
     let lastTimerCommandTs = ''; // last processed command timestamp
-    let timerMuted = false;     // mute audio
+    let timerMuted = false;     // mute audio entirely (voice + beeps)
+    let timerVoiceEnabled = (localStorage.getItem('wodboard-timer-voice') !== '0'); // voice cues on by default
     let timerPrevMode = 'wod';  // mode to return to after timer reset
+    // One-shot announcement flags — reset on startTimer/resetTimer
+    let _halfwayAnnounced = false;
+    let _oneMinAnnounced  = false;
+    let _tenSecAnnounced  = false;
+    let _lastRoundAnnounced = false;
 
     // Audio system — Web Audio API synthesized sounds
     const TimerAudio = {
       ctx: null,
+      voices: {},            // key → AudioBuffer
+      voicesLoaded: false,
+      voiceLoadPromise: null,
       init() {
         if (this.ctx) return;
         try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
         catch(e) { console.warn('Web Audio not available'); }
       },
-      beep(freq = 800, duration = 0.15, count = 1, gap = 0.12) {
+      // Pre-load all voice cue MP3s into AudioBuffers. Idempotent — safe to call repeatedly.
+      loadVoices() {
+        if (this.voicesLoaded) return Promise.resolve();
+        if (this.voiceLoadPromise) return this.voiceLoadPromise;
+        this.init();
+        if (!this.ctx) return Promise.resolve();
+        const keys = [
+          'three','two','one','go',
+          'ten_seconds','one_minute_remaining','halfway','last_round','time',
+          'work','rest',
+          'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight'
+        ];
+        this.voiceLoadPromise = Promise.all(keys.map(k =>
+          fetch(`sounds/voice/${k}.mp3`)
+            .then(r => { if (!r.ok) throw new Error(k + ': ' + r.status); return r.arrayBuffer(); })
+            .then(arr => new Promise((res, rej) => {
+              // Use callback form for broader Safari compatibility
+              this.ctx.decodeAudioData(arr, buf => { this.voices[k] = buf; res(); }, rej);
+            }))
+            .catch(e => console.warn('[voice] load failed:', e.message))
+        )).then(() => { this.voicesLoaded = true; });
+        return this.voiceLoadPromise;
+      },
+      // Play a pre-loaded voice cue. `when` is an AudioContext time (default: now).
+      say(key, when) {
+        if (timerMuted || !timerVoiceEnabled || !this.ctx) return;
+        const buf = this.voices[key];
+        if (!buf) return;
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf;
+        const gain = this.ctx.createGain();
+        gain.gain.value = 1.0;
+        src.connect(gain).connect(this.ctx.destination);
+        src.start(when !== undefined ? when : this.ctx.currentTime);
+      },
+      // Sine wave with ADSR envelope — much nicer than the old square wave.
+      beep(freq = 880, duration = 0.15, count = 1, gap = 0.1, type = 'sine') {
         if (timerMuted || !this.ctx) return;
         for (let i = 0; i < count; i++) {
           const t = this.ctx.currentTime + i * (duration + gap);
@@ -1777,37 +1823,43 @@
           osc.connect(gain);
           gain.connect(this.ctx.destination);
           osc.frequency.value = freq;
-          osc.type = 'square';
-          gain.gain.setValueAtTime(0.3, t);
-          gain.gain.exponentialRampToValueAtTime(0.01, t + duration);
+          osc.type = type;
+          // ADSR: quick attack, brief decay to sustain, linear release
+          const rel = Math.min(0.06, duration * 0.4);
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(0.40, t + 0.008);
+          gain.gain.linearRampToValueAtTime(0.28, t + 0.03);
+          gain.gain.setValueAtTime(0.28, t + duration - rel);
+          gain.gain.linearRampToValueAtTime(0.001, t + duration);
           osc.start(t);
-          osc.stop(t + duration);
+          osc.stop(t + duration + 0.02);
         }
       },
       countdown(num) {
-        // Short beep for 3,2,1 — longer GO tone
-        if (num > 0) this.beep(600, 0.2, 1);
-        else this.beep(900, 0.6, 1); // GO!
+        // Tick for 3,2,1 — bright tone for GO
+        if (num > 0) this.beep(660, 0.18, 1);
+        else this.beep(990, 0.5, 1); // GO!
       },
-      intervalBeep() { this.beep(700, 0.12, 2, 0.1); },
-      warningBeep() { this.beep(500, 0.1, 3, 0.08); },
+      intervalBeep()  { this.beep(880, 0.14, 1); },                // single clean tone on minute mark
+      warningBeep()   { this.beep(660, 0.09, 3, 0.08); },           // short triple tick
+      tabataWork()    { this.beep(990, 0.18, 1); },                 // high tone
+      tabataRest()    { this.beep(440, 0.25, 1, 0, 'triangle'); },  // low, softer
       finishSound() {
         if (timerMuted || !this.ctx) return;
         const t = this.ctx.currentTime;
+        // Two-note finish: high → low sweep
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(800, t);
-        osc.frequency.linearRampToValueAtTime(400, t + 1.0);
-        gain.gain.setValueAtTime(0.3, t);
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 1.0);
-        osc.start(t);
-        osc.stop(t + 1.0);
-      },
-      tabataWork() { this.beep(900, 0.15, 2, 0.1); },
-      tabataRest() { this.beep(500, 0.3, 1); }
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(990, t);
+        osc.frequency.linearRampToValueAtTime(440, t + 0.9);
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.4, t + 0.02);
+        gain.gain.setValueAtTime(0.4, t + 0.7);
+        gain.gain.linearRampToValueAtTime(0.001, t + 1.0);
+        osc.start(t); osc.stop(t + 1.05);
+      }
     };
 
     // Extract ALL timer configs from workout text lines (returns array)
@@ -1888,22 +1940,34 @@
     function startTimer() {
       if (timerState !== 'configured' && timerState !== 'finished') return;
       TimerAudio.init();
+      TimerAudio.loadVoices(); // lazy load; call triggers fetch+decode once, resolves async
       timerElapsed = 0;
       timerRound = 1;
       timerInterval = 0;
       timerState = 'countdown321';
       timerCountdownNum = 3;
+      // Reset one-shot announcement flags
+      _halfwayAnnounced = false;
+      _oneMinAnnounced  = false;
+      _tenSecAnnounced  = false;
+      _lastRoundAnnounced = false;
+      _lastIntervalRound = 0;
+      _lastTabataPhase = '';
+      _lastWarningBeeped = false;
       renderTimerDisplay();
-      // 3-2-1 countdown
+      // 3-2-1 countdown with voice + beep
       TimerAudio.countdown(3);
+      TimerAudio.say('three');
       const cdInterval = setInterval(() => {
         timerCountdownNum--;
         if (timerCountdownNum > 0) {
           TimerAudio.countdown(timerCountdownNum);
+          TimerAudio.say(timerCountdownNum === 2 ? 'two' : 'one');
           renderTimerDisplay();
         } else {
           clearInterval(cdInterval);
-          TimerAudio.countdown(0); // GO!
+          TimerAudio.countdown(0); // GO beep
+          TimerAudio.say('go');
           timerState = 'running';
           timerStartedAt = performance.now();
           timerRafId = requestAnimationFrame(timerTick);
@@ -1940,7 +2004,22 @@
       timerRound = 1;
       timerInterval = 0;
       timerCountdownNum = 0;
+      _halfwayAnnounced = false;
+      _oneMinAnnounced  = false;
+      _tenSecAnnounced  = false;
+      _lastRoundAnnounced = false;
       renderTimerDisplay();
+    }
+
+    // Coach-initiated stop: play the finish sound + "Time!" voice before resetting.
+    // Used by the ⏹ button on the floating timer bar and by manual-stop keyboard.
+    function coachStopTimer() {
+      const wasActive = (timerState === 'running' || timerState === 'paused' || timerState === 'countdown321');
+      if (wasActive) {
+        TimerAudio.finishSound();
+        TimerAudio.say('time');
+      }
+      resetTimer();
     }
 
     function toggleTimerPause() {
@@ -1974,6 +2053,7 @@
     let _lastWarningBeeped = false;
     let _lastIntervalRound = 0;
     let _lastTabataPhase = '';
+    let _lastCountTickSec = 0;
 
     function timerTick() {
       if (timerState !== 'running') return;
@@ -1988,37 +2068,58 @@
         timerRafId = null;
         timerState = 'finished';
         TimerAudio.finishSound();
+        TimerAudio.say('time');
         renderTimerDisplay();
         return;
       }
 
-      // EMOM interval tracking
+      // ── EMOM interval tracking ──
       if (timerType === 'emom') {
         const ivMs = (timerConfig.intervalSeconds || 60) * 1000;
         const currentRound = Math.floor(totalElapsed / ivMs) + 1;
+        const totalRounds = Math.floor((timerConfig.totalSeconds || 600) * 1000 / ivMs);
         if (currentRound !== _lastIntervalRound && _lastIntervalRound > 0) {
           TimerAudio.intervalBeep();
+          // Announce last round at the START of the final interval
+          if (currentRound === totalRounds && !_lastRoundAnnounced) {
+            TimerAudio.say('last_round');
+            _lastRoundAnnounced = true;
+          }
         }
         _lastIntervalRound = currentRound;
         timerRound = currentRound;
       }
 
-      // Tabata phase tracking
+      // ── Tabata phase tracking ──
       if (timerType === 'tabata') {
         const w = (timerConfig.workSeconds || 20) * 1000;
         const r = (timerConfig.restSeconds || 10) * 1000;
         const cycleMs = w + r;
         const inCycle = totalElapsed % cycleMs;
         const phase = inCycle < w ? 'work' : 'rest';
-        timerRound = Math.floor(totalElapsed / cycleMs) + 1;
+        const currentRound = Math.floor(totalElapsed / cycleMs) + 1;
+        const totalRounds = timerConfig.rounds || 8;
+        timerRound = currentRound;
         if (phase !== _lastTabataPhase && _lastTabataPhase) {
-          if (phase === 'work') TimerAudio.tabataWork();
-          else TimerAudio.tabataRest();
+          if (phase === 'work') {
+            TimerAudio.tabataWork();
+            // Round announcement: at the start of each NEW work phase (round 2+)
+            if (currentRound === totalRounds && !_lastRoundAnnounced) {
+              TimerAudio.say('last_round');
+              _lastRoundAnnounced = true;
+            } else if (currentRound >= 2 && currentRound <= 8) {
+              const roundKeys = ['', '', 'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight'];
+              TimerAudio.say(roundKeys[currentRound]);
+            }
+          } else {
+            TimerAudio.tabataRest();
+            TimerAudio.say('rest');
+          }
         }
         _lastTabataPhase = phase;
       }
 
-      // MIX interval tracking
+      // ── MIX interval tracking ──
       if (timerType === 'mix') {
         const intervals = timerConfig.intervals || [];
         const perRound = intervals.reduce((s, iv) => s + (iv.seconds || 0), 0) * 1000;
@@ -2037,14 +2138,47 @@
         }
       }
 
-      // Warning beep at 10 seconds remaining (countdown timers only)
+      // ── Mid-workout voice warnings (countdown timers with a known total) ──
       if (totalMs > 0) {
         const remaining = totalMs - totalElapsed;
+        const elapsedFraction = totalElapsed / totalMs;
+
+        // Halfway cue — only when timer hasn't already passed halfway before this tick
+        //   (i.e., fire once, right around 50%). Apply to AMRAP / For-Time-with-cap.
+        if (!_halfwayAnnounced && (timerType === 'amrap' || timerType === 'fortime')
+            && elapsedFraction >= 0.5 && remaining > 15000) {
+          TimerAudio.say('halfway');
+          _halfwayAnnounced = true;
+        }
+
+        // One-minute warning — only for timers ≥ 3 minutes
+        if (!_oneMinAnnounced && totalMs >= 3 * 60 * 1000
+            && remaining <= 60000 && remaining > 59000) {
+          TimerAudio.say('one_minute_remaining');
+          _oneMinAnnounced = true;
+        }
+
+        // Ten-second warning — voice + beep
         if (remaining <= 10000 && remaining > 9500 && !_lastWarningBeeped) {
           TimerAudio.warningBeep();
+          if (!_tenSecAnnounced) {
+            TimerAudio.say('ten_seconds');
+            _tenSecAnnounced = true;
+          }
           _lastWarningBeeped = true;
         }
-        if (remaining > 10000) _lastWarningBeeped = false;
+        if (remaining > 10000) { _lastWarningBeeped = false; _tenSecAnnounced = false; }
+
+        // Final 5-4-3-2-1 tick beeps
+        if (remaining <= 5500 && remaining > 500) {
+          const secsLeft = Math.ceil(remaining / 1000);
+          if (secsLeft !== _lastCountTickSec && secsLeft >= 1 && secsLeft <= 5) {
+            TimerAudio.beep(660, 0.1, 1);
+            _lastCountTickSec = secsLeft;
+          }
+        } else {
+          _lastCountTickSec = 0;
+        }
       }
 
       renderTimerDisplay();
@@ -3741,6 +3875,25 @@
       document.getElementById('floatingTimerBar').style.display = 'none';
     }
 
+    function toggleTimerVoice() {
+      timerVoiceEnabled = !timerVoiceEnabled;
+      localStorage.setItem('wodboard-timer-voice', timerVoiceEnabled ? '1' : '0');
+      const btn = document.getElementById('ftbVoiceBtn');
+      if (btn) {
+        btn.textContent = timerVoiceEnabled ? '🔊' : '🔇';
+        btn.style.color = timerVoiceEnabled ? '#22c55e' : '#666';
+      }
+    }
+
+    // Initialise voice button state on load
+    window.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('ftbVoiceBtn');
+      if (btn) {
+        btn.textContent = timerVoiceEnabled ? '🔊' : '🔇';
+        btn.style.color = timerVoiceEnabled ? '#22c55e' : '#666';
+      }
+    });
+
     function updateFloatingTimerBar() {
       const bar = document.getElementById('floatingTimerBar');
       if (!bar || bar.style.display === 'none') return;
@@ -4234,7 +4387,7 @@
           }
         }
         // Backspace: reset timer (only in timer mode)
-        if (e.key === 'Backspace' && displayMode === 'timer') { e.preventDefault(); resetTimer(); }
+        if (e.key === 'Backspace' && displayMode === 'timer') { e.preventDefault(); coachStopTimer(); }
         // Q / 9: toggle QR
         if (e.key === 'q' || e.key === '9') {
           settings.showQR = !settings.showQR;
