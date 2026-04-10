@@ -3808,16 +3808,20 @@
             headerText = hdrEl.textContent.trim();
             headerBg = getComputedStyle(hdrEl).background;
           }
-          // Get body content (preserve newspaper column structure)
+          // Get body content — FLATTEN newspaper columns into a single in-order flow
+          // so stations (e.g. Work+Hold pairs) never split across columns in the overlay.
           const clone = part.cloneNode(true);
           clone.querySelectorAll('.flow-section-header, .card-header').forEach(el => el.remove());
           clone.style.cssText = 'flex:1;max-width:100%;width:100%;';
-          // Deep-reset inherited width constraints from children
-          clone.querySelectorAll('.flow-span, .flow-columns, .workout-card, .flow-span-cols, .flow-col, .part-block').forEach(el => {
-            el.style.maxWidth = '';
-            el.style.flex = '';
-            el.style.width = '';
-          });
+          // Collect all exercise-lines in document order and rebuild as a single flow-col.
+          // This preserves the original line order while eliminating the newspaper split
+          // that splits logical groups (e.g. Station 2's WORK at bottom of col-1 and HOLD
+          // at top of col-2).
+          const flatLines = Array.from(clone.querySelectorAll('.exercise-line'))
+            .map(el => el.outerHTML).join('');
+          if (flatLines) {
+            clone.innerHTML = `<div class="flow-col" style="width:100%;max-width:100%;flex:1;">${flatLines}</div>`;
+          }
           rowParts.push({ label: rowLabel, html: clone.innerHTML });
         });
         // If multiple rows contribute content, add row-label separators
