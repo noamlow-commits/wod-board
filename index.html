@@ -3820,7 +3820,10 @@
           const flatLines = Array.from(clone.querySelectorAll('.exercise-line'))
             .map(el => el.outerHTML).join('');
           if (flatLines) {
-            clone.innerHTML = `<div class="flow-col" style="width:100%;max-width:100%;flex:1;">${flatLines}</div>`;
+            // Plain div (NOT .flow-col — it has overflow:hidden which hides the
+            // binary-search's overflow detection, causing the font to stay huge
+            // and the bottom rows to clip).
+            clone.innerHTML = `<div class="tvo-flat" style="width:100%;max-width:100%;">${flatLines}</div>`;
           }
           rowParts.push({ label: rowLabel, html: clone.innerHTML });
         });
