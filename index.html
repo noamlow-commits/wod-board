@@ -1946,7 +1946,8 @@
       timerRound = 1;
       timerInterval = 0;
       timerState = 'countdown321';
-      timerCountdownNum = 3;
+      // 10-second countdown. Silent ticks for 10..4, voice + tone for 3..1, GO!
+      timerCountdownNum = 10;
       // Reset one-shot announcement flags
       _halfwayAnnounced = false;
       _oneMinAnnounced  = false;
@@ -1956,14 +1957,19 @@
       _lastTabataPhase = '';
       _lastWarningBeeped = false;
       renderTimerDisplay();
-      // 3-2-1 countdown with voice + beep
-      TimerAudio.countdown(3);
-      TimerAudio.say('three');
+      // Soft tick for the first mark (10)
+      TimerAudio.beep(440, 0.08, 1);
       const cdInterval = setInterval(() => {
         timerCountdownNum--;
-        if (timerCountdownNum > 0) {
+        if (timerCountdownNum > 3) {
+          // 9..4 — soft ticks, no voice
+          TimerAudio.beep(440, 0.08, 1);
+          renderTimerDisplay();
+        } else if (timerCountdownNum > 0) {
+          // 3, 2, 1 — loud beep + Harry voice
           TimerAudio.countdown(timerCountdownNum);
-          TimerAudio.say(timerCountdownNum === 2 ? 'two' : 'one');
+          const key = timerCountdownNum === 3 ? 'three' : (timerCountdownNum === 2 ? 'two' : 'one');
+          TimerAudio.say(key);
           renderTimerDisplay();
         } else {
           clearInterval(cdInterval);
