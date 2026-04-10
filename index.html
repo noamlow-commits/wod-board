@@ -3855,6 +3855,18 @@
           } catch(e) {}
         }
       }
+      // FALLBACK: if nothing was attached at render time (header-lookup miss),
+      // re-extract from the visible text directly. Covers time-cap patterns
+      // like "t.c 42" that may not have been keyed correctly.
+      if (all.length === 0) {
+        for (const row of visibleRows) {
+          const lines = Array.from(row.querySelectorAll('.exercise-line, .flow-section-header'))
+            .map(el => el.textContent.trim())
+            .filter(Boolean);
+          const cfgs = extractTimerConfigs(lines);
+          for (const c of cfgs) all.push(c);
+        }
+      }
       return all;
     }
 
