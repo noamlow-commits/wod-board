@@ -1868,8 +1868,9 @@
       const results = [];
       const text = lines.join('\n');
 
-      // Global time cap
-      let tcMatch = text.match(/\bt\.?c[\-\s]*(\d+(?::\d{2})?)/i);
+      // Global time cap — allow whitespace between "t" and "c" so we also
+      // catch the post-parseLine DOM form "t. c 42"
+      let tcMatch = text.match(/\bt\.?\s*c[\-\s]*(\d+(?::\d{2})?)/i);
       let capSeconds = 0;
       if (tcMatch) {
         const tv = tcMatch[1];
@@ -3250,7 +3251,10 @@
 
       // Highlight exercise labels at start of line (A., A1., B2-, etc.) as a badge
       // Space after label is optional (handles "A5.sholder" without space)
-      html = html.replace(/^([A-Z]\d*[\.\-])\s?/i, '<span class="time-badge">$1</span> ');
+      // Skip if the line is actually a time-cap pattern ("t.c 42", "tc 12:00")
+      if (!/^\s*t\.?\s*c[\-\s]/i.test(text)) {
+        html = html.replace(/^([A-Z]\d*[\.\-])\s?/i, '<span class="time-badge">$1</span> ');
+      }
 
       // Highlight step numbers with # (1#, 2#, 3#) as orange badge
       html = html.replace(/^(\d+#)/, '<span class="rep-number">$1</span>');
@@ -3265,8 +3269,8 @@
       // Highlight time patterns
       html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
       html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM|TABATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
-      // Highlight time cap numbers: "t.c 37", "tc 12:00", "t.c- 5"
-      html = html.replace(/\b(t\.?c[\-\s]*)\s*(\d+(?::\d{2})?)/gi, '$1<span class="time-badge">$2</span>');
+      // Highlight time cap numbers: "t.c 37", "tc 12:00", "t.c- 5", "t. c 42"
+      html = html.replace(/\b(t\.?\s*c[\-\s]*)\s*(\d+(?::\d{2})?)/gi, '$1<span class="time-badge">$2</span>');
 
       return { type: 'exercise', html };
     }
