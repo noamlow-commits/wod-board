@@ -3803,12 +3803,14 @@
         centerBtn.classList.toggle('tv-active', centerFocus && canCenter);
         centerBtn.style.opacity = canCenter ? '1' : '0.35';
       }
-      // Timer button: show if focused part has detected timer(s)
+      // Timer button: show if the focused part has a timer, OR (when no part
+      // is focused) any visible part across the currently-visible sections has
+      // a timer. This lets a global "TC 42" surface in "all parts" mode.
       const timerBtn = document.getElementById('tvTimerBtn');
       const timerLabel = document.getElementById('tvTimerLabel');
       if (timerBtn) {
         const cfgs = getPartTimerConfigs();
-        if (cfgs.length > 0 && partFocusIndex !== null) {
+        if (cfgs.length > 0) {
           timerBtn.style.display = '';
           const selected = cfgs[partTimerCycleIdx % cfgs.length];
           const countStr = cfgs.length > 1 ? ` (${(partTimerCycleIdx % cfgs.length) + 1}/${cfgs.length})` : '';
@@ -3825,19 +3827,35 @@
       }
     }
 
-    // Get ALL timer configs from the currently focused part-block
+    // Get ALL timer configs from the currently focused part-block,
+    // or — if no part is focused — collect all unique timer configs
+    // across every visible part (so "all parts" mode still surfaces a
+    // single detected timer like a global time cap).
     let partTimerCycleIdx = 0; // which timer is selected in the cycle
 
     function getPartTimerConfigs() {
-      if (partFocusIndex === null) return [];
       const visibleRows = document.querySelectorAll('#wodArea .workout-row:not(.section-hidden)');
+      if (partFocusIndex !== null) {
+        for (const row of visibleRows) {
+          const part = row.querySelector(`.part-block[data-part-idx="${partFocusIndex}"]`);
+          if (part && part.dataset.timerConfigs) {
+            try { return JSON.parse(part.dataset.timerConfigs); } catch(e) {}
+          }
+        }
+        return [];
+      }
+      // No focused part — collect timer configs from all visible parts
+      const all = [];
       for (const row of visibleRows) {
-        const part = row.querySelector(`.part-block[data-part-idx="${partFocusIndex}"]`);
-        if (part && part.dataset.timerConfigs) {
-          try { return JSON.parse(part.dataset.timerConfigs); } catch(e) {}
+        const parts = row.querySelectorAll('.part-block[data-timer-configs]');
+        for (const part of parts) {
+          try {
+            const cfgs = JSON.parse(part.dataset.timerConfigs);
+            for (const c of cfgs) all.push(c);
+          } catch(e) {}
         }
       }
-      return [];
+      return all;
     }
 
     function getSelectedPartTimer() {
