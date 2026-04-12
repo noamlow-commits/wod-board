@@ -2097,6 +2097,7 @@
     let _lastIntervalRound = 0;
     let _lastTabataPhase = '';
     let _lastCountTickSec = 0;
+    let _tabataTickedSec = 0;  // tracks 3-2-1 ticks within tabata phases
 
     function timerTick() {
       if (timerState !== 'running') return;
@@ -2133,7 +2134,7 @@
         timerRound = currentRound;
       }
 
-      // ── Tabata phase tracking ──
+      // ── Tabata / custom interval phase tracking ──
       if (timerType === 'tabata') {
         const w = (timerConfig.workSeconds || 20) * 1000;
         const r = (timerConfig.restSeconds || 10) * 1000;
@@ -2143,23 +2144,42 @@
         const currentRound = Math.floor(totalElapsed / cycleMs) + 1;
         const totalRounds = timerConfig.rounds || 8;
         timerRound = currentRound;
+
+        // Phase transition sounds
         if (phase !== _lastTabataPhase && _lastTabataPhase) {
           if (phase === 'work') {
-            TimerAudio.tabataWork();
-            // Round announcement: at the start of each NEW work phase (round 2+)
+            TimerAudio.tabataWork();        // high beep
+            TimerAudio.say('work');         // Harry: "WORK!"
+            // Round announcement for rounds 2+
             if (currentRound === totalRounds && !_lastRoundAnnounced) {
-              TimerAudio.say('last_round');
               _lastRoundAnnounced = true;
             } else if (currentRound >= 2 && currentRound <= 8) {
               const roundKeys = ['', '', 'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight'];
-              TimerAudio.say(roundKeys[currentRound]);
+              // Play round after a short delay so it doesn't overlap "WORK!"
+              const at = TimerAudio.ctx ? TimerAudio.ctx.currentTime + 0.6 : undefined;
+              TimerAudio.say(roundKeys[currentRound], at);
             }
           } else {
-            TimerAudio.tabataRest();
-            TimerAudio.say('rest');
+            TimerAudio.tabataRest();        // low beep
+            TimerAudio.say('rest');          // Harry: "Rest"
           }
+          _tabataTickedSec = 0; // reset tick tracker on phase change
         }
         _lastTabataPhase = phase;
+
+        // 3-second warning ticks before each phase transition
+        const phaseMs = phase === 'work' ? w : r;
+        const phaseElapsed = phase === 'work' ? inCycle : (inCycle - w);
+        const phaseRemaining = phaseMs - phaseElapsed;
+        if (phaseRemaining <= 3500 && phaseRemaining > 200) {
+          const secLeft = Math.ceil(phaseRemaining / 1000);
+          if (secLeft !== _tabataTickedSec && secLeft >= 1 && secLeft <= 3) {
+            TimerAudio.beep(660, 0.1, 1);
+            _tabataTickedSec = secLeft;
+          }
+        } else if (phaseRemaining > 3500) {
+          _tabataTickedSec = 0;
+        }
       }
 
       // ── MIX interval tracking ──
