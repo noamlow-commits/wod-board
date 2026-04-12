@@ -3224,14 +3224,14 @@
       // Detect instruction lines: workout format acronyms + rep/time schemes
       // e.g. "E2MOM x 6", "18 min amrap", "2 rounds", "For Time", "Tabata 8 rounds"
       const isInstruction = /\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM|TABATA|METCON|RFT|YGIG)\b/i.test(text)
-        || /^\d+\s*(rounds?|min)\b/i.test(text)
+        || /^\d+\s*(rounds?|min|sec(onds?)?)\b/i.test(text)
         || /^(every|each)\s+\d/i.test(text)
         || /\brounds?\s*(for time|x\s*\d)/i.test(text)
         || /^stay\s+\d/i.test(text)
         || /\bcomplete\s+\d+\s*rounds?\b/i.test(text)
         || /\bI go\s*(you|u)\s*go\b/i.test(text)
         || /\bIN TEAMS OF\b/i.test(text)
-        || /\bmin rest\b/i.test(text);
+        || /\b(min|sec) rest\b/i.test(text);
 
       if (isInstruction) {
         let html = escapeHtml(text);
@@ -3239,6 +3239,7 @@
         html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM|TABATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
         html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
         html = html.replace(/\b(\d+)\s*min\b/gi, '<span class="time-badge">$1 min</span>');
+        html = html.replace(/\b(\d+)\s*sec(?:onds?)?\b/gi, '<span class="time-badge">$1 sec</span>');
         return { type: 'sub-header', html };
       }
 
@@ -3275,6 +3276,7 @@
       // Highlight time patterns
       html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
       html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM|TABATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
+      html = html.replace(/\b(\d+)\s*sec(?:onds?)?\b/gi, '<span class="time-badge">$1 sec</span>');
       // Highlight time cap numbers: "t.c 37", "tc 12:00", "t.c- 5", "t. c 42"
       html = html.replace(/\b(t\.?\s*c[\-\s]*)\s*(\d+(?::\d{2})?)/gi, '$1<span class="time-badge">$2</span>');
 
