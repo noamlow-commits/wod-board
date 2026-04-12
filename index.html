@@ -1906,9 +1906,45 @@
         results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv, label: `Every ${m[1]}:${m[2]} ×${rounds}` });
       }
 
-      // Tabata
+      // Tabata — either the word "tabata" or custom work/rest patterns
       if (/\btabata\b/i.test(text)) {
         results.push({ type: 'tabata', workSeconds: 20, restSeconds: 10, rounds: 8, label: 'Tabata' });
+      }
+
+      // Custom work/rest intervals (uses the tabata timer with custom values).
+      // Patterns detected:
+      //   "30 sec work 10 sec rest"  "30 sec on 10 sec off"
+      //   "30 seconds work, 10 seconds rest"
+      //   "0:30 work / 0:10 rest"    "30 on / 10 off"
+      //   "work 30 sec rest 10 sec"
+      //   Optional: "x5", "x 8", "× 6" at the end for round count
+      if (!results.some(r => r.type === 'tabata')) {
+        // Pattern A: "N sec work ... M sec rest" (with or without "sec")
+        let wr = text.match(/(\d+)\s*(?:sec(?:onds?)?)\s*(?:work|on)\s*[,/\-]?\s*(\d+)\s*(?:sec(?:onds?)?)\s*(?:rest|off)/i);
+        // Pattern B: "N on M off" (no "sec" keyword)
+        if (!wr) wr = text.match(/(\d+)\s*(?:work|on)\s*[,/\-]?\s*(\d+)\s*(?:rest|off)/i);
+        // Pattern C: "0:30 work / 0:10 rest"
+        if (!wr) {
+          const mm = text.match(/(\d+):(\d{2})\s*(?:work|on)\s*[,/\-]?\s*(\d+):(\d{2})\s*(?:rest|off)/i);
+          if (mm) wr = [null, String(parseInt(mm[1])*60 + parseInt(mm[2])), String(parseInt(mm[3])*60 + parseInt(mm[4]))];
+        }
+        if (wr) {
+          const workSec = parseInt(wr[1]);
+          const restSec = parseInt(wr[2]);
+          // Try to find round count: "x5", "x 8", "× 6", "5 rounds"
+          const roundsMatch = text.match(/[x×]\s*(\d+)/i) || text.match(/(\d+)\s*rounds?/i);
+          // If no explicit rounds, count exercise-like lines in the same cell
+          // (lines starting with a number or bullet — rough heuristic, fallback to 5)
+          let rounds = roundsMatch ? parseInt(roundsMatch[1]) : 0;
+          if (rounds === 0) {
+            const exerciseLines = lines.filter(l => /^\s*\d/.test(l) && !/^\s*\d+\s*(sec|on|off|work|rest|min)/i.test(l));
+            rounds = exerciseLines.length || 5;
+          }
+          results.push({
+            type: 'tabata', workSeconds: workSec, restSeconds: restSec,
+            rounds, label: `${workSec}″/${restSec}″ ×${rounds}`
+          });
+        }
       }
 
       // FOR TIME
