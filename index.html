@@ -2006,6 +2006,7 @@
       _lastRoundAnnounced = false;
       _lastIntervalRound = 0;
       _lastTabataPhase = '';
+      _emomTickedSec = 0;
       _lastWarningBeeped = false;
       renderTimerDisplay();
       // Soft tick for the first mark (10)
@@ -2113,6 +2114,7 @@
     let _lastTabataPhase = '';
     let _lastCountTickSec = 0;
     let _tabataTickedSec = 0;  // tracks 3-2-1 ticks within tabata phases
+    let _emomTickedSec = 0;    // tracks 3-2-1 ticks before EMOM interval transitions
 
     function timerTick() {
       if (timerState !== 'running') return;
@@ -2139,6 +2141,7 @@
         const totalRounds = Math.floor((timerConfig.totalSeconds || 600) * 1000 / ivMs);
         if (currentRound !== _lastIntervalRound && _lastIntervalRound > 0) {
           TimerAudio.intervalBeep();
+          _emomTickedSec = 0; // reset tick tracker on round change
           // Announce last round at the START of the final interval
           if (currentRound === totalRounds && !_lastRoundAnnounced) {
             TimerAudio.say('last_round');
@@ -2147,6 +2150,19 @@
         }
         _lastIntervalRound = currentRound;
         timerRound = currentRound;
+
+        // 3-second warning ticks before each interval transition
+        const emomElapsedInRound = totalElapsed - (currentRound - 1) * ivMs;
+        const emomRemaining = ivMs - emomElapsedInRound;
+        if (emomRemaining <= 3500 && emomRemaining > 200) {
+          const secLeft = Math.ceil(emomRemaining / 1000);
+          if (secLeft !== _emomTickedSec && secLeft >= 1 && secLeft <= 3) {
+            TimerAudio.beep(660, 0.1, 1);
+            _emomTickedSec = secLeft;
+          }
+        } else if (emomRemaining > 3500) {
+          _emomTickedSec = 0;
+        }
       }
 
       // ── Tabata / custom interval phase tracking ──
