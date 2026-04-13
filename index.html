@@ -1862,6 +1862,56 @@
       }
     };
 
+    // ── Sequential timeline parser ──
+    // Scans workout lines top→bottom, classifies each as WORK / REST / TIME / exercise,
+    // then promotes standalone times to REST when they sit between two WORK phases.
+    // Returns only the timing-relevant phases: [{type:'work',seconds,label}, {type:'rest',seconds}, ...]
+    function buildWorkoutTimeline(lines) {
+      // Pass 1: classify each line
+      const classified = [];
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line || line === '__SPACER__') continue;
+
+        // WORK: AMRAP
+        let wm = line.match(/\b(?:([1-9]\d*)\s*(?:min\s+)?AMRAP|AMRAP\s+([1-9]\d*))\b/i);
+        if (wm) { classified.push({ type: 'work', seconds: parseInt(wm[1]||wm[2])*60, label: `AMRAP ${parseInt(wm[1]||wm[2])}′` }); continue; }
+        // WORK: E2MOM / E3MOM with total
+        wm = line.match(/\bE(\d)MOM\s+(\d+)/i);
+        if (wm) { classified.push({ type: 'work', seconds: parseInt(wm[2])*60, label: `E${wm[1]}MOM ${wm[2]}′` }); continue; }
+        // WORK: EMOM N
+        wm = line.match(/\bEMOM\s+(\d+)/i);
+        if (wm) { classified.push({ type: 'work', seconds: parseInt(wm[1])*60, label: `EMOM ${wm[1]}′` }); continue; }
+        // WORK: every X:XX ×N
+        wm = line.match(/\bevery\s+(\d+):(\d{2})\s*(?:x|×)\s*(\d+)/i);
+        if (wm) { const iv=parseInt(wm[1])*60+parseInt(wm[2]); classified.push({ type:'work', seconds:iv*parseInt(wm[3]), label:`Every ${wm[1]}:${wm[2]} ×${wm[3]}` }); continue; }
+
+        // REST: explicit ("2:00 rest", "rest 2:00", "2 min rest")
+        let rm = line.match(/(\d+):(\d{2})\s*rest/i) || line.match(/rest\s*(\d+):(\d{2})/i);
+        if (rm) { classified.push({ type: 'rest', seconds: parseInt(rm[1])*60+parseInt(rm[2]) }); continue; }
+        rm = line.match(/(\d+)\s*min(?:utes?)?\s*rest/i);
+        if (rm) { classified.push({ type: 'rest', seconds: parseInt(rm[1])*60 }); continue; }
+
+        // TIME_STANDALONE: "2:00" alone on a line (potential implicit rest)
+        const timeOnly = line.match(/^(\d+):(\d{2})$/);
+        if (timeOnly) {
+          const sec = parseInt(timeOnly[1])*60 + parseInt(timeOnly[2]);
+          if (sec >= 10 && sec <= 600) { classified.push({ type: 'time_standalone', seconds: sec }); continue; }
+        }
+        // Everything else: exercise text — no timing impact
+      }
+
+      // Pass 2: promote TIME_STANDALONE → REST when between two WORK phases
+      for (let i = 0; i < classified.length; i++) {
+        if (classified[i].type !== 'time_standalone') continue;
+        const hasBefore = classified.slice(0, i).some(c => c.type === 'work');
+        const hasAfter  = classified.slice(i + 1).some(c => c.type === 'work');
+        if (hasBefore && hasAfter) classified[i].type = 'rest';
+      }
+
+      return classified.filter(c => c.type === 'work' || c.type === 'rest');
+    }
+
     // Extract ALL timer configs from workout text lines (returns array)
     function extractTimerConfigs(lines) {
       if (!lines || lines.length === 0) return [];
@@ -1877,34 +1927,39 @@
         capSeconds = tv.includes(':') ? parseInt(tv.split(':')[0])*60 + parseInt(tv.split(':')[1]) : parseInt(tv)*60;
       }
 
-      // Chained AMRAPs: "AMRAP 10 ... 2:00 rest ... AMRAP 10 ... AMRAP 10"
-      // → one continuous work/rest timer (coach presses play once)
-      const amrapAll = [...text.matchAll(/\b(?:([1-9]\d*)\s*(?:min\s+)?AMRAP|AMRAP\s+([1-9]\d*))\s*:?/gi)];
-      let amrapsChained = false;
-      if (amrapAll.length >= 2) {
-        // Detect rest duration: "2:00 rest", "rest 2:00", "2 min rest"
-        const rm = text.match(/(\d+):(\d{2})\s*rest/i) || text.match(/rest\s*(\d+):(\d{2})/i);
-        const rm2 = !rm ? text.match(/(\d+)\s*min(?:utes?)?\s*rest/i) : null;
-        let chainRestSec = rm ? parseInt(rm[1]) * 60 + parseInt(rm[2])
-                         : rm2 ? parseInt(rm2[1]) * 60 : 0;
-        if (chainRestSec > 0) {
-          const durations = amrapAll.map(m => parseInt(m[1] || m[2]));
-          if (durations.every(d => d === durations[0])) {
-            const workSec = durations[0] * 60;
-            const restLabel = `${Math.floor(chainRestSec/60)}:${String(chainRestSec%60).padStart(2,'0')}`;
-            results.push({
-              type: 'tabata', workSeconds: workSec, restSeconds: chainRestSec,
-              rounds: amrapAll.length, skipLastRest: true,
-              label: `AMRAP ${durations[0]}′ ×${amrapAll.length} (${restLabel} rest)`
-            });
-            amrapsChained = true;
-          }
+      // ── Sequential timeline parser ──
+      // Scans lines top→bottom, builds [work, rest, work, rest, work] phases.
+      // If 2+ work phases with uniform durations + rest → one chained timer.
+      // Falls through to individual regex detection otherwise.
+      const timeline = buildWorkoutTimeline(lines);
+      const tlWork = timeline.filter(p => p.type === 'work');
+      const tlRest = timeline.filter(p => p.type === 'rest');
+      let chained = false;
+
+      if (tlWork.length >= 2 && tlRest.length >= 1) {
+        const totalSec = timeline.reduce((s, p) => s + p.seconds, 0);
+        const allSameWork = tlWork.every(p => p.seconds === tlWork[0].seconds);
+        const allSameRest = tlRest.every(p => p.seconds === tlRest[0].seconds);
+        // Sanity: total ≤90min, work ≥30s, rest ≤10min
+        if (allSameWork && allSameRest && totalSec <= 90 * 60
+            && tlWork[0].seconds >= 30 && tlRest[0].seconds <= 600) {
+          const workSec = tlWork[0].seconds;
+          const restSec = tlRest[0].seconds;
+          const workMins = Math.round(workSec / 60);
+          const restLabel = `${Math.floor(restSec/60)}:${String(restSec%60).padStart(2,'0')}`;
+          const timerName = tlWork[0].label.split(' ')[0]; // "AMRAP", "EMOM", etc.
+          results.push({
+            type: 'tabata', workSeconds: workSec, restSeconds: restSec,
+            rounds: tlWork.length, skipLastRest: true,
+            label: `${timerName} ${workMins}′ ×${tlWork.length} (${restLabel} rest)`
+          });
+          chained = true;
         }
       }
 
       // Find ALL AMRAP patterns — only if not already chained above
       let m;
-      if (!amrapsChained) {
+      if (!chained) {
         const amrapRe = /\b(?:([1-9]\d*)\s*(?:min\s+)?AMRAP|AMRAP\s+([1-9]\d*))\s*:?/gi;
         while ((m = amrapRe.exec(text)) !== null) {
           const mins = parseInt(m[1] || m[2]);
