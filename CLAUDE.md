@@ -126,23 +126,75 @@ Call `repositionQR()` 900ms after render and 350ms after mode switches.
 | Athletes, Badges, Challenges, Reactions, WODs, Announcements | Permanent |
 | TimerState | Single row, overwritten each command |
 
-## Timer System (added 2026-03-19)
+## Timer System (added 2026-03-19, phase-display added 2026-04-13)
 
 5th display mode (`mode-timer`). Timer engine runs client-side via `requestAnimationFrame`. Coach controls via Apps Script.
 
-**5 types:** AMRAP (countdown), For Time (count up + cap), EMOM (interval beeps), Tabata (work/rest), MIX (custom intervals)
+**6 types:** AMRAP (countdown), For Time (count up + cap), EMOM (interval beeps), Tabata (work/rest), Custom intervals (30/10 etc.), MIX (custom intervals)
 
 **State machine:** `idle → configured → countdown321 → running → paused → finished`
 
-**Audio:** Web Audio API — `TimerAudio` object with synthesized beeps, no external files.
+**Audio:** Web Audio API + 18 pre-rendered Harry voice MP3s (ElevenLabs) loaded as AudioBuffers for zero-latency playback.
 
 **Sync:** Coach POSTs `timerCommand` to Apps Script. Board polls `getTimerState` every 2s via JSONP. Timer runs locally (no network latency). `getTimerState` is exempt from PIN (like `getWorkoutSheet`).
 
 **Coach panel:** "⏱ טיימר" tab in coach.html. Type selector → config form → START/PAUSE/RESUME/RESET.
 
-**Status:** Phases 1-6 complete. **Apps Script must be redeployed** to coach's sheet for sync to work. Phase 7 (polish) pending.
+### Chained interval detection (`buildWorkoutTimeline`)
+Two-layer detection. Layer 1 sequential timeline parser scans lines top→bottom, classifies phases (WORK/REST/TIME_STANDALONE). If 2+ uniform WORK phases + REST found → one chained Tabata-style timer with `skipLastRest: true`. Layer 2 regex fallback (AMRAP N, EMOM N, every X:XX ×N, Tabata 20/10, custom on/off, For Time, t.c N) runs if no chain detected.
 
-## Open Questions (as of 2026-03-19)
+Sanity limits for chains: total ≤ 90 min, work ≥ 30s, rest ≤ 10 min, uniform durations only.
+
+Chained timer button label: `${timerName} ×${rounds} · ${workMins}' work / ${restShort} rest` → e.g. `AMRAP ×3 · 10' work / 2' rest`.
+
+### Switching clock display (phase-based, not total-based)
+For `timerType === 'tabata'` (real Tabata AND chained AMRAPs), the big clock shows the **current phase's remaining time**, not a single long countdown. A chained `AMRAP 10 × 3 + 2:00 rest` displays 10:00 → 0:00 → 2:00 → 0:00 → 10:00... matching real CrossFit interval timers.
+
+Set in `getTimerDisplayData()`:
+```js
+if (timerType === 'tabata' && timerState !== 'finished') {
+  displayMs = tabataPhaseRemaining;  // ← phase time, not total
+}
+```
+
+Additional fields returned: `tabataPhaseIndex`, `tabataTotalPhases` (= `skipLast ? rounds*2-1 : rounds*2`), `tabataWorkRound`, `tabataNextWorkRound`, `phaseProgress`, `overallRemainingMs`, `isChainedIntervals`.
+
+Helper: `fmtMMSS(ms)` formats a duration as `mm:ss`.
+
+### Display layout (fullscreen timer mode)
+- Type badge: `INTERVALS` when `skipLastRest === true` (chained AMRAPs), otherwise `TABATA` or raw type
+- Big phase label (6vw): `WORK` green `#22c55e` / `REST` red `#ef4444`, with text-shadow glow
+- Main clock (22vw): phase-remaining time
+- Round line (3vw): `Round 1/3` in WORK, `→ Round 2/3` in REST (what's coming up next)
+- Subline (1.6vw): `PHASE N/5 · TOTAL 33:54` — gives the overall context without stealing focus
+- Progress bar (10px): **per-phase**, green in WORK / red in REST
+- Background tint (alpha 0.18): green WORK / red REST
+- Paused overlay: `box-shadow: inset 0 0 0 2000px rgba(0,0,0,0.35)`; tint drops to alpha 0.08
+
+### Floating timer bar (over WOD content)
+Same logic adapted for compact horizontal bar. `borderColor` and `boxShadow` flip green/red by phase. Background uses a vertical gradient tinted by phase color (or solid dark `rgba(0,0,0,0.95)` when paused). Round line: `R1/3 · tot 33:54` or `→R2/3 · tot 23:54`.
+
+### Per-phase voice cues (chained timers only)
+Flags `_tabataPhaseHalfwayDone` / `_tabataPhaseOneMinDone` / `_tabataPhaseTenSecDone` reset on every phase transition (not just timer start). Triggers only during WORK phase:
+- `halfway` at 50% of a WORK phase ≥ 4 min (e.g. 5:00 into each AMRAP 10)
+- `one_minute_remaining` at T-60 of a WORK phase ≥ 3 min (e.g. 9:00 into each AMRAP 10)
+- `ten_seconds` at T-10 of a WORK phase ≥ 45s
+
+**IMPORTANT:** The total-time-based mid-workout cue block (line ~2320) is gated with `timerType !== 'tabata'` to prevent double-firing. Final 5-4-3-2-1 tick beeps still run off total remaining (no voice, just beeps).
+
+### Other audio cues (preserved from earlier)
+- Phase transition: `tabataWork()` high beep + `say('work')` at WORK start, `tabataRest()` low beep + `say('rest')` at REST start
+- Round announcements: `round_two`..`round_eight` spoken 0.6s after WORK start (to avoid overlap)
+- 3-2-1 warning ticks (660Hz) before every phase transition
+- EMOM interval warning ticks (added 2026-04-13)
+
+### SW Cache Versioning
+**Critical:** bump `CACHE_NAME` in `sw.js` on every code change (currently **v22**). Cache-first strategy means old clients serve stale code otherwise.
+
+**Status:** Chained interval display and per-phase voice cues implemented. **Apps Script must be redeployed** to coach's sheet for timer sync to work (console `_timerCb_` / `_scoreCb_` errors until deployed).
+
+## Open Questions (as of 2026-04-13)
 - Remove debug `[WORKOUT-FETCH]` console.log lines when stable
 - Test font sizes on actual gym TV
-- Deploy updated Apps Script for timer support
+- Deploy updated Apps Script for timer sync
+- Ask coach: WOD + CARDIO on one screen, or split into separate tabs?
