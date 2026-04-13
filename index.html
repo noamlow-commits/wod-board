@@ -4133,11 +4133,26 @@
 
     function setTvSection(section) {
       sectionFilter = section;
-      partFocusIndex = null;
       applySectionFilter();
+      // Preserve the currently-focused part index across section switches so
+      // the user stays in "part 2" view when flipping WOD ↔ CARDIO. Clamp to
+      // the new section's max part count. If the new section has no parts,
+      // drop out of focus/center mode entirely.
+      if (partFocusIndex !== null) {
+        const newMax = getMaxParts();
+        if (newMax === 0) {
+          partFocusIndex = null;
+          centerFocus = false;
+        } else if (partFocusIndex >= newMax) {
+          partFocusIndex = newMax - 1;
+        }
+      }
       document.documentElement.style.setProperty('--font-scale', '0.4');
       requestAnimationFrame(() => {
         applyPartFocus();
+        // Re-render the center overlay so it shows the new section's part
+        // instead of staying frozen on the previous section's content.
+        applyCenterFocus();
         autoFitFontSize();
         setTimeout(() => autoFitFontSize(), 150);
         setTimeout(() => autoFitFontSize(), 400);
