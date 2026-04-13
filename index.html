@@ -2456,12 +2456,37 @@
         }
       }
 
+      // EMOM interval (same "switching clock" idea — big clock shows interval remaining)
+      // ────────────────────────────────────────────────────────────────────────────
+      // For EMOM 1:30 ×4 the clock shows 1:30 → 0:00 → 1:30 → 0:00 → 1:30...
+      // rather than a single 6:00 countdown.
+      let emomIntervalRemaining = 0;
+      let emomIntervalTotal = 0;
+      let emomCurrentRound = 0;
+      let emomTotalRoundsDisplay = 0;
+      if (timerType === 'emom') {
+        const ivMs = (timerConfig.intervalSeconds || 60) * 1000;
+        emomIntervalTotal = ivMs;
+        emomTotalRoundsDisplay = Math.max(1, Math.ceil(totalMs / ivMs));
+        if (totalMs > 0 && totalElapsed >= totalMs) {
+          emomCurrentRound = emomTotalRoundsDisplay;
+          emomIntervalRemaining = 0;
+        } else {
+          emomCurrentRound = Math.floor(totalElapsed / ivMs) + 1;
+          const inInterval = totalElapsed % ivMs;
+          emomIntervalRemaining = ivMs - inInterval;
+        }
+      }
+
       let displayMs;
       if (timerType === 'fortime') {
         displayMs = totalElapsed; // count up
       } else if (timerType === 'tabata' && timerState !== 'finished') {
         // Phase-based countdown — main number switches between work/rest durations
         displayMs = tabataPhaseRemaining;
+      } else if (timerType === 'emom' && timerState !== 'finished') {
+        // Interval-based countdown — main number resets each interval
+        displayMs = emomIntervalRemaining;
       } else if (totalMs > 0) {
         displayMs = Math.max(0, totalMs - totalElapsed); // count down
       } else {
@@ -2477,10 +2502,14 @@
       const overallMins = Math.floor(overallRemainingMs / 60000);
       const overallSecs = Math.floor((overallRemainingMs % 60000) / 1000);
 
-      // Per-phase progress (for the "bar" under the clock when in tabata mode)
-      const phaseProgress = tabataPhaseTotal > 0
-        ? Math.min(1, (tabataPhaseTotal - tabataPhaseRemaining) / tabataPhaseTotal)
-        : 0;
+      // Per-phase progress (for the "bar" under the clock)
+      // Uses tabata phase for tabata timers, EMOM interval for EMOM timers
+      let phaseProgress = 0;
+      if (timerType === 'tabata' && tabataPhaseTotal > 0) {
+        phaseProgress = Math.min(1, (tabataPhaseTotal - tabataPhaseRemaining) / tabataPhaseTotal);
+      } else if (timerType === 'emom' && emomIntervalTotal > 0) {
+        phaseProgress = Math.min(1, (emomIntervalTotal - emomIntervalRemaining) / emomIntervalTotal);
+      }
 
       // MIX current interval name
       let mixIntervalName = '';
@@ -2506,6 +2535,8 @@
                tabataPhase, tabataPhaseRemaining, tabataPhaseTotal,
                tabataPhaseIndex, tabataTotalPhases,
                tabataWorkRound, tabataNextWorkRound,
+               emomIntervalRemaining, emomIntervalTotal,
+               emomCurrentRound, emomTotalRoundsDisplay,
                phaseProgress, overallRemainingMs, overallMins, overallSecs,
                isChainedIntervals, mixIntervalName,
                round: timerRound, totalRounds };
@@ -2543,6 +2574,10 @@
         bgColor = d.tabataPhase === 'work'
           ? `rgba(34,197,94,${intensity})`
           : `rgba(239,68,68,${intensity})`;
+      } else if (timerType === 'emom' && (timerState === 'running' || timerState === 'paused')) {
+        // EMOM — orange tint, no work/rest split
+        const intensity = timerState === 'paused' ? 0.08 : 0.15;
+        bgColor = `rgba(249,115,22,${intensity})`;
       }
       // Global paused overlay — darken everything a bit
       const pausedDim = timerState === 'paused'
@@ -2564,6 +2599,8 @@
         } else {
           roundInfo = `<div style="font-size:3vw;color:#aaa;margin-top:0.4vw;">Round ${d.tabataWorkRound} / ${rounds}</div>`;
         }
+      } else if (timerType === 'emom' && d.emomTotalRoundsDisplay > 0) {
+        roundInfo = `<div style="font-size:3vw;color:#aaa;margin-top:0.4vw;">Round ${d.emomCurrentRound} / ${d.emomTotalRoundsDisplay}</div>`;
       } else if (d.totalRounds > 0) {
         roundInfo = `<div style="font-size:3vw;color:#aaa;margin-top:0.4vw;">Round ${d.round} / ${d.totalRounds}</div>`;
       }
@@ -2584,20 +2621,25 @@
       if (d.isChainedIntervals) badgeText = 'INTERVALS';
       const typeBadge = badgeText ? `<div style="font-size:1.8vw;color:#888;text-transform:uppercase;letter-spacing:0.3em;">${badgeText}</div>` : '';
 
-      // Secondary "total remaining" indicator — only for tabata (since the big clock is phase-based)
+      // Secondary "total remaining" indicator — for tabata AND emom (both use phase-based big clock)
       let overallInfo = '';
       if (timerType === 'tabata' && d.totalMs > 0) {
         const overallStr = fmtMMSS(d.overallRemainingMs);
         overallInfo = `<div style="font-size:1.6vw;color:#666;margin-top:0.8vw;letter-spacing:0.1em;">PHASE ${d.tabataPhaseIndex}/${d.tabataTotalPhases} · TOTAL ${overallStr}</div>`;
+      } else if (timerType === 'emom' && d.totalMs > 0) {
+        const overallStr = fmtMMSS(d.overallRemainingMs);
+        overallInfo = `<div style="font-size:1.6vw;color:#666;margin-top:0.8vw;letter-spacing:0.1em;">INTERVAL ${d.emomCurrentRound}/${d.emomTotalRoundsDisplay} · TOTAL ${overallStr}</div>`;
       }
 
-      // Progress bar — PHASE progress for tabata, overall progress otherwise
+      // Progress bar — PHASE progress for tabata/emom, overall progress otherwise
       let progressBar = '';
       if (timerType === 'tabata' && (timerState === 'running' || timerState === 'paused')) {
         const barColor = d.tabataPhase === 'work'
           ? 'linear-gradient(90deg,#22c55e,#16a34a)'
           : 'linear-gradient(90deg,#ef4444,#dc2626)';
         progressBar = `<div style="position:absolute;bottom:0;left:0;width:${d.phaseProgress*100}%;height:10px;background:${barColor};transition:width 0.1s;"></div>`;
+      } else if (timerType === 'emom' && (timerState === 'running' || timerState === 'paused')) {
+        progressBar = `<div style="position:absolute;bottom:0;left:0;width:${d.phaseProgress*100}%;height:10px;background:linear-gradient(90deg,#f97316,#ea580c);transition:width 0.1s;"></div>`;
       } else if (d.totalMs > 0) {
         progressBar = `<div style="position:absolute;bottom:0;left:0;width:${d.progress*100}%;height:8px;background:linear-gradient(90deg,#f97316,#ef4444);transition:width 0.1s;"></div>`;
       }
@@ -4277,6 +4319,12 @@
           : (d.tabataPhase === 'work'
               ? 'linear-gradient(180deg, rgba(34,197,94,0.18), rgba(0,0,0,0.92))'
               : 'linear-gradient(180deg, rgba(239,68,68,0.18), rgba(0,0,0,0.92))');
+      } else if (timerType === 'emom' && (timerState === 'running' || timerState === 'paused')) {
+        bar.style.borderColor = '#f97316';
+        bar.style.boxShadow = '0 0 20px rgba(249,115,22,0.4)';
+        bar.style.background = timerState === 'paused'
+          ? 'rgba(0,0,0,0.95)'
+          : 'linear-gradient(180deg, rgba(249,115,22,0.18), rgba(0,0,0,0.92))';
       } else {
         bar.style.borderColor = '#f97316';
         bar.style.boxShadow = '0 0 20px rgba(249,115,22,0.3)';
@@ -4310,6 +4358,8 @@
         } else {
           roundEl.textContent = `R${d.tabataWorkRound}/${d.totalRounds} · tot ${fmtMMSS(d.overallRemainingMs)}`;
         }
+      } else if (timerType === 'emom' && d.emomTotalRoundsDisplay > 0) {
+        roundEl.textContent = `R${d.emomCurrentRound}/${d.emomTotalRoundsDisplay} · tot ${fmtMMSS(d.overallRemainingMs)}`;
       } else {
         roundEl.textContent = d.totalRounds > 0 ? `R${d.round}/${d.totalRounds}` : '';
       }
