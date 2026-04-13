@@ -1877,12 +1877,39 @@
         capSeconds = tv.includes(':') ? parseInt(tv.split(':')[0])*60 + parseInt(tv.split(':')[1]) : parseInt(tv)*60;
       }
 
-      // Find ALL AMRAP patterns (e.g., "30 MIN AMRAP", "AMRAP 15:", "amrap 10")
-      const amrapRe = /\b(?:(\d+)\s*(?:min\s+)?AMRAP|AMRAP\s+(\d+))\s*:?/gi;
+      // Chained AMRAPs: "AMRAP 10 ... 2:00 rest ... AMRAP 10 ... AMRAP 10"
+      // → one continuous work/rest timer (coach presses play once)
+      const amrapAll = [...text.matchAll(/\b(?:([1-9]\d*)\s*(?:min\s+)?AMRAP|AMRAP\s+([1-9]\d*))\s*:?/gi)];
+      let amrapsChained = false;
+      if (amrapAll.length >= 2) {
+        // Detect rest duration: "2:00 rest", "rest 2:00", "2 min rest"
+        const rm = text.match(/(\d+):(\d{2})\s*rest/i) || text.match(/rest\s*(\d+):(\d{2})/i);
+        const rm2 = !rm ? text.match(/(\d+)\s*min(?:utes?)?\s*rest/i) : null;
+        let chainRestSec = rm ? parseInt(rm[1]) * 60 + parseInt(rm[2])
+                         : rm2 ? parseInt(rm2[1]) * 60 : 0;
+        if (chainRestSec > 0) {
+          const durations = amrapAll.map(m => parseInt(m[1] || m[2]));
+          if (durations.every(d => d === durations[0])) {
+            const workSec = durations[0] * 60;
+            const restLabel = `${Math.floor(chainRestSec/60)}:${String(chainRestSec%60).padStart(2,'0')}`;
+            results.push({
+              type: 'tabata', workSeconds: workSec, restSeconds: chainRestSec,
+              rounds: amrapAll.length, skipLastRest: true,
+              label: `AMRAP ${durations[0]}′ ×${amrapAll.length} (${restLabel} rest)`
+            });
+            amrapsChained = true;
+          }
+        }
+      }
+
+      // Find ALL AMRAP patterns — only if not already chained above
       let m;
-      while ((m = amrapRe.exec(text)) !== null) {
-        const mins = parseInt(m[1] || m[2]);
-        results.push({ type: 'amrap', totalSeconds: mins * 60, label: `AMRAP ${mins}′` });
+      if (!amrapsChained) {
+        const amrapRe = /\b(?:([1-9]\d*)\s*(?:min\s+)?AMRAP|AMRAP\s+([1-9]\d*))\s*:?/gi;
+        while ((m = amrapRe.exec(text)) !== null) {
+          const mins = parseInt(m[1] || m[2]);
+          results.push({ type: 'amrap', totalSeconds: mins * 60, label: `AMRAP ${mins}′` });
+        }
       }
 
       // EMOM patterns
@@ -2097,6 +2124,8 @@
           const w = timerConfig.workSeconds || 20;
           const r = timerConfig.restSeconds || 10;
           const rounds = timerConfig.rounds || 8;
+          // skipLastRest: chained AMRAPs end after the last work phase (no trailing rest)
+          if (timerConfig.skipLastRest) return (w * rounds + r * (rounds - 1)) * 1000;
           return (w + r) * rounds * 1000;
         }
         case 'mix': {
