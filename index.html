@@ -1898,12 +1898,27 @@
         results.push({ type: 'emom', totalSeconds: parseInt(m[1]) * 60, intervalSeconds: 60, label: `EMOM ${m[1]}′` });
       }
 
-      // every X:XX xN
+      // every X:XX xN  (explicit multiplier)
       m = text.match(/\bevery\s+(\d+):(\d{2})\s*(?:x|×)\s*(\d+)/i);
       if (m) {
         const iv = parseInt(m[1])*60 + parseInt(m[2]);
         const rounds = parseInt(m[3]);
         results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv, label: `Every ${m[1]}:${m[2]} ×${rounds}` });
+      }
+      // every X:XX without ×N — look for "N sets" or "N rounds" in surrounding text
+      if (!m) {
+        m = text.match(/\bevery\s+(\d+):(\d{2})/i);
+        if (m && !results.some(r => r.type === 'emom')) {
+          const iv = parseInt(m[1])*60 + parseInt(m[2]);
+          const setsMatch = text.match(/(\d+)\s*sets?\b/i);
+          const roundsMatch = text.match(/(\d+)\s*rounds?\b/i);
+          let rounds = setsMatch ? parseInt(setsMatch[1]) : roundsMatch ? parseInt(roundsMatch[1]) : 0;
+          if (rounds === 0) {
+            const exerciseLines = lines.filter(l => /^\s*\d/.test(l) && !/^\s*\d+\s*(sec|on|off|work|rest|min|set|round)/i.test(l));
+            rounds = exerciseLines.length || 5;
+          }
+          results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv, label: `Every ${m[1]}:${m[2]} ×${rounds}` });
+        }
       }
 
       // Tabata — either the word "tabata" or custom work/rest patterns
@@ -3172,7 +3187,13 @@
           } else {
             // Content cell — use column header, or fallback to column letter
             // Filter out lines that are bare URLs (e.g. emergency links stored in the sheet)
-            const rawLines = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*/)).map(l => l.trim());
+            const rawLines = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*/))
+              // Auto-split lines where exercises are concatenated (missing newline in sheet).
+              // E.g. "press4 clean" → ["press", "4 clean"]
+              // Only when a lowercase/Hebrew letter directly touches a digit+space+word.
+              // No i flag: uppercase letters excluded (preserves exercise labels like A1, B2)
+              .flatMap(l => l.split(/(?<=[a-z\u0590-\u05FF])(?=\d+\s+[a-zA-Z\u0590-\u05FF])/))
+              .map(l => l.trim());
             // Preserve empty lines as '__SPACER__', filter bare URLs
             const lines = [];
             let lastWasContent = false;
@@ -4242,7 +4263,9 @@
           if (!label && val.length <= LABEL_MAX_LEN && lineCount === 1 && !isNamedHeader) {
             label = val;
           } else {
-            const rawLines2 = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*/)).map(l => l.trim());
+            const rawLines2 = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*/))
+              .flatMap(l => l.split(/(?<=[a-z\u0590-\u05FF])(?=\d+\s+[a-zA-Z\u0590-\u05FF])/))
+              .map(l => l.trim());
             const lines = [];
             let lastWas2 = false;
             for (const l of rawLines2) {
