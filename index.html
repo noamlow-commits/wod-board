@@ -2017,10 +2017,9 @@
       //   "work 30 sec rest 10 sec"
       //   Optional: "x5", "x 8", "× 6" at the end for round count
       if (!results.some(r => r.type === 'tabata')) {
-        // Pattern A: "N sec work ... M sec rest" (with or without "sec")
-        let wr = text.match(/(\d+)\s*(?:sec(?:onds?)?)\s*(?:work|on)\s*[,/\-]?\s*(\d+)\s*(?:sec(?:onds?)?)\s*(?:rest|off)/i);
-        // Pattern B: "N on M off" (no "sec" keyword)
-        if (!wr) wr = text.match(/(\d+)\s*(?:work|on)\s*[,/\-]?\s*(\d+)\s*(?:rest|off)/i);
+        // Pattern A: "N sec work ... M sec rest" — "sec" optional on each side
+        //   matches "30 sec work, 10 sec rest", "30 sec work, 10 rest", "30 work 10 sec rest"
+        let wr = text.match(/(\d+)\s*(?:sec(?:onds?)?)?\s*(?:work|on)\s*[,/\-]?\s*(\d+)\s*(?:sec(?:onds?)?)?\s*(?:rest|off)/i);
         // Pattern C: "0:30 work / 0:10 rest"
         if (!wr) {
           const mm = text.match(/(\d+):(\d{2})\s*(?:work|on)\s*[,/\-]?\s*(\d+):(\d{2})\s*(?:rest|off)/i);
