@@ -162,7 +162,7 @@
 
     /* When floating timer bar is enlarged, push content up */
     .main-content.timer-active {
-      padding-bottom: calc(8vw + 7rem);
+      padding-bottom: calc(8vw + 5.5rem);
     }
     /* Compact spacing: tighten gaps and padding when timer is running */
     .main-content.timer-active .flow-columns {
@@ -1567,17 +1567,17 @@
   </div>
 
   <!-- Floating Timer Bar (shows over WOD content when timer is running) -->
-  <div id="floatingTimerBar" style="display:none;position:fixed;bottom:4.5rem;left:2.5%;width:95%;z-index:9300;background:rgba(0,0,0,0.92);border:2px solid #f97316;border-radius:14px;padding:0.6rem 2.5vw;align-items:center;justify-content:center;gap:2vw;font-variant-numeric:tabular-nums;backdrop-filter:blur(10px);box-shadow:0 0 30px rgba(249,115,22,0.35);">
-    <span id="ftbPhase" style="font-weight:900;font-size:3.5vw;min-width:5vw;text-align:center;"></span>
-    <span id="ftbTime" style="color:#fff;font-weight:900;font-size:8vw;letter-spacing:0.04em;line-height:1;"></span>
+  <div id="floatingTimerBar" style="display:none;position:fixed;bottom:4.2rem;left:2.5%;width:95%;z-index:9300;background:rgba(0,0,0,0.88);border-top:3px solid #f97316;padding:0.15rem 2vw;align-items:center;justify-content:center;gap:1.5vw;font-variant-numeric:tabular-nums;backdrop-filter:blur(8px);">
+    <span id="ftbPhase" style="font-weight:900;font-size:3.5vw;min-width:4vw;text-align:center;"></span>
+    <span id="ftbTime" style="color:#fff;font-weight:900;font-size:8vw;letter-spacing:0.04em;line-height:0.95;"></span>
     <span id="ftbRound" style="color:#aaa;font-size:2vw;white-space:nowrap;"></span>
     <span id="ftbType" style="color:#f97316;font-weight:700;font-size:1.5vw;text-transform:uppercase;white-space:nowrap;"></span>
-    <div style="display:flex;gap:0.5vw;align-items:center;">
-      <button onclick="pauseTimer();updateFloatingTimerBar();" style="background:none;border:1px solid #666;border-radius:8px;color:#fbbf24;padding:0.3rem 0.6rem;cursor:pointer;font-size:1.5vw;" title="השהה">⏸</button>
-      <button id="ftbVoiceBtn" onclick="toggleTimerVoice();" style="background:none;border:1px solid #666;border-radius:8px;color:#22c55e;padding:0.3rem 0.6rem;cursor:pointer;font-size:1.5vw;" title="קול מאמן (כן/לא)">🔊</button>
-      <button onclick="coachStopTimer();hideFloatingTimerBar();" style="background:none;border:1px solid #666;border-radius:8px;color:#ef4444;padding:0.3rem 0.6rem;cursor:pointer;font-size:1.5vw;" title="עצור">⏹</button>
+    <div style="display:flex;gap:0.4vw;align-items:center;">
+      <button onclick="pauseTimer();updateFloatingTimerBar();" style="background:none;border:1px solid #555;border-radius:6px;color:#fbbf24;padding:0.15rem 0.4rem;cursor:pointer;font-size:1.3vw;" title="השהה">⏸</button>
+      <button id="ftbVoiceBtn" onclick="toggleTimerVoice();" style="background:none;border:1px solid #555;border-radius:6px;color:#22c55e;padding:0.15rem 0.4rem;cursor:pointer;font-size:1.3vw;" title="קול מאמן (כן/לא)">🔊</button>
+      <button onclick="coachStopTimer();hideFloatingTimerBar();" style="background:none;border:1px solid #555;border-radius:6px;color:#ef4444;padding:0.15rem 0.4rem;cursor:pointer;font-size:1.3vw;" title="עצור">⏹</button>
     </div>
-    <div id="ftbProgress" style="position:absolute;bottom:0;left:0;height:0.6vh;border-radius:0 0 12px 12px;transition:width 0.15s;"></div>
+    <div id="ftbProgress" style="position:absolute;bottom:0;left:0;height:3px;transition:width 0.15s;"></div>
   </div>
 
   <!-- TV Navigation Panel (floating, controlled by remote D-pad) -->
@@ -2950,7 +2950,7 @@
 
       const margin = 10;
       const timerBarVisible = document.getElementById('floatingTimerBar')?.style.display === 'flex';
-      const navClearance = timerBarVisible ? 260 : 72; // extra clearance for enlarged timer bar
+      const navClearance = timerBarVisible ? 220 : 72; // extra clearance for enlarged timer bar
       const topBarH = 86;      // clear header bar
       const qrRect = qr.getBoundingClientRect();
       const qrW = qrRect.width  || 110;
