@@ -162,7 +162,7 @@
 
     /* When floating timer bar is enlarged, push content up */
     .main-content.timer-active {
-      padding-bottom: calc(8vw + 5.5rem);
+      padding-bottom: calc(8vw + 5rem);
     }
     /* Compact spacing: tighten gaps and padding when timer is running */
     .main-content.timer-active .flow-columns {
@@ -1567,7 +1567,7 @@
   </div>
 
   <!-- Floating Timer Bar (shows over WOD content when timer is running) -->
-  <div id="floatingTimerBar" style="display:none;position:fixed;bottom:4.2rem;left:2.5%;width:95%;z-index:9300;background:rgba(0,0,0,0.88);border-top:3px solid #f97316;padding:0.15rem 2vw;align-items:center;justify-content:center;gap:1.5vw;font-variant-numeric:tabular-nums;backdrop-filter:blur(8px);">
+  <div id="floatingTimerBar" style="display:none;position:fixed;bottom:4.2rem;left:50%;transform:translateX(-50%);z-index:9300;background:rgba(0,0,0,0.85);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:0 1.5vw;align-items:center;gap:1.2vw;font-variant-numeric:tabular-nums;backdrop-filter:blur(6px);">
     <span id="ftbPhase" style="font-weight:900;font-size:3.5vw;min-width:4vw;text-align:center;"></span>
     <span id="ftbTime" style="color:#fff;font-weight:900;font-size:8vw;letter-spacing:0.04em;line-height:0.95;"></span>
     <span id="ftbRound" style="color:#aaa;font-size:2vw;white-space:nowrap;"></span>
@@ -1577,7 +1577,7 @@
       <button id="ftbVoiceBtn" onclick="toggleTimerVoice();" style="background:none;border:1px solid #555;border-radius:6px;color:#22c55e;padding:0.15rem 0.4rem;cursor:pointer;font-size:1.3vw;" title="קול מאמן (כן/לא)">🔊</button>
       <button onclick="coachStopTimer();hideFloatingTimerBar();" style="background:none;border:1px solid #555;border-radius:6px;color:#ef4444;padding:0.15rem 0.4rem;cursor:pointer;font-size:1.3vw;" title="עצור">⏹</button>
     </div>
-    <div id="ftbProgress" style="position:absolute;bottom:0;left:0;height:3px;transition:width 0.15s;"></div>
+    <div id="ftbProgress" style="position:absolute;bottom:0;left:0;height:3px;border-radius:0 0 10px 10px;transition:width 0.15s;"></div>
   </div>
 
   <!-- TV Navigation Panel (floating, controlled by remote D-pad) -->
