@@ -3733,7 +3733,8 @@
               else if (/\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom/i.test(line)) inWarmup = false;
               const parsed = parseLine(line);
               const ec = parsed.extraClass ? ' ' + parsed.extraClass : '';
-              allItems.push({ type: 'line', section: currentSection, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}" dir="auto">${parsed.html}</div>` });
+              const isGrpHdr = /^[A-Z]\s*[\.\-\)]\s+/i.test(line);
+              allItems.push({ type: 'line', section: currentSection, isGroupHeader: isGrpHdr, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}" dir="auto">${parsed.html}</div>` });
             }
           }
           // Inject Rx cells as a badge at the end of the last section (appears under the main workout)
@@ -3786,6 +3787,28 @@
                 }
                 if (bestBreak > breaks[breaks.length - 1] + 2) {
                   breaks.push(bestBreak);
+                }
+              }
+            } else if (colSize >= 5) {
+              // Group-header splitting: A./B./C. exercise groups create natural
+              // column breaks even when section doesn't exceed MAX_PER_COL.
+              // This gives a balanced 2-column layout when viewing a single part.
+              const sectionGroupHdrs = [];
+              for (let idx = start + 1; idx < end; idx++) {
+                if (allItems[idx].isGroupHeader) sectionGroupHdrs.push(idx);
+              }
+              if (sectionGroupHdrs.length >= 2) {
+                // Find the most balanced split point among group headers
+                const mid = (start + end) / 2;
+                let bestSplit = sectionGroupHdrs[1];
+                let bestDist = Math.abs(sectionGroupHdrs[1] - mid);
+                for (let g = 1; g < sectionGroupHdrs.length; g++) {
+                  const dist = Math.abs(sectionGroupHdrs[g] - mid);
+                  if (dist < bestDist) { bestDist = dist; bestSplit = sectionGroupHdrs[g]; }
+                }
+                // Only split if each half has ≥ 2 items (header side ≥ 3 incl. header)
+                if (bestSplit - start >= 3 && end - bestSplit >= 2) {
+                  breaks.push(bestSplit);
                 }
               }
             }
@@ -4425,22 +4448,30 @@
             headerText = hdrEl.textContent.trim();
             headerBg = getComputedStyle(hdrEl).background;
           }
-          // Get body content — FLATTEN newspaper columns into a single in-order flow
-          // so stations (e.g. Work+Hold pairs) never split across columns in the overlay.
+          // Get body content
           const clone = part.cloneNode(true);
           clone.querySelectorAll('.flow-section-header, .card-header').forEach(el => el.remove());
           clone.style.cssText = 'flex:1;max-width:100%;width:100%;';
-          // Collect all exercise-lines in document order and rebuild as a single flow-col.
-          // This preserves the original line order while eliminating the newspaper split
-          // that splits logical groups (e.g. Station 2's WORK at bottom of col-1 and HOLD
-          // at top of col-2).
-          const flatLines = Array.from(clone.querySelectorAll('.exercise-line'))
-            .map(el => el.outerHTML).join('');
-          if (flatLines) {
-            // Plain div (NOT .flow-col — it has overflow:hidden which hides the
-            // binary-search's overflow detection, causing the font to stay huge
-            // and the bottom rows to clip).
-            clone.innerHTML = `<div class="tvo-flat" style="width:100%;max-width:100%;">${flatLines}</div>`;
+          // Check if part has group-header sub-columns (A./B. split)
+          const subCols = clone.querySelector('.flow-span-cols');
+          if (subCols) {
+            // Preserve 2-column layout for group-header-based splits.
+            // Override overflow:hidden on flow-cols so binary search detects clipping.
+            clone.querySelectorAll('.flow-col').forEach(el => {
+              el.style.overflow = 'visible';
+            });
+            subCols.style.width = '100%';
+          } else {
+            // FLATTEN newspaper columns into a single in-order flow
+            // so stations (e.g. Work+Hold pairs) never split across columns in the overlay.
+            const flatLines = Array.from(clone.querySelectorAll('.exercise-line'))
+              .map(el => el.outerHTML).join('');
+            if (flatLines) {
+              // Plain div (NOT .flow-col — it has overflow:hidden which hides the
+              // binary-search's overflow detection, causing the font to stay huge
+              // and the bottom rows to clip).
+              clone.innerHTML = `<div class="tvo-flat" style="width:100%;max-width:100%;">${flatLines}</div>`;
+            }
           }
           rowParts.push({ label: rowLabel, html: clone.innerHTML });
         });
