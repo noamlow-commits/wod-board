@@ -158,12 +158,11 @@
       padding: 0.8rem 1.5rem 5.5rem;
       height: calc(100vh - 80px);
       gap: 0.6rem;
-      transition: padding-bottom 0.3s ease;
     }
 
     /* When floating timer bar is enlarged, push content up */
     .main-content.timer-active {
-      padding-bottom: 13rem;
+      padding-bottom: calc(8vw + 7rem);
     }
     /* Compact spacing: tighten gaps and padding when timer is running */
     .main-content.timer-active .flow-columns {
@@ -4353,9 +4352,11 @@
       // Activate compact + enlarged-padding mode
       const mc = document.querySelector('.main-content');
       if (mc) mc.classList.add('timer-active');
-      // Re-fit after layout change
+      // Re-fit after layout change — double pass to ensure DOM has settled
       document.documentElement.style.setProperty('--font-scale', '0.4');
-      requestAnimationFrame(() => { autoFitFontSize(); setTimeout(() => autoFitFontSize(), 250); });
+      // Force reflow so padding change is applied before autoFit measures
+      if (mc) mc.offsetHeight;
+      requestAnimationFrame(() => { autoFitFontSize(); setTimeout(() => autoFitFontSize(), 300); });
     }
 
     function hideFloatingTimerBar() {
