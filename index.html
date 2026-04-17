@@ -160,89 +160,62 @@
       gap: 0.6rem;
     }
 
-    /* Side timer panel */
-    .side-timer {
+    /* Floating timer clock (compact, corner-positioned like QR) */
+    .timer-float {
       display: none;
       position: fixed;
-      right: 0;
-      top: 80px;
-      bottom: 0;
-      width: 22vw;
-      min-width: 180px;
-      max-width: 380px;
-      z-index: 9300;
-      background: rgba(10, 10, 10, 0.95);
-      border-left: 2px solid #333;
+      z-index: 9400;
+      background: rgba(0, 0, 0, 0.88);
+      border-radius: 10px;
+      padding: 0.4rem 0.8rem;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      gap: 0.8vh;
       font-variant-numeric: tabular-nums;
-      box-sizing: border-box;
-      padding: 1rem 0.5rem;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.08);
     }
-    .side-timer.open { display: flex; }
-    .side-timer #ftbTime {
+    .timer-float.open { display: flex; }
+    .timer-float #ftbTime {
       color: #fff;
       font-weight: 900;
-      font-size: 7vw;
+      font-size: 5.5vw;
       letter-spacing: 0.03em;
       line-height: 0.85;
-      text-align: center;
     }
-    .side-timer #ftbPhase {
+    .timer-float #ftbPhase {
       font-weight: 900;
-      font-size: 2.8vw;
-      text-align: center;
-      min-height: 1em;
+      font-size: 2vw;
     }
-    .side-timer #ftbType {
+    .timer-float #ftbType {
       color: #f97316;
       font-weight: 700;
-      font-size: 1.4vw;
+      font-size: 1vw;
       text-transform: uppercase;
       letter-spacing: 0.15em;
     }
-    .side-timer #ftbRound {
+    .timer-float #ftbRound {
       color: #aaa;
-      font-size: 1.6vw;
-      text-align: center;
+      font-size: 1.2vw;
     }
-    .side-timer #ftbProgress {
-      width: 80%;
-      height: 4px;
+    .timer-float #ftbProgress {
+      width: 90%;
+      height: 3px;
       border-radius: 2px;
-      background: #333;
-      position: relative;
-      overflow: hidden;
-      margin-top: 0.5vh;
+      margin-top: 0.3rem;
     }
-    .side-timer-btns {
-      display: flex;
-      gap: 0.6rem;
-      margin-top: 1vh;
-    }
-    .side-timer-btns button {
-      background: none;
-      border: 1px solid #555;
-      border-radius: 8px;
-      padding: 0.4rem 0.6rem;
+    /* Timer control buttons in nav panel (shown when timer is running) */
+    .tv-timer-controls { display: none; }
+    .tv-timer-controls.visible { display: flex; gap: 0.3rem; align-items: center; }
+    .tv-timer-controls button {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 0.65rem;
+      padding: 0.45rem 0.7rem;
+      font-size: 1rem;
       cursor: pointer;
-      font-size: 1.4vw;
       color: #fbbf24;
     }
-    .side-timer-btns .stop-btn { color: #ef4444; }
-    /* Shrink content width when timer is active */
-    .main-content.timer-active {
-      margin-right: calc(22vw + 0.5rem);
-    }
-    @media (min-width: 1800px) {
-      .main-content.timer-active { margin-right: calc(380px + 0.5rem); }
-    }
-    /* Center overlay also respects the side panel */
-    #tvCenterOverlay.timer-active-overlay {
-      right: calc(22vw + 0.5rem);
-    }
+    .tv-timer-controls .stop-btn { color: #ef4444; }
 
     #wodArea {
       display: flex;
@@ -1628,18 +1601,13 @@
     <div class="tvo-body" id="tvoCenterBody"></div>
   </div>
 
-  <!-- Side Timer Panel (shows on the right when timer is running) -->
-  <div id="floatingTimerBar" class="side-timer">
+  <!-- Floating Timer Clock (compact corner element, like QR) -->
+  <div id="floatingTimerBar" class="timer-float">
     <span id="ftbType"></span>
     <span id="ftbPhase"></span>
     <span id="ftbTime"></span>
     <span id="ftbRound"></span>
     <div id="ftbProgress"></div>
-    <div class="side-timer-btns">
-      <button onclick="pauseTimer();updateFloatingTimerBar();" title="השהה">⏸</button>
-      <button id="ftbVoiceBtn" onclick="toggleTimerVoice();" title="קול מאמן">🔊</button>
-      <button onclick="coachStopTimer();hideFloatingTimerBar();" class="stop-btn" title="עצור">⏹</button>
-    </div>
   </div>
 
   <!-- TV Navigation Panel (floating, controlled by remote D-pad) -->
@@ -1650,6 +1618,11 @@
     <button class="tv-btn" id="tvCenterBtn" onclick="toggleCenterFocus()" tabindex="0" title="מרכז את החלק במסך">⊙</button>
     <button class="tv-btn" id="tvTimerBtn" onclick="startPartTimer()" tabindex="0" title="הפעל טיימר — לחיצה ארוכה לסייקול" style="display:none;">▶ <span id="tvTimerLabel"></span></button>
     <button class="tv-btn" id="tvTimerCycleBtn" onclick="cyclePartTimer()" tabindex="0" title="החלף טיימר" style="display:none;">⏱↻</button>
+    <div class="tv-timer-controls" id="tvTimerControls">
+      <button onclick="pauseTimer();updateFloatingTimerBar();" title="השהה/המשך">⏸</button>
+      <button id="ftbVoiceBtn" onclick="toggleTimerVoice();" title="קול מאמן">🔊</button>
+      <button onclick="coachStopTimer();hideFloatingTimerBar();" class="stop-btn" title="עצור">⏹</button>
+    </div>
     <div class="tv-sep"></div>
     <button class="tv-btn tv-active" id="tvBtnAll" onclick="setTvSection(null)" tabindex="0" style="display:none;">הכל</button>
     <button class="tv-btn" id="tvBtnWod" data-section="WOD" onclick="setTvSection('WOD')" tabindex="0">WOD</button>
@@ -3012,6 +2985,9 @@
 
       const margin = 10;
       const navClearance = 72; // clear floating nav panel
+      // If timer clock is in top-right, avoid it by preferring bottom corners
+      const timerClock = document.getElementById('floatingTimerBar');
+      const timerVisible = timerClock && timerClock.style.display === 'flex';
       const topBarH = 86;      // clear header bar
       const qrRect = qr.getBoundingClientRect();
       const qrW = qrRect.width  || 110;
@@ -4413,16 +4389,15 @@
       updateFloatingTimerBar();
       _timerBarPartIdx = partFocusIndex;
 
-      const mc = document.getElementById('mainContent');
-      if (mc) mc.classList.add('timer-active');
-      const overlay = document.getElementById('tvCenterOverlay');
-      if (overlay) overlay.classList.add('timer-active-overlay');
+      // Position clock in top-right corner (below top bar)
+      bar.style.top = '90px';
+      bar.style.right = '10px';
+      bar.style.left = 'auto';
+      bar.style.bottom = 'auto';
 
-      document.documentElement.style.setProperty('--font-scale', '0.4');
-      requestAnimationFrame(() => {
-        autoFitFontSize();
-        setTimeout(() => autoFitFontSize(), 300);
-      });
+      // Show timer controls in nav panel
+      const ctrl = document.getElementById('tvTimerControls');
+      if (ctrl) ctrl.classList.add('visible');
     }
 
     function hideFloatingTimerBar() {
@@ -4430,12 +4405,10 @@
       bar.classList.remove('open');
       bar.style.display = 'none';
       _timerBarPartIdx = null;
-      const mc = document.getElementById('mainContent');
-      if (mc) mc.classList.remove('timer-active');
-      const overlay = document.getElementById('tvCenterOverlay');
-      if (overlay) overlay.classList.remove('timer-active-overlay');
-      document.documentElement.style.setProperty('--font-scale', '0.4');
-      requestAnimationFrame(() => { autoFitFontSize(); setTimeout(() => autoFitFontSize(), 250); });
+
+      // Hide timer controls in nav panel
+      const ctrl = document.getElementById('tvTimerControls');
+      if (ctrl) ctrl.classList.remove('visible');
     }
 
     function toggleTimerVoice() {
