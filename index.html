@@ -160,10 +160,7 @@
       gap: 0.6rem;
     }
 
-    /* When floating timer bar is enlarged, push content up */
-    .main-content.timer-active {
-      padding-bottom: calc(8vw + 5rem);
-    }
+    /* padding-bottom set dynamically by showFloatingTimerBar() */
     /* Compact spacing: tighten gaps and padding when timer is running */
     .main-content.timer-active .flow-columns {
       gap: 0.3rem;
@@ -4342,30 +4339,35 @@
     let _timerBarPartIdx = null; // which part-block the timer was started from
 
     function showFloatingTimerBar() {
-      document.getElementById('floatingTimerBar').style.display = 'flex';
+      const bar = document.getElementById('floatingTimerBar');
+      bar.style.display = 'flex';
       updateFloatingTimerBar();
 
-      // Auto-focus: if a specific part is already focused, record it.
-      // If viewing "all parts", don't force a focus — the user chose the full view.
-      _timerBarPartIdx = partFocusIndex; // null if all parts visible
+      _timerBarPartIdx = partFocusIndex;
 
-      // Activate compact + enlarged-padding mode
       const mc = document.querySelector('.main-content');
       if (mc) mc.classList.add('timer-active');
-      // Re-fit after layout change — double pass to ensure DOM has settled
-      document.documentElement.style.setProperty('--font-scale', '0.4');
-      // Force reflow so padding change is applied before autoFit measures
-      if (mc) mc.offsetHeight;
-      requestAnimationFrame(() => { autoFitFontSize(); setTimeout(() => autoFitFontSize(), 300); });
+
+      // Measure the bar's actual position and set precise padding
+      requestAnimationFrame(() => {
+        const barRect = bar.getBoundingClientRect();
+        const clearance = window.innerHeight - barRect.top + 8; // 8px safety
+        if (mc) mc.style.paddingBottom = clearance + 'px';
+        mc.offsetHeight; // force reflow
+        document.documentElement.style.setProperty('--font-scale', '0.4');
+        autoFitFontSize();
+        setTimeout(() => autoFitFontSize(), 300);
+      });
     }
 
     function hideFloatingTimerBar() {
       document.getElementById('floatingTimerBar').style.display = 'none';
       _timerBarPartIdx = null;
-      // Remove compact mode
       const mc = document.querySelector('.main-content');
-      if (mc) mc.classList.remove('timer-active');
-      // Re-fit with restored spacing
+      if (mc) {
+        mc.classList.remove('timer-active');
+        mc.style.paddingBottom = ''; // restore CSS default (5.5rem)
+      }
       document.documentElement.style.setProperty('--font-scale', '0.4');
       requestAnimationFrame(() => { autoFitFontSize(); setTimeout(() => autoFitFontSize(), 250); });
     }
