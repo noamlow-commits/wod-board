@@ -2794,6 +2794,15 @@
       const root = document.documentElement;
 
       function hasOverflow() {
+        // Direct visual check: does content extend behind the floating timer bar?
+        const ftb = document.getElementById('floatingTimerBar');
+        if (ftb && ftb.style.display === 'flex') {
+          const barTop = ftb.getBoundingClientRect().top;
+          // Check the bottom edge of every visible content element
+          for (const el of container.querySelectorAll('.workout-row:not(.section-hidden) .flow-columns, .workout-row:not(.section-hidden) .workout-card')) {
+            if (el.getBoundingClientRect().bottom > barTop - 6) return true;
+          }
+        }
         // Check main container vertical overflow
         if (container.scrollHeight > container.clientHeight + 2) return true;
         // Check only VISIBLE rows (skip section-hidden)
