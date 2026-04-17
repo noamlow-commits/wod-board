@@ -160,7 +160,7 @@
       gap: 0.6rem;
     }
 
-    /* padding-bottom set dynamically by showFloatingTimerBar() */
+    /* Timer active: height set dynamically by _syncTimerPadding() */
     /* Compact spacing: tighten gaps and padding when timer is running */
     .main-content.timer-active .flow-columns {
       gap: 0.3rem;
@@ -4367,12 +4367,14 @@
 
     function _syncTimerPadding() {
       const bar = document.getElementById('floatingTimerBar');
-      const mc = document.querySelector('.main-content');
+      const mc = document.getElementById('mainContent');
       if (!bar || !mc || bar.style.display !== 'flex') return;
-      const barTop = bar.getBoundingClientRect().top;
-      const needed = window.innerHeight - barTop + 12;
-      mc.style.paddingBottom = needed + 'px';
-      mc.offsetHeight; // force reflow
+      // Instead of padding-bottom (which doesn't move the box boundary),
+      // shrink main-content height so its bottom edge clears the timer bar.
+      const reserve = window.innerHeight - bar.getBoundingClientRect().top + 10;
+      const base = mc.classList.contains('has-tabs') ? 130 : 80;
+      mc.style.height = `calc(100vh - ${base}px - ${reserve}px)`;
+      mc.offsetHeight;
     }
 
     function showFloatingTimerBar() {
@@ -4398,10 +4400,10 @@
     function hideFloatingTimerBar() {
       document.getElementById('floatingTimerBar').style.display = 'none';
       _timerBarPartIdx = null;
-      const mc = document.querySelector('.main-content');
+      const mc = document.getElementById('mainContent');
       if (mc) {
         mc.classList.remove('timer-active');
-        mc.style.paddingBottom = ''; // restore CSS default (5.5rem)
+        mc.style.height = ''; // restore CSS default
       }
       document.documentElement.style.setProperty('--font-scale', '0.4');
       requestAnimationFrame(() => { autoFitFontSize(); setTimeout(() => autoFitFontSize(), 250); });
@@ -4808,9 +4810,10 @@
       if (data) {
         renderWorkout(data);
         requestAnimationFrame(() => {
+          _syncTimerPadding(); // re-apply height constraint if timer is active
           autoFitFontSize();
-          setTimeout(() => autoFitFontSize(), 300);
-          setTimeout(() => autoFitFontSize(), 800);
+          setTimeout(() => { _syncTimerPadding(); autoFitFontSize(); }, 300);
+          setTimeout(() => { _syncTimerPadding(); autoFitFontSize(); }, 800);
           setTimeout(() => repositionQR(), 900); // after layout fully settles
         });
       }
