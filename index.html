@@ -2865,6 +2865,24 @@
         });
       }
 
+      // Post-fit: if floating timer bar is visible, verify no visual overlap.
+      // The flex redistribution above can shift content down, so we check AFTER.
+      const _ftb = document.getElementById('floatingTimerBar');
+      if (_ftb && _ftb.style.display === 'flex') {
+        const _barTop = _ftb.getBoundingClientRect().top;
+        let _scale = parseFloat(root.style.getPropertyValue('--font-scale')) || lo;
+        for (let _att = 0; _att < 15; _att++) {
+          let _hit = false;
+          for (const _el of container.querySelectorAll('.workout-row:not(.section-hidden) .flow-columns, .workout-row:not(.section-hidden) .workout-card, .workout-row:not(.section-hidden) .spread-container')) {
+            if (_el.getBoundingClientRect().bottom > _barTop - 8) { _hit = true; break; }
+          }
+          if (!_hit) break;
+          _scale *= 0.94;
+          root.style.setProperty('--font-scale', _scale.toFixed(4));
+          container.offsetHeight;
+        }
+      }
+
       // Auto-scale safety card text to fill its box, capped at 2x base font
       document.querySelectorAll('.workout-card.safety-card .card-body').forEach(body => {
         const lines = body.querySelectorAll('.exercise-line');
