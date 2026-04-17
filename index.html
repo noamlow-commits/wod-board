@@ -166,22 +166,22 @@
     }
     /* When timer is active, main-content becomes a row layout */
     .main-content.timer-docked {
-      flex-direction: row;
+      flex-direction: row !important;
     }
     .main-content.timer-docked #wodArea {
       flex: 1;
       min-width: 0;
     }
     .main-content.timer-docked .timer-dock {
-      display: flex;
+      display: flex !important;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       width: 14vw;
       min-width: 130px;
       flex-shrink: 0;
-      background: rgba(10, 10, 10, 0.95);
-      border-left: 2px solid #333;
+      background: #1a1a1a;
+      border-left: 3px solid #f97316;
       gap: 0.4rem;
       font-variant-numeric: tabular-nums;
       padding: 0.5rem;
