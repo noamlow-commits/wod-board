@@ -160,50 +160,71 @@
       gap: 0.6rem;
     }
 
-    /* Floating timer clock (compact, corner-positioned like QR) */
-    .timer-float {
+    /* Docked timer clock: hidden by default, becomes in-flow flex child */
+    .timer-dock {
       display: none;
-      position: fixed;
-      z-index: 9400;
-      background: rgba(0, 0, 0, 0.88);
-      border-radius: 10px;
-      padding: 0.4rem 0.8rem;
+    }
+    /* When timer is active, main-content becomes a row layout */
+    .main-content.timer-docked {
+      flex-direction: row;
+    }
+    .main-content.timer-docked #wodArea {
+      flex: 1;
+      min-width: 0;
+    }
+    .main-content.timer-docked .timer-dock {
+      display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
+      width: 14vw;
+      min-width: 130px;
+      flex-shrink: 0;
+      background: rgba(10, 10, 10, 0.95);
+      border-left: 2px solid #333;
+      gap: 0.4rem;
       font-variant-numeric: tabular-nums;
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(255,255,255,0.08);
+      padding: 0.5rem;
     }
-    .timer-float.open { display: flex; }
-    .timer-float #ftbTime {
+    .timer-dock #ftbTime {
       color: #fff;
       font-weight: 900;
       font-size: 5.5vw;
       letter-spacing: 0.03em;
       line-height: 0.85;
+      text-align: center;
     }
-    .timer-float #ftbPhase {
+    .timer-dock #ftbPhase {
       font-weight: 900;
-      font-size: 2vw;
+      font-size: 2.2vw;
+      text-align: center;
     }
-    .timer-float #ftbType {
+    .timer-dock #ftbType {
       color: #f97316;
       font-weight: 700;
-      font-size: 1vw;
+      font-size: 1.1vw;
       text-transform: uppercase;
       letter-spacing: 0.15em;
     }
-    .timer-float #ftbRound {
+    .timer-dock #ftbRound {
       color: #aaa;
       font-size: 1.2vw;
+      text-align: center;
     }
-    .timer-float #ftbProgress {
-      width: 90%;
-      height: 3px;
+    .timer-dock #ftbProgress {
+      width: 85%;
+      height: 4px;
       border-radius: 2px;
-      margin-top: 0.3rem;
     }
-    /* Timer control buttons in nav panel (shown when timer is running) */
+    /* Other areas hidden in wod mode don't interfere (display:none) */
+    /* In split mode, timer sits between wodArea and scoreboardArea */
+    .main-content.mode-split.timer-docked .timer-dock {
+      order: 1; /* between wod (0) and scoreboard (2) */
+    }
+    .main-content.mode-split.timer-docked #scoreboardArea {
+      order: 2;
+    }
+    /* Timer control buttons in nav panel */
     .tv-timer-controls { display: none; }
     .tv-timer-controls.visible { display: flex; gap: 0.3rem; align-items: center; }
     .tv-timer-controls button {
@@ -1588,6 +1609,14 @@
     </div>
     <!-- Timer Area — full-screen workout timer -->
     <div id="timerArea"></div>
+    <!-- Docked Timer Clock (in-flow flex child, not floating) -->
+    <div id="floatingTimerBar" class="timer-dock">
+      <span id="ftbType"></span>
+      <span id="ftbPhase"></span>
+      <span id="ftbTime"></span>
+      <span id="ftbRound"></span>
+      <div id="ftbProgress"></div>
+    </div>
   </div>
 
   <!-- QR Code floating overlay -->
@@ -1599,15 +1628,6 @@
   <div id="tvCenterOverlay">
     <div class="tvo-header" id="tvoCenterHeader"></div>
     <div class="tvo-body" id="tvoCenterBody"></div>
-  </div>
-
-  <!-- Floating Timer Clock (compact corner element, like QR) -->
-  <div id="floatingTimerBar" class="timer-float">
-    <span id="ftbType"></span>
-    <span id="ftbPhase"></span>
-    <span id="ftbTime"></span>
-    <span id="ftbRound"></span>
-    <div id="ftbProgress"></div>
   </div>
 
   <!-- TV Navigation Panel (floating, controlled by remote D-pad) -->
@@ -3031,22 +3051,6 @@
       return chosen;
     }
 
-    // Reposition the floating timer clock to avoid text overlap
-    function repositionTimerClock() {
-      const clock = document.getElementById('floatingTimerBar');
-      if (!clock || clock.style.display !== 'flex') return;
-      const rect = clock.getBoundingClientRect();
-      const w = rect.width || 200;
-      const h = rect.height || 100;
-      const qr = document.getElementById('qrOverlay');
-      const excludeQR = (qr && !qr.classList.contains('hidden')) ? qr : null;
-      const pos = _findBestCorner(w, h, excludeQR);
-      clock.style.top = pos.top + 'px';
-      clock.style.left = pos.left + 'px';
-      clock.style.right = 'auto';
-      clock.style.bottom = 'auto';
-    }
-
     // QR positioning: uses shared _findBestCorner.
     function repositionQR() {
       const qr = document.getElementById('qrOverlay');
@@ -3054,9 +3058,7 @@
       const rect = qr.getBoundingClientRect();
       const w = rect.width || 110;
       const h = rect.height || 110;
-      const timerClock = document.getElementById('floatingTimerBar');
-      const excludeTimer = (timerClock && timerClock.style.display === 'flex') ? timerClock : null;
-      const pos = _findBestCorner(w, h, excludeTimer);
+      const pos = _findBestCorner(w, h, null);
       qr.style.top = pos.top + 'px';
       qr.style.left = pos.left + 'px';
       qr.style.bottom = 'auto';
@@ -4402,32 +4404,39 @@
     }
 
     function showFloatingTimerBar() {
-      const bar = document.getElementById('floatingTimerBar');
-      bar.classList.add('open');
-      bar.style.display = 'flex';
       updateFloatingTimerBar();
       _timerBarPartIdx = partFocusIndex;
+
+      // Dock timer as in-flow flex child — content reflows naturally
+      const mc = document.getElementById('mainContent');
+      if (mc) mc.classList.add('timer-docked');
 
       // Show timer controls in nav panel
       const ctrl = document.getElementById('tvTimerControls');
       if (ctrl) ctrl.classList.add('visible');
 
-      // Position clock in best corner (avoid text overlap, like QR)
+      // Re-fit content in the now-narrower wodArea
+      document.documentElement.style.setProperty('--font-scale', '0.4');
       requestAnimationFrame(() => {
-        repositionTimerClock();
-        repositionQR(); // QR should also reposition to avoid the clock
+        autoFitFontSize();
+        setTimeout(() => autoFitFontSize(), 300);
       });
     }
 
     function hideFloatingTimerBar() {
-      const bar = document.getElementById('floatingTimerBar');
-      bar.classList.remove('open');
-      bar.style.display = 'none';
       _timerBarPartIdx = null;
+
+      // Undock timer
+      const mc = document.getElementById('mainContent');
+      if (mc) mc.classList.remove('timer-docked');
 
       // Hide timer controls in nav panel
       const ctrl = document.getElementById('tvTimerControls');
       if (ctrl) ctrl.classList.remove('visible');
+
+      // Re-fit content in full-width wodArea
+      document.documentElement.style.setProperty('--font-scale', '0.4');
+      requestAnimationFrame(() => { autoFitFontSize(); setTimeout(() => autoFitFontSize(), 250); });
     }
 
     function toggleTimerVoice() {
@@ -4451,7 +4460,7 @@
 
     function updateFloatingTimerBar() {
       const bar = document.getElementById('floatingTimerBar');
-      if (!bar || bar.style.display === 'none') return;
+      if (!bar || !document.getElementById('mainContent')?.classList.contains('timer-docked')) return;
       if (timerState === 'idle') { hideFloatingTimerBar(); return; }
 
       const d = getTimerDisplayData();
@@ -4825,7 +4834,7 @@
           autoFitFontSize();
           setTimeout(() => autoFitFontSize(), 300);
           setTimeout(() => autoFitFontSize(), 800);
-          setTimeout(() => { repositionTimerClock(); repositionQR(); }, 900);
+          setTimeout(() => repositionQR(), 900);
         });
       }
     }
@@ -4952,7 +4961,7 @@
     });
 
     // Re-fit font on resize
-    window.addEventListener('resize', () => { autoFitFontSize(); repositionTimerClock(); repositionQR(); });
+    window.addEventListener('resize', () => { autoFitFontSize(); repositionQR(); });
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
@@ -4986,8 +4995,8 @@
         if (e.key === 't') { setDisplayMode('timer'); }
         // Space or MediaPlayPause: start/pause timer
         if (e.key === ' ' || e.key === 'MediaPlayPause') {
-          const floatingVisible = document.getElementById('floatingTimerBar')?.style.display === 'flex';
-          if (displayMode === 'timer' || floatingVisible || timerState === 'running' || timerState === 'paused') {
+          const timerDocked = document.getElementById('mainContent')?.classList.contains('timer-docked');
+          if (displayMode === 'timer' || timerDocked || timerState === 'running' || timerState === 'paused') {
             e.preventDefault();
             if (timerState === 'idle' && partFocusIndex !== null) {
               startPartTimer();
