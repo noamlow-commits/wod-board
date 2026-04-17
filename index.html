@@ -232,12 +232,16 @@
       color: #fbbf24;
     }
     .side-timer-btns .stop-btn { color: #ef4444; }
-    /* Shrink main-content when timer is active */
+    /* Shrink content width when timer is active */
     .main-content.timer-active {
-      padding-right: calc(22vw + 1rem);
+      margin-right: calc(22vw + 0.5rem);
     }
     @media (min-width: 1800px) {
-      .main-content.timer-active { padding-right: calc(380px + 1rem); }
+      .main-content.timer-active { margin-right: calc(380px + 0.5rem); }
+    }
+    /* Center overlay also respects the side panel */
+    #tvCenterOverlay.timer-active-overlay {
+      right: calc(22vw + 0.5rem);
     }
 
     #wodArea {
@@ -4411,6 +4415,8 @@
 
       const mc = document.getElementById('mainContent');
       if (mc) mc.classList.add('timer-active');
+      const overlay = document.getElementById('tvCenterOverlay');
+      if (overlay) overlay.classList.add('timer-active-overlay');
 
       document.documentElement.style.setProperty('--font-scale', '0.4');
       requestAnimationFrame(() => {
@@ -4426,6 +4432,8 @@
       _timerBarPartIdx = null;
       const mc = document.getElementById('mainContent');
       if (mc) mc.classList.remove('timer-active');
+      const overlay = document.getElementById('tvCenterOverlay');
+      if (overlay) overlay.classList.remove('timer-active-overlay');
       document.documentElement.style.setProperty('--font-scale', '0.4');
       requestAnimationFrame(() => { autoFitFontSize(); setTimeout(() => autoFitFontSize(), 250); });
     }
