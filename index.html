@@ -160,23 +160,84 @@
       gap: 0.6rem;
     }
 
-    /* Timer active: height set dynamically by _syncTimerPadding() */
-    /* Compact spacing: tighten gaps and padding when timer is running */
-    .main-content.timer-active .flow-columns {
-      gap: 0.3rem;
-      padding: 0.2rem 0.4rem;
+    /* Side timer panel */
+    .side-timer {
+      display: none;
+      position: fixed;
+      right: 0;
+      top: 80px;
+      bottom: 0;
+      width: 22vw;
+      min-width: 180px;
+      max-width: 380px;
+      z-index: 9300;
+      background: rgba(10, 10, 10, 0.95);
+      border-left: 2px solid #333;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.8vh;
+      font-variant-numeric: tabular-nums;
+      box-sizing: border-box;
+      padding: 1rem 0.5rem;
     }
-    .main-content.timer-active .flow-section-header {
-      padding: 0.08rem 0.4rem;
-      margin: 0.08rem 0;
-      font-size: calc(1rem * var(--font-scale));
+    .side-timer.open { display: flex; }
+    .side-timer #ftbTime {
+      color: #fff;
+      font-weight: 900;
+      font-size: 7vw;
+      letter-spacing: 0.03em;
+      line-height: 0.85;
+      text-align: center;
     }
-    .main-content.timer-active .exercise-line {
-      padding-top: 0.05rem;
-      padding-bottom: 0.05rem;
+    .side-timer #ftbPhase {
+      font-weight: 900;
+      font-size: 2.8vw;
+      text-align: center;
+      min-height: 1em;
     }
-    .main-content.timer-active .flow-span-cols {
-      gap: 0.3rem;
+    .side-timer #ftbType {
+      color: #f97316;
+      font-weight: 700;
+      font-size: 1.4vw;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+    }
+    .side-timer #ftbRound {
+      color: #aaa;
+      font-size: 1.6vw;
+      text-align: center;
+    }
+    .side-timer #ftbProgress {
+      width: 80%;
+      height: 4px;
+      border-radius: 2px;
+      background: #333;
+      position: relative;
+      overflow: hidden;
+      margin-top: 0.5vh;
+    }
+    .side-timer-btns {
+      display: flex;
+      gap: 0.6rem;
+      margin-top: 1vh;
+    }
+    .side-timer-btns button {
+      background: none;
+      border: 1px solid #555;
+      border-radius: 8px;
+      padding: 0.4rem 0.6rem;
+      cursor: pointer;
+      font-size: 1.4vw;
+      color: #fbbf24;
+    }
+    .side-timer-btns .stop-btn { color: #ef4444; }
+    /* Shrink main-content when timer is active */
+    .main-content.timer-active {
+      padding-right: calc(22vw + 1rem);
+    }
+    @media (min-width: 1800px) {
+      .main-content.timer-active { padding-right: calc(380px + 1rem); }
     }
 
     #wodArea {
@@ -1563,18 +1624,18 @@
     <div class="tvo-body" id="tvoCenterBody"></div>
   </div>
 
-  <!-- Floating Timer Bar (shows over WOD content when timer is running) -->
-  <div id="floatingTimerBar" style="display:none;position:fixed;bottom:4.2rem;left:50%;transform:translateX(-50%);z-index:9300;background:rgba(0,0,0,0.88);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:0.3rem 1.5vw;align-items:baseline;gap:1.2vw;font-variant-numeric:tabular-nums;backdrop-filter:blur(8px);box-shadow:0 -2px 20px rgba(0,0,0,0.5);">
-    <span id="ftbPhase" style="font-weight:900;font-size:3.5vw;text-align:center;"></span>
-    <span id="ftbTime" style="color:#fff;font-weight:900;font-size:8vw;letter-spacing:0.04em;line-height:0.78;"></span>
-    <span id="ftbRound" style="color:#aaa;font-size:2vw;white-space:nowrap;"></span>
-    <span id="ftbType" style="color:#f97316;font-weight:700;font-size:1.5vw;text-transform:uppercase;white-space:nowrap;"></span>
-    <div style="display:flex;gap:0.4vw;align-items:center;">
-      <button onclick="pauseTimer();updateFloatingTimerBar();" style="background:none;border:1px solid #555;border-radius:6px;color:#fbbf24;padding:0.15rem 0.4rem;cursor:pointer;font-size:1.3vw;" title="השהה">⏸</button>
-      <button id="ftbVoiceBtn" onclick="toggleTimerVoice();" style="background:none;border:1px solid #555;border-radius:6px;color:#22c55e;padding:0.15rem 0.4rem;cursor:pointer;font-size:1.3vw;" title="קול מאמן (כן/לא)">🔊</button>
-      <button onclick="coachStopTimer();hideFloatingTimerBar();" style="background:none;border:1px solid #555;border-radius:6px;color:#ef4444;padding:0.15rem 0.4rem;cursor:pointer;font-size:1.3vw;" title="עצור">⏹</button>
+  <!-- Side Timer Panel (shows on the right when timer is running) -->
+  <div id="floatingTimerBar" class="side-timer">
+    <span id="ftbType"></span>
+    <span id="ftbPhase"></span>
+    <span id="ftbTime"></span>
+    <span id="ftbRound"></span>
+    <div id="ftbProgress"></div>
+    <div class="side-timer-btns">
+      <button onclick="pauseTimer();updateFloatingTimerBar();" title="השהה">⏸</button>
+      <button id="ftbVoiceBtn" onclick="toggleTimerVoice();" title="קול מאמן">🔊</button>
+      <button onclick="coachStopTimer();hideFloatingTimerBar();" class="stop-btn" title="עצור">⏹</button>
     </div>
-    <div id="ftbProgress" style="position:absolute;bottom:0;left:0;height:3px;transition:width 0.15s;"></div>
   </div>
 
   <!-- TV Navigation Panel (floating, controlled by remote D-pad) -->
@@ -2787,9 +2848,6 @@
       const wodArea = document.getElementById('wodArea');
       if (!wodArea || !wodArea.children.length) return;
 
-      // Always sync main-content height with timer bar before measuring
-      _syncTimerPadding();
-
       const userScale = (settings.fontSize || 100) / 100;
       // Let binary search find the real max — hasOverflow() will stop it when text wraps
       const maxScale = Math.max(userScale, 2.5);
@@ -2797,15 +2855,6 @@
       const root = document.documentElement;
 
       function hasOverflow() {
-        // Direct visual check: does content extend behind the floating timer bar?
-        const ftb = document.getElementById('floatingTimerBar');
-        if (ftb && ftb.style.display === 'flex') {
-          const barTop = ftb.getBoundingClientRect().top;
-          // Check the bottom edge of every visible content element
-          for (const el of container.querySelectorAll('.workout-row:not(.section-hidden) .flow-columns, .workout-row:not(.section-hidden) .workout-card')) {
-            if (el.getBoundingClientRect().bottom > barTop - 6) return true;
-          }
-        }
         // Check main container vertical overflow
         if (container.scrollHeight > container.clientHeight + 2) return true;
         // Check only VISIBLE rows (skip section-hidden)
@@ -2866,24 +2915,6 @@
         visibleRows.forEach((r, i) => {
           r.style.flex = `${heights[i]} 1 0px`;
         });
-      }
-
-      // Post-fit: if floating timer bar is visible, verify no visual overlap.
-      // The flex redistribution above can shift content down, so we check AFTER.
-      const _ftb = document.getElementById('floatingTimerBar');
-      if (_ftb && _ftb.style.display === 'flex') {
-        const _barTop = _ftb.getBoundingClientRect().top;
-        let _scale = parseFloat(root.style.getPropertyValue('--font-scale')) || lo;
-        for (let _att = 0; _att < 15; _att++) {
-          let _hit = false;
-          for (const _el of container.querySelectorAll('.workout-row:not(.section-hidden) .flow-columns, .workout-row:not(.section-hidden) .workout-card, .workout-row:not(.section-hidden) .spread-container')) {
-            if (_el.getBoundingClientRect().bottom > _barTop - 8) { _hit = true; break; }
-          }
-          if (!_hit) break;
-          _scale *= 0.94;
-          root.style.setProperty('--font-scale', _scale.toFixed(4));
-          container.offsetHeight;
-        }
       }
 
       // Auto-scale safety card text to fill its box, capped at 2x base font
@@ -2976,8 +3007,7 @@
       if (qr.classList.contains('hidden')) return;
 
       const margin = 10;
-      const timerBarVisible = document.getElementById('floatingTimerBar')?.style.display === 'flex';
-      const navClearance = timerBarVisible ? 220 : 72; // extra clearance for enlarged timer bar
+      const navClearance = 72; // clear floating nav panel
       const topBarH = 86;      // clear header bar
       const qrRect = qr.getBoundingClientRect();
       const qrW = qrRect.width  || 110;
@@ -4365,49 +4395,37 @@
       showFloatingTimerBar();
     }
 
-    // Floating timer bar control
-    let _timerBarPartIdx = null; // which part-block the timer was started from
+    // Side timer panel control
+    let _timerBarPartIdx = null;
 
     function _syncTimerPadding() {
-      const bar = document.getElementById('floatingTimerBar');
-      const mc = document.getElementById('mainContent');
-      if (!bar || !mc || bar.style.display !== 'flex') return;
-      // Instead of padding-bottom (which doesn't move the box boundary),
-      // shrink main-content height so its bottom edge clears the timer bar.
-      const reserve = window.innerHeight - bar.getBoundingClientRect().top + 10;
-      const base = mc.classList.contains('has-tabs') ? 130 : 80;
-      mc.style.height = `calc(100vh - ${base}px - ${reserve}px)`;
-      mc.offsetHeight;
+      // No-op: side panel uses CSS padding-right, no height hacks needed
     }
 
     function showFloatingTimerBar() {
       const bar = document.getElementById('floatingTimerBar');
+      bar.classList.add('open');
       bar.style.display = 'flex';
       updateFloatingTimerBar();
-
       _timerBarPartIdx = partFocusIndex;
 
-      const mc = document.querySelector('.main-content');
+      const mc = document.getElementById('mainContent');
       if (mc) mc.classList.add('timer-active');
 
-      // Measure the bar's actual position and set precise padding.
-      // Double-rAF ensures the bar is fully laid out after display:flex.
       document.documentElement.style.setProperty('--font-scale', '0.4');
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        _syncTimerPadding();
+      requestAnimationFrame(() => {
         autoFitFontSize();
-        setTimeout(() => { _syncTimerPadding(); autoFitFontSize(); }, 350);
-      }));
+        setTimeout(() => autoFitFontSize(), 300);
+      });
     }
 
     function hideFloatingTimerBar() {
-      document.getElementById('floatingTimerBar').style.display = 'none';
+      const bar = document.getElementById('floatingTimerBar');
+      bar.classList.remove('open');
+      bar.style.display = 'none';
       _timerBarPartIdx = null;
       const mc = document.getElementById('mainContent');
-      if (mc) {
-        mc.classList.remove('timer-active');
-        mc.style.height = ''; // restore CSS default
-      }
+      if (mc) mc.classList.remove('timer-active');
       document.documentElement.style.setProperty('--font-scale', '0.4');
       requestAnimationFrame(() => { autoFitFontSize(); setTimeout(() => autoFitFontSize(), 250); });
     }
@@ -4445,25 +4463,17 @@
       typeEl.textContent = typeText;
 
       // Darken + tint the whole bar based on phase + paused state
+      // Phase-aware border-left tint on side panel
       if (timerType === 'tabata' && (timerState === 'running' || timerState === 'paused')) {
         const phaseColor = d.tabataPhase === 'work' ? '#22c55e' : '#ef4444';
-        bar.style.borderColor = phaseColor;
-        bar.style.boxShadow = `0 0 20px ${phaseColor}66`;
-        bar.style.background = timerState === 'paused'
-          ? 'rgba(0,0,0,0.95)'
-          : (d.tabataPhase === 'work'
-              ? 'linear-gradient(180deg, rgba(34,197,94,0.18), rgba(0,0,0,0.92))'
-              : 'linear-gradient(180deg, rgba(239,68,68,0.18), rgba(0,0,0,0.92))');
+        bar.style.borderLeftColor = phaseColor;
+        bar.style.borderLeftWidth = '4px';
       } else if (timerType === 'emom' && (timerState === 'running' || timerState === 'paused')) {
-        bar.style.borderColor = '#f97316';
-        bar.style.boxShadow = '0 0 20px rgba(249,115,22,0.4)';
-        bar.style.background = timerState === 'paused'
-          ? 'rgba(0,0,0,0.95)'
-          : 'linear-gradient(180deg, rgba(249,115,22,0.18), rgba(0,0,0,0.92))';
+        bar.style.borderLeftColor = '#f97316';
+        bar.style.borderLeftWidth = '4px';
       } else {
-        bar.style.borderColor = '#f97316';
-        bar.style.boxShadow = '0 0 20px rgba(249,115,22,0.3)';
-        bar.style.background = 'rgba(0,0,0,0.9)';
+        bar.style.borderLeftColor = '#333';
+        bar.style.borderLeftWidth = '2px';
       }
 
       if (timerState === 'countdown321') {
@@ -4512,7 +4522,7 @@
         phaseEl.textContent = '';
       }
 
-      // Progress bar inside the floating bar
+      // Progress bar inside the side panel
       const progEl = document.getElementById('ftbProgress');
       if (progEl) {
         let pct = 0, color = '#f97316';
@@ -4525,8 +4535,7 @@
         } else if (d.progress !== undefined) {
           pct = d.progress * 100;
         }
-        progEl.style.width = pct + '%';
-        progEl.style.background = color;
+        progEl.style.background = `linear-gradient(to right, ${color} ${pct}%, #333 ${pct}%)`;
       }
     }
 
@@ -4603,14 +4612,6 @@
         hdrDiv.style.background = headerBg || 'linear-gradient(135deg,#ea580c,#f97316)';
         bodyDiv.innerHTML = bodyHTML;
         overlay.classList.add('open');
-        // Shrink overlay bottom to clear timer bar if visible
-        const _ftbOv = document.getElementById('floatingTimerBar');
-        if (_ftbOv && _ftbOv.style.display === 'flex') {
-          const barH = window.innerHeight - _ftbOv.getBoundingClientRect().top + 8;
-          overlay.style.bottom = barH + 'px';
-        } else {
-          overlay.style.bottom = '0';
-        }
         requestAnimationFrame(() => repositionQR());
 
         // Binary-search the largest font size that fits without clipping
@@ -4821,11 +4822,10 @@
       if (data) {
         renderWorkout(data);
         requestAnimationFrame(() => {
-          _syncTimerPadding(); // re-apply height constraint if timer is active
           autoFitFontSize();
-          setTimeout(() => { _syncTimerPadding(); autoFitFontSize(); }, 300);
-          setTimeout(() => { _syncTimerPadding(); autoFitFontSize(); }, 800);
-          setTimeout(() => repositionQR(), 900); // after layout fully settles
+          setTimeout(() => autoFitFontSize(), 300);
+          setTimeout(() => autoFitFontSize(), 800);
+          setTimeout(() => repositionQR(), 900);
         });
       }
     }
