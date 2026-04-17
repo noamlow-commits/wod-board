@@ -4338,6 +4338,16 @@
     // Floating timer bar control
     let _timerBarPartIdx = null; // which part-block the timer was started from
 
+    function _syncTimerPadding() {
+      const bar = document.getElementById('floatingTimerBar');
+      const mc = document.querySelector('.main-content');
+      if (!bar || !mc || bar.style.display !== 'flex') return;
+      const barTop = bar.getBoundingClientRect().top;
+      const needed = window.innerHeight - barTop + 12;
+      mc.style.paddingBottom = needed + 'px';
+      mc.offsetHeight; // force reflow
+    }
+
     function showFloatingTimerBar() {
       const bar = document.getElementById('floatingTimerBar');
       bar.style.display = 'flex';
@@ -4348,16 +4358,14 @@
       const mc = document.querySelector('.main-content');
       if (mc) mc.classList.add('timer-active');
 
-      // Measure the bar's actual position and set precise padding
-      requestAnimationFrame(() => {
-        const barRect = bar.getBoundingClientRect();
-        const clearance = window.innerHeight - barRect.top + 8; // 8px safety
-        if (mc) mc.style.paddingBottom = clearance + 'px';
-        mc.offsetHeight; // force reflow
-        document.documentElement.style.setProperty('--font-scale', '0.4');
+      // Measure the bar's actual position and set precise padding.
+      // Double-rAF ensures the bar is fully laid out after display:flex.
+      document.documentElement.style.setProperty('--font-scale', '0.4');
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        _syncTimerPadding();
         autoFitFontSize();
-        setTimeout(() => autoFitFontSize(), 300);
-      });
+        setTimeout(() => { _syncTimerPadding(); autoFitFontSize(); }, 350);
+      }));
     }
 
     function hideFloatingTimerBar() {
