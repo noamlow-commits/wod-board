@@ -1950,7 +1950,27 @@
         if (num > 0) this.beep(660, 0.18, 1);
         else this.beep(990, 0.5, 1); // GO!
       },
-      intervalBeep()  { this.beep(880, 0.14, 1); },                // single clean tone on minute mark
+      // Loud, unmistakable interval transition — athletes must hear this to switch exercises
+      intervalBeep() {
+        if (timerMuted || !this.ctx) return;
+        const t = this.ctx.currentTime;
+        // Three ascending tones: low → mid → high, loud and clear
+        [660, 880, 1100].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.frequency.value = freq;
+          osc.type = 'sine';
+          const start = t + i * 0.16;
+          gain.gain.setValueAtTime(0, start);
+          gain.gain.linearRampToValueAtTime(0.7, start + 0.01);
+          gain.gain.setValueAtTime(0.7, start + 0.1);
+          gain.gain.linearRampToValueAtTime(0.001, start + 0.14);
+          osc.start(start);
+          osc.stop(start + 0.16);
+        });
+      },
       warningBeep()   { this.beep(660, 0.09, 3, 0.08); },           // short triple tick
       tabataWork()    { this.beep(990, 0.18, 1); },                 // high tone
       tabataRest()    { this.beep(440, 0.25, 1, 0, 'triangle'); },  // low, softer
@@ -2208,6 +2228,7 @@
       _lastTabataPhase = '';
       _emomTickedSec = 0;
       _tabataTickedSec = 0;
+      _mixTickedSec = 0;
       _tabataPhaseHalfwayDone = false;
       _tabataPhaseOneMinDone  = false;
       _tabataPhaseTenSecDone  = false;
@@ -2324,8 +2345,9 @@
     let _lastIntervalRound = 0;
     let _lastTabataPhase = '';
     let _lastCountTickSec = 0;
-    let _tabataTickedSec = 0;  // tracks 3-2-1 ticks within tabata phases
-    let _emomTickedSec = 0;    // tracks 3-2-1 ticks before EMOM interval transitions
+    let _tabataTickedSec = 0;  // tracks 5-4-3-2-1 ticks within tabata phases
+    let _emomTickedSec = 0;    // tracks 5-4-3-2-1 ticks before EMOM interval transitions
+    let _mixTickedSec = 0;     // tracks 5-4-3-2-1 ticks before MIX interval transitions
     // Per-phase mid-workout cue flags (reset on every phase transition)
     let _tabataPhaseHalfwayDone = false;
     let _tabataPhaseOneMinDone = false;
@@ -2366,16 +2388,16 @@
         _lastIntervalRound = currentRound;
         timerRound = currentRound;
 
-        // 3-second warning ticks before each interval transition
+        // 5-second warning ticks before each interval transition
         const emomElapsedInRound = totalElapsed - (currentRound - 1) * ivMs;
         const emomRemaining = ivMs - emomElapsedInRound;
-        if (emomRemaining <= 3500 && emomRemaining > 200) {
+        if (emomRemaining <= 5500 && emomRemaining > 200) {
           const secLeft = Math.ceil(emomRemaining / 1000);
-          if (secLeft !== _emomTickedSec && secLeft >= 1 && secLeft <= 3) {
-            TimerAudio.beep(660, 0.1, 1);
+          if (secLeft !== _emomTickedSec && secLeft >= 1 && secLeft <= 5) {
+            TimerAudio.beep(660, 0.12, 1);
             _emomTickedSec = secLeft;
           }
-        } else if (emomRemaining > 3500) {
+        } else if (emomRemaining > 5500) {
           _emomTickedSec = 0;
         }
       }
@@ -2417,17 +2439,17 @@
         }
         _lastTabataPhase = phase;
 
-        // 3-second warning ticks before each phase transition
+        // 5-second warning ticks before each phase transition
         const phaseMs = phase === 'work' ? w : r;
         const phaseElapsed = phase === 'work' ? inCycle : (inCycle - w);
         const phaseRemaining = phaseMs - phaseElapsed;
-        if (phaseRemaining <= 3500 && phaseRemaining > 200) {
+        if (phaseRemaining <= 5500 && phaseRemaining > 200) {
           const secLeft = Math.ceil(phaseRemaining / 1000);
-          if (secLeft !== _tabataTickedSec && secLeft >= 1 && secLeft <= 3) {
-            TimerAudio.beep(660, 0.1, 1);
+          if (secLeft !== _tabataTickedSec && secLeft >= 1 && secLeft <= 5) {
+            TimerAudio.beep(660, 0.12, 1);
             _tabataTickedSec = secLeft;
           }
-        } else if (phaseRemaining > 3500) {
+        } else if (phaseRemaining > 5500) {
           _tabataTickedSec = 0;
         }
 
@@ -2467,8 +2489,22 @@
           for (let i = 0; i < intervals.length; i++) {
             acc += (intervals[i].seconds || 0) * 1000;
             if (inRound < acc) {
-              if (timerInterval !== i && timerInterval >= 0) TimerAudio.intervalBeep();
+              if (timerInterval !== i && timerInterval >= 0) {
+                TimerAudio.intervalBeep();
+                _mixTickedSec = 0;
+              }
               timerInterval = i;
+              // 5-second warning ticks before next interval
+              const mixRemaining = acc - inRound;
+              if (mixRemaining <= 5500 && mixRemaining > 200) {
+                const secLeft = Math.ceil(mixRemaining / 1000);
+                if (secLeft !== _mixTickedSec && secLeft >= 1 && secLeft <= 5) {
+                  TimerAudio.beep(660, 0.12, 1);
+                  _mixTickedSec = secLeft;
+                }
+              } else if (mixRemaining > 5500) {
+                _mixTickedSec = 0;
+              }
               break;
             }
           }
