@@ -4270,7 +4270,7 @@
         if (_ov && _ov.classList.contains('open') && _mc2 && _mc2.classList.contains('timer-docked') && _tb) {
           _tb.classList.add('overlay-mode');
           _tb.style.display = 'flex';
-          _ov.style.right = 'calc(14vw + 0.5rem)';
+          _ov.style.right = '14vw';
         }
       }, 350);
     }
@@ -4454,7 +4454,7 @@
       const overlay = document.getElementById('tvCenterOverlay');
       if (overlay && overlay.classList.contains('open')) {
         bar.classList.add('overlay-mode');
-        overlay.style.right = 'calc(14vw + 0.5rem)';
+        overlay.style.right = '14vw';
         // Re-run overlay's font sizing for narrower width
         requestAnimationFrame(() => applyCenterFocus());
       } else {
@@ -4681,7 +4681,7 @@
         const _mc = document.getElementById('mainContent');
         if (_mc && _mc.classList.contains('timer-docked') && _td) {
           _td.classList.add('overlay-mode');
-          overlay.style.right = 'calc(14vw + 0.5rem)';
+          overlay.style.right = '14vw';
         } else {
           overlay.style.right = '0';
         }
