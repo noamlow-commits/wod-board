@@ -4261,6 +4261,18 @@
       }
       applyPartFocus();
       applyCenterFocus();
+      // Re-check timer overlay-mode after layout settles (fixes race condition
+      // where applyPartFocus queues autoFit in rAF that can interfere)
+      setTimeout(() => {
+        const _ov = document.getElementById('tvCenterOverlay');
+        const _tb = document.getElementById('floatingTimerBar');
+        const _mc2 = document.getElementById('mainContent');
+        if (_ov && _ov.classList.contains('open') && _mc2 && _mc2.classList.contains('timer-docked') && _tb) {
+          _tb.classList.add('overlay-mode');
+          _tb.style.display = 'flex';
+          _ov.style.right = 'calc(14vw + 0.5rem)';
+        }
+      }, 350);
     }
 
     function setTvSection(section) {
