@@ -295,6 +295,9 @@
       text-shadow: 0 2px 8px rgba(0,0,0,0.4);
       min-width: 2.5rem;
       flex-shrink: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .row-label.warmup { background: linear-gradient(to top, var(--warmup-start), var(--warmup-end)); }
@@ -3596,10 +3599,11 @@
       }
 
       // Content-based parsing: detect labels vs content by cell length, not position.
-      // Short cells (≤30 chars, single line) = section labels (WOD, CARDIO, etc.)
-      // Long/multi-line cells = workout content
+      // Short cells (≤15 chars, ≤3 words, single line) = section labels (WOD, חימום, etc.)
+      // Long/multi-line or multi-word text = workout content / safety notes
       // This is resilient to column reordering, insertion, or deletion.
-      const LABEL_MAX_LEN = 30;
+      const LABEL_MAX_LEN = 15;
+      const LABEL_MAX_WORDS = 3;
 
       const rows = [];
       for (const row of dataRows) {
@@ -3619,9 +3623,10 @@
           const lineCount = val.split(/\n/).filter(l => l.trim().length > 0).length;
           const header = (colIdx < headers.length ? headers[colIdx] : '').trim();
 
-          // A cell is a section label if: short, single line, and not under a named header like "1","2","3","בטיחות"
+          // A cell is a section label if: short, few words, single line, and not under a named header like "1","2","3","בטיחות"
           const isNamedHeader = header.length > 0 && !/^\s*$/.test(header);
-          if (!label && val.length <= LABEL_MAX_LEN && lineCount === 1 && !isNamedHeader) {
+          const wordCount = val.split(/\s+/).filter(w => w.length > 0).length;
+          if (!label && val.length <= LABEL_MAX_LEN && wordCount <= LABEL_MAX_WORDS && lineCount === 1 && !isNamedHeader) {
             label = val;
           } else {
             // Content cell — use column header, or fallback to column letter
