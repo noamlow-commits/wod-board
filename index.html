@@ -4438,12 +4438,21 @@
       const ctrl = document.getElementById('tvTimerControls');
       if (ctrl) ctrl.classList.add('visible');
 
-      // Re-fit content in the now-narrower wodArea
-      document.documentElement.style.setProperty('--font-scale', '0.4');
-      requestAnimationFrame(() => {
-        autoFitFontSize();
-        setTimeout(() => autoFitFontSize(), 300);
-      });
+      // If center overlay is already open, float timer above it
+      const overlay = document.getElementById('tvCenterOverlay');
+      if (overlay && overlay.classList.contains('open')) {
+        bar.classList.add('overlay-mode');
+        overlay.style.right = 'calc(14vw + 0.5rem)';
+        // Re-run overlay's font sizing for narrower width
+        requestAnimationFrame(() => applyCenterFocus());
+      } else {
+        // Re-fit content in the now-narrower wodArea
+        document.documentElement.style.setProperty('--font-scale', '0.4');
+        requestAnimationFrame(() => {
+          autoFitFontSize();
+          setTimeout(() => autoFitFontSize(), 300);
+        });
+      }
     }
 
     function hideFloatingTimerBar() {
@@ -4459,9 +4468,18 @@
       const ctrl = document.getElementById('tvTimerControls');
       if (ctrl) ctrl.classList.remove('visible');
 
-      // Re-fit content in full-width wodArea
-      document.documentElement.style.setProperty('--font-scale', '0.4');
-      requestAnimationFrame(() => { autoFitFontSize(); setTimeout(() => autoFitFontSize(), 250); });
+      // Remove overlay-mode if it was on
+      if (bar) bar.classList.remove('overlay-mode');
+      const overlay = document.getElementById('tvCenterOverlay');
+      if (overlay) overlay.style.right = '';
+
+      // Re-fit content
+      if (overlay && overlay.classList.contains('open')) {
+        requestAnimationFrame(() => applyCenterFocus());
+      } else {
+        document.documentElement.style.setProperty('--font-scale', '0.4');
+        requestAnimationFrame(() => { autoFitFontSize(); setTimeout(() => autoFitFontSize(), 250); });
+      }
     }
 
     function toggleTimerVoice() {
