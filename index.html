@@ -4425,9 +4425,12 @@
       _timerBarPartIdx = partFocusIndex;
 
       // Dock timer as in-flow flex child — content reflows naturally
-      // MUST add class BEFORE updateFloatingTimerBar, which checks for it
       const mc = document.getElementById('mainContent');
       if (mc) mc.classList.add('timer-docked');
+      // Force display with inline style (belt + suspenders — CSS class alone
+      // was failing in part-focus mode for unknown reasons)
+      const bar = document.getElementById('floatingTimerBar');
+      if (bar) bar.style.display = 'flex';
 
       updateFloatingTimerBar();
 
@@ -4447,6 +4450,8 @@
       _timerBarPartIdx = null;
 
       // Undock timer
+      const bar = document.getElementById('floatingTimerBar');
+      if (bar) bar.style.display = 'none';
       const mc = document.getElementById('mainContent');
       if (mc) mc.classList.remove('timer-docked');
 
@@ -4480,7 +4485,7 @@
 
     function updateFloatingTimerBar() {
       const bar = document.getElementById('floatingTimerBar');
-      if (!bar || !document.getElementById('mainContent')?.classList.contains('timer-docked')) return;
+      if (!bar || bar.style.display === 'none' || bar.style.display === '') return;
       if (timerState === 'idle') { hideFloatingTimerBar(); return; }
 
       const d = getTimerDisplayData();
