@@ -2070,6 +2070,14 @@
         results.push({ type: 'emom', totalSeconds: parseInt(m[1]) * 60, intervalSeconds: 60, label: `EMOM ${m[1]}′` });
       }
 
+      // "e 1:30 mom x 8" — coach shorthand for EMOM
+      m = text.match(/\be\s*(\d+):(\d{2})\s*mom\s*(?:x|×)\s*(\d+)/i);
+      if (m && !results.some(r => r.type === 'emom')) {
+        const iv = parseInt(m[1])*60 + parseInt(m[2]);
+        const rounds = parseInt(m[3]);
+        results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv, label: `EMOM ${m[1]}:${m[2]} ×${rounds}` });
+      }
+
       // every X:XX xN  (explicit multiplier)
       m = text.match(/\bevery\s+(\d+):(\d{2})\s*(?:x|×)\s*(\d+)/i);
       if (m) {
@@ -3684,6 +3692,7 @@
       // Detect instruction lines: workout format acronyms + rep/time schemes
       // e.g. "E2MOM x 6", "18 min amrap", "2 rounds", "For Time", "Tabata 8 rounds"
       const isInstruction = /\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM|TABATA|METCON|RFT|YGIG)\b/i.test(text)
+        || /\be\s*\d+:\d{2}\s*mom\b/i.test(text)
         || /^\d+\s*(rounds?|min|sec(onds?)?)\b/i.test(text)
         || /^(every|each)\s+\d/i.test(text)
         || /\brounds?\s*(for time|x\s*\d)/i.test(text)
