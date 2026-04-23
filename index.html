@@ -2008,37 +2008,69 @@
     // Scans workout lines top→bottom, classifies each as WORK / REST / TIME / exercise,
     // then promotes standalone times to REST when they sit between two WORK phases.
     // Returns only the timing-relevant phases: [{type:'work',seconds,label}, {type:'rest',seconds}, ...]
+    //
+    // ── Algorithmic invariants (added after the "3:00 min rest = 0s" bug) ──
+    // 1. Digit-boundary anchoring — every `\d+` that represents a standalone
+    //    value is preceded by `(?<![:\d])` so it can't backtrack into the
+    //    middle of a larger time token. Without this, "3:00 min rest" let
+    //    the N-min pattern match "00 min rest" → 0s rest, silently breaking
+    //    chain uniformity checks.
+    // 2. Specific-before-generic — full-time formats (HH:MM) are tried
+    //    before minutes-only formats, and every successful match `continue`s
+    //    so a later pattern can't re-match the same line.
+    // 3. Sanity gates — a phase with `seconds <= 0` is rejected with a
+    //    console.warn (never silently accepted). 0 duration is never the
+    //    coach's intent, so it's a flag that upstream parsing went wrong.
     function buildWorkoutTimeline(lines) {
+      // Helper: push only if seconds > 0, warn otherwise. Catches the class
+      // of bugs where a regex matches but on a bogus substring (see invariant 3).
+      const pushPhase = (arr, phase) => {
+        if (phase.seconds > 0 && phase.seconds <= 90 * 60) {
+          arr.push(phase);
+          return true;
+        }
+        console.warn('[timer] rejected implausible phase:', phase);
+        return false;
+      };
+
       // Pass 1: classify each line
       const classified = [];
       for (const rawLine of lines) {
         const line = rawLine.trim();
         if (!line || line === '__SPACER__') continue;
 
-        // WORK: AMRAP
+        // WORK: AMRAP  (N-minute AMRAP, or AMRAP N-minutes)
         let wm = line.match(/\b(?:([1-9]\d*)\s*(?:min\s+)?AMRAP|AMRAP\s+([1-9]\d*))\b/i);
-        if (wm) { classified.push({ type: 'work', seconds: parseInt(wm[1]||wm[2])*60, label: `AMRAP ${parseInt(wm[1]||wm[2])}′` }); continue; }
+        if (wm) { const n = parseInt(wm[1]||wm[2]); if (pushPhase(classified, { type:'work', seconds:n*60, label:`AMRAP ${n}′` })) continue; }
         // WORK: E2MOM / E3MOM with total
         wm = line.match(/\bE(\d)MOM\s+(\d+)/i);
-        if (wm) { classified.push({ type: 'work', seconds: parseInt(wm[2])*60, label: `E${wm[1]}MOM ${wm[2]}′` }); continue; }
+        if (wm) { if (pushPhase(classified, { type:'work', seconds:parseInt(wm[2])*60, label:`E${wm[1]}MOM ${wm[2]}′` })) continue; }
         // WORK: EMOM N
         wm = line.match(/\bEMOM\s+(\d+)/i);
-        if (wm) { classified.push({ type: 'work', seconds: parseInt(wm[1])*60, label: `EMOM ${wm[1]}′` }); continue; }
+        if (wm) { if (pushPhase(classified, { type:'work', seconds:parseInt(wm[1])*60, label:`EMOM ${wm[1]}′` })) continue; }
         // WORK: every X:XX ×N
         wm = line.match(/\bevery\s+(\d+):(\d{2})\s*(?:x|×)\s*(\d+)/i);
-        if (wm) { const iv=parseInt(wm[1])*60+parseInt(wm[2]); classified.push({ type:'work', seconds:iv*parseInt(wm[3]), label:`Every ${wm[1]}:${wm[2]} ×${wm[3]}` }); continue; }
+        if (wm) { const iv=parseInt(wm[1])*60+parseInt(wm[2]); if (pushPhase(classified, { type:'work', seconds:iv*parseInt(wm[3]), label:`Every ${wm[1]}:${wm[2]} ×${wm[3]}` })) continue; }
 
-        // REST: explicit ("2:00 rest", "2:00 min rest", "rest 2:00", "2 min rest")
-        // The first pattern optionally accepts "min"/"minutes" between the
-        // time and the word "rest" — otherwise "3:00 min rest" would fail
-        // this regex and then match the N-min pattern as "00 min rest" (= 0s),
-        // breaking uniformity checks for chained-interval detection.
-        let rm = line.match(/(\d+):(\d{2})\s*(?:min(?:utes?)?\s+)?rest/i) || line.match(/rest\s*(\d+):(\d{2})/i);
-        if (rm) { classified.push({ type: 'rest', seconds: parseInt(rm[1])*60+parseInt(rm[2]) }); continue; }
-        rm = line.match(/(\d+)\s*min(?:utes?)?\s*rest/i);
-        if (rm) { classified.push({ type: 'rest', seconds: parseInt(rm[1])*60 }); continue; }
+        // ── REST patterns, most-specific first ──
+        // (a) Time format, optional "min" between:  "2:00 rest" / "3:00 min rest" / "1:30 minutes rest"
+        // (b) Time after "rest":                    "rest 2:00"
+        // (c) Minutes format:                       "3 min rest" / "90 minutes rest"
+        // (d) Reverse minutes:                      "rest 3 min"
+        // Each uses (?<![:\d]) or \b to prevent substring-matching inside
+        // a larger number (invariant 1). Seconds<=0 rejected by pushPhase
+        // (invariant 3).
+        let rm =
+          line.match(/(?<![:\d])(\d+):(\d{2})\s*(?:min(?:utes?)?\s+)?rest\b/i) ||
+          line.match(/\brest\s*(\d+):(\d{2})\b/i);
+        if (rm) { if (pushPhase(classified, { type:'rest', seconds:parseInt(rm[1])*60+parseInt(rm[2]) })) continue; }
+        rm = line.match(/(?<![:\d])(\d+)\s*min(?:utes?)?\s*rest\b/i);
+        if (rm) { if (pushPhase(classified, { type:'rest', seconds:parseInt(rm[1])*60 })) continue; }
+        rm = line.match(/\brest\s*(\d+)\s*min(?:utes?)?\b/i);
+        if (rm) { if (pushPhase(classified, { type:'rest', seconds:parseInt(rm[1])*60 })) continue; }
 
-        // TIME_STANDALONE: "2:00" alone on a line (potential implicit rest)
+        // TIME_STANDALONE: "2:00" alone on a line (potential implicit rest).
+        // Anchored with ^…$ so it can't false-match inside a longer line.
         const timeOnly = line.match(/^(\d+):(\d{2})$/);
         if (timeOnly) {
           const sec = parseInt(timeOnly[1])*60 + parseInt(timeOnly[2]);
