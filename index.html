@@ -1485,7 +1485,8 @@
       flex-shrink: 0;
     }
     .tvo-safety .exercise-line {
-      font-size: 0.85rem !important;
+      /* Fallback — JS auto-fit scales this to ~40% of the main content size. */
+      font-size: 1.4rem;
       color: #fde68a;
       font-weight: 600;
       line-height: 1.3;
@@ -4809,6 +4810,15 @@
           const finalSize = (lo * 0.97).toFixed(3);
           contentLines.forEach(l => l.style.fontSize = finalSize + 'rem');
           spacers.forEach(s => s.style.fontSize = (lo * 0.35).toFixed(3) + 'rem');
+          // Safety scales as ~40% of main content (min 1.4rem for readability).
+          // Kept smaller than main so it doesn't steal focus, but no longer
+          // stuck at the old 0.85rem fixed size that was illegible on TV.
+          if (safetyContainer) {
+            const safetySize = Math.max(1.4, lo * 0.40);
+            safetyContainer.querySelectorAll('.exercise-line').forEach(l => {
+              l.style.fontSize = safetySize.toFixed(3) + 'rem';
+            });
+          }
         });
 
       } else {
