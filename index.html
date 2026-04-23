@@ -2028,8 +2028,12 @@
         wm = line.match(/\bevery\s+(\d+):(\d{2})\s*(?:x|×)\s*(\d+)/i);
         if (wm) { const iv=parseInt(wm[1])*60+parseInt(wm[2]); classified.push({ type:'work', seconds:iv*parseInt(wm[3]), label:`Every ${wm[1]}:${wm[2]} ×${wm[3]}` }); continue; }
 
-        // REST: explicit ("2:00 rest", "rest 2:00", "2 min rest")
-        let rm = line.match(/(\d+):(\d{2})\s*rest/i) || line.match(/rest\s*(\d+):(\d{2})/i);
+        // REST: explicit ("2:00 rest", "2:00 min rest", "rest 2:00", "2 min rest")
+        // The first pattern optionally accepts "min"/"minutes" between the
+        // time and the word "rest" — otherwise "3:00 min rest" would fail
+        // this regex and then match the N-min pattern as "00 min rest" (= 0s),
+        // breaking uniformity checks for chained-interval detection.
+        let rm = line.match(/(\d+):(\d{2})\s*(?:min(?:utes?)?\s+)?rest/i) || line.match(/rest\s*(\d+):(\d{2})/i);
         if (rm) { classified.push({ type: 'rest', seconds: parseInt(rm[1])*60+parseInt(rm[2]) }); continue; }
         rm = line.match(/(\d+)\s*min(?:utes?)?\s*rest/i);
         if (rm) { classified.push({ type: 'rest', seconds: parseInt(rm[1])*60 }); continue; }
