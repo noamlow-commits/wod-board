@@ -239,16 +239,21 @@
       color: #fbbf24;
     }
     .tv-timer-controls .stop-btn { color: #ef4444; }
-    /* When center overlay is open, timer floats above it */
+    /* When center overlay is open, timer floats above it.
+       Must exactly match overlay.style.right (16vw) to avoid a gap between
+       overlay end and timer start where wodArea content would show through.
+       !important overrides the parent rule's width: auto / max-width: 20vw. */
     .timer-dock.overlay-mode {
       position: fixed !important;
       right: 0;
       top: 80px;
       bottom: 0;
-      width: 16vw;
-      min-width: 140px;
+      width: 16vw !important;
+      min-width: 16vw !important;
+      max-width: 16vw !important;
       z-index: 9400;
       display: flex !important;
+      background: #1a1a1a;
     }
 
     #wodArea {
@@ -350,7 +355,10 @@
       font-weight: 700;
       color: #fde68a;
       border-bottom: none;
-      font-size: calc(0.95rem * var(--font-scale));
+      /* Safety text does NOT multiply by --font-scale — the binary-search
+         auto-fit (see autoFitFontSize) already sizes it to its container.
+         Compounding with --font-scale made safety unreadably small in SPLIT. */
+      font-size: 0.95rem;
       line-height: 1.4;
     }
 
@@ -2991,7 +2999,9 @@
         });
       }
 
-      // Auto-scale safety card text to fill its box, capped at 2x base font
+      // Auto-scale safety card text to fill its box, capped at 2x base font.
+      // Absolute rem (no --font-scale compound) so safety stays readable in
+      // SPLIT where the outer autoFit shrinks --font-scale aggressively.
       document.querySelectorAll('.workout-card.safety-card .card-body').forEach(body => {
         const lines = body.querySelectorAll('.exercise-line');
         if (!lines.length) return;
@@ -3000,11 +3010,11 @@
         let sLo = 0.9, sHi = 2.0;
         for (let j = 0; j < 10; j++) {
           const mid = (sLo + sHi) / 2;
-          lines.forEach(l => l.style.fontSize = `calc(${mid}rem * var(--font-scale))`);
+          lines.forEach(l => l.style.fontSize = `${mid}rem`);
           body.offsetHeight;
           if (body.scrollHeight > availH + 2) { sHi = mid; } else { sLo = mid; }
         }
-        lines.forEach(l => l.style.fontSize = `calc(${sLo.toFixed(3)}rem * var(--font-scale))`);
+        lines.forEach(l => l.style.fontSize = `${sLo.toFixed(3)}rem`);
       });
     }
 
