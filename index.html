@@ -1984,8 +1984,49 @@
         });
       },
       warningBeep()   { this.beep(660, 0.09, 3, 0.08); },           // short triple tick
-      tabataWork()    { this.beep(990, 0.18, 1); },                 // high tone
-      tabataRest()    { this.beep(440, 0.25, 1, 0, 'triangle'); },  // low, softer
+      // Phase-transition cues: 3-tone sawtooth fanfare. Longer + sharper than
+      // the old single sine beep — athletes routinely missed the transition
+      // when their head was down. Sawtooth has rich harmonics that cut through
+      // gym noise; ascending/descending arpeggio tells the ear "go" vs "stop"
+      // even without the voice cue.
+      tabataWork() {
+        if (timerMuted || !this.ctx) return;
+        const t = this.ctx.currentTime;
+        // Ascending fanfare — A5 → D6 → A6 (root, 4th, octave). 0.55s total.
+        [880, 1175, 1760].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.connect(gain); gain.connect(this.ctx.destination);
+          osc.frequency.value = freq;
+          osc.type = 'sawtooth';
+          const start = t + i * 0.18;
+          gain.gain.setValueAtTime(0, start);
+          gain.gain.linearRampToValueAtTime(0.6, start + 0.006);
+          gain.gain.setValueAtTime(0.6, start + 0.14);
+          gain.gain.linearRampToValueAtTime(0.001, start + 0.18);
+          osc.start(start);
+          osc.stop(start + 0.20);
+        });
+      },
+      tabataRest() {
+        if (timerMuted || !this.ctx) return;
+        const t = this.ctx.currentTime;
+        // Descending fanfare — D5 → A4 → D4 (octave-down arpeggio). 0.55s total.
+        [587, 440, 294].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.connect(gain); gain.connect(this.ctx.destination);
+          osc.frequency.value = freq;
+          osc.type = 'sawtooth';
+          const start = t + i * 0.18;
+          gain.gain.setValueAtTime(0, start);
+          gain.gain.linearRampToValueAtTime(0.55, start + 0.006);
+          gain.gain.setValueAtTime(0.55, start + 0.14);
+          gain.gain.linearRampToValueAtTime(0.001, start + 0.18);
+          osc.start(start);
+          osc.stop(start + 0.20);
+        });
+      },
       finishSound() {
         if (timerMuted || !this.ctx) return;
         const t = this.ctx.currentTime;
