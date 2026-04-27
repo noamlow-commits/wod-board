@@ -4153,8 +4153,11 @@
               const parsed = parseLine(line);
               return `<div class="exercise-line ${parsed.type}${parsed.extraClass ? ' ' + parsed.extraClass : ''}" dir="auto">${parsed.html}</div>`;
             }).join('');
+            // No card-header: the column-number header (e.g. "4") added
+            // no info — the yellow safety styling already signals "safety".
+            // Dropping the header gives the body more vertical space, which
+            // the auto-fit turns into larger safety text.
             return `<div class="workout-card safety-card">
-              <div class="card-header warmup">${escapeHtml(cell.header)}</div>
               <div class="card-body${rtl ? ' rtl-content' : ''}">${lh}</div>
             </div>`;
           }).join('');
@@ -4225,9 +4228,9 @@
               const parsed = parseLine(line);
               return `<div class="exercise-line ${parsed.type}${parsed.extraClass ? ' ' + parsed.extraClass : ''}" dir="auto">${parsed.html}</div>`;
             }).join('');
+            // No card-header on safety — see flow-layout safety above.
             return `
               <div class="workout-card safety-card">
-                <div class="card-header warmup">${escapeHtml(cell.header)}</div>
                 <div class="card-body${rtl ? ' rtl-content' : ''}">${lh}</div>
               </div>`;
           }).join('');
@@ -4268,9 +4271,11 @@
               const isUntitledWarmup = !cell.header;
               const isWarmupCard = !safety && (isUntitledWarmup || theme === 'warmup' || (cell.lines.length > 0 && /warm\s*up/i.test(cell.lines[0])));
               const displayHeader = isUntitledWarmup ? 'WARM UP' : cell.header;
+              // Safety cards skip the header — see flow-layout safety above.
+              const headerHTML = safety ? '' : `<div class="card-header ${isWarmupCard ? 'warmup' : theme}">${escapeHtml(displayHeader)}</div>`;
               return `
                 <div class="workout-card${safety ? ' safety-card' : ''}${isWarmupCard ? ' warmup-card' : ''}" data-part-idx="${cellIdx}">
-                  <div class="card-header ${safety ? 'warmup' : (isWarmupCard ? 'warmup' : theme)}">${escapeHtml(displayHeader)}</div>
+                  ${headerHTML}
                   ${bodyHTML}
                 </div>`;
             }).join('');
