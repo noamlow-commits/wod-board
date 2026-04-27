@@ -3938,8 +3938,13 @@
 
         // Count how many cells have content (excluding safety and Rx)
         let contentCells = row.cells.filter(c => c.lines.length > 0 && !isSafetyColumn(c.header) && !isRxCell(c));
-        // Safety card only shown when it has real content (not just whitespace)
-        const safetyCells = row.cells.filter(c => isSafetyColumn(c.header) && c.lines.some(l => l.trim().length > 0));
+        // Safety card only shown when it has real content (not just whitespace).
+        // Strip stray pure-digit lines (e.g. the column-number "4" that gviz
+        // sometimes splits into the cell from a vertically-merged row above).
+        const safetyCells = row.cells
+          .filter(c => isSafetyColumn(c.header) && c.lines.some(l => l.trim().length > 0))
+          .map(c => ({ ...c, lines: c.lines.filter(l => !/^\s*\d+\s*$/.test(l)) }))
+          .filter(c => c.lines.length > 0);
         // Rx cells — rendered as a floating badge
         const rxCells = row.cells.filter(c => c.lines.length > 0 && isRxCell(c));
 
@@ -4239,6 +4244,9 @@
           const MULTI_COL_THRESHOLD = 999;
 
           cardsHTML = row.cells
+            .map(c => isSafetyColumn(c.header)
+              ? { ...c, lines: c.lines.filter(l => !/^\s*\d+\s*$/.test(l)) }
+              : c)
             .filter(cell => cell.lines.length > 0)
             .map((cell, cellIdx) => {
               const safety = isSafetyColumn(cell.header);
