@@ -3875,11 +3875,12 @@
 
       let html = escapeHtml(text);
 
-      // Highlight exercise labels at start of line (A1., A2-, A1 -, B2., etc.) as a badge
-      // Space before and after separator is optional (handles "A5.sholder", "A1 - Teach")
-      // Skip if the line is actually a time-cap pattern ("t.c 42", "tc 12:00")
+      // Highlight exercise labels at start of line (A1., A2-, A1 -, B2., B5 bw, etc.) as a badge.
+      // Separator is "."/"-"/")" with optional surrounding whitespace, OR
+      // just whitespace (handles "B5 bw cossack squat" without a period).
+      // Skip if the line is actually a time-cap pattern ("t.c 42", "tc 12:00").
       if (!/^\s*t\.?\s*c[\-\s]/i.test(text)) {
-        html = html.replace(/^([A-Z]\d+)\s*[\.\-\)]\s*/i, '<span class="time-badge">$1.</span> ');
+        html = html.replace(/^([A-Z]\d+)(?:\s*[\.\-\)]\s*|\s+)/i, '<span class="time-badge">$1.</span> ');
       }
 
       // Highlight step numbers with # (1#, 2#, 3#) as orange badge
