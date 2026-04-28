@@ -2139,7 +2139,8 @@
 
       // Global time cap — allow whitespace between "t" and "c" so we also
       // catch the post-parseLine DOM form "t. c 42"
-      let tcMatch = text.match(/\bt\.?\s*c[\-\s]*(\d+(?::\d{2})?)/i);
+      // Accept ":" as a separator too — coaches often write "t.c: 16".
+      let tcMatch = text.match(/\bt\.?\s*c[\-\s:]*(\d+(?::\d{2})?)/i);
       let capSeconds = 0;
       if (tcMatch) {
         const tv = tcMatch[1];
@@ -2273,9 +2274,13 @@
         }
       }
 
-      // FOR TIME
-      if (/\bfor\s+time\b/i.test(text)) {
-        results.push({ type: 'fortime', capSeconds: capSeconds, label: capSeconds ? `For Time (TC ${Math.floor(capSeconds/60)}′)` : 'For Time' });
+      // FOR TIME — also matches RFT ("Rounds For Time", e.g. "5 RFT") and
+      // its variants (RFTC = Rounds For Time + Cap). With a cap detected
+      // (capSeconds > 0) the label becomes "For Time (TC N′)".
+      const rftMatch = text.match(/\b(\d+)\s*RFT\b/i);
+      if (/\bfor\s+time\b/i.test(text) || rftMatch) {
+        const roundsLbl = rftMatch ? `${rftMatch[1]} RFT` : 'For Time';
+        results.push({ type: 'fortime', capSeconds: capSeconds, label: capSeconds ? `${roundsLbl} (TC ${Math.floor(capSeconds/60)}′)` : roundsLbl });
       } else if (capSeconds > 0 && results.length === 0) {
         results.push({ type: 'fortime', capSeconds: capSeconds, label: `TC ${Math.floor(capSeconds/60)}′` });
       }
@@ -3913,7 +3918,7 @@
       // Separator is "."/"-"/")" with optional surrounding whitespace, OR
       // just whitespace (handles "B5 bw cossack squat" without a period).
       // Skip if the line is actually a time-cap pattern ("t.c 42", "tc 12:00").
-      if (!/^\s*t\.?\s*c[\-\s]/i.test(text)) {
+      if (!/^\s*t\.?\s*c[\-\s:]/i.test(text)) {
         html = html.replace(/^([A-Z]\d+)(?:\s*[\.\-\)]\s*|\s+)/i, '<span class="time-badge">$1.</span> ');
       }
 
@@ -3932,7 +3937,7 @@
       html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM|TABATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
       html = html.replace(/\b(\d+)\s*sec(?:onds?)?\b/gi, '<span class="time-badge">$1 sec</span>');
       // Highlight time cap numbers: "t.c 37", "tc 12:00", "t.c- 5", "t. c 42"
-      html = html.replace(/\b(t\.?\s*c[\-\s]*)\s*(\d+(?::\d{2})?)/gi, '$1<span class="time-badge">$2</span>');
+      html = html.replace(/\b(t\.?\s*c[\-\s:]*)\s*(\d+(?::\d{2})?)/gi, '$1<span class="time-badge">$2</span>');
 
       return { type: 'exercise', html };
     }
