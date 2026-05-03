@@ -2092,6 +2092,12 @@
         // WORK: every X:XX ×N
         wm = line.match(/\bevery\s+(\d+):(\d{2})\s*(?:x|×)\s*(\d+)/i);
         if (wm) { const iv=parseInt(wm[1])*60+parseInt(wm[2]); if (pushPhase(classified, { type:'work', seconds:iv*parseInt(wm[3]), label:`Every ${wm[1]}:${wm[2]} ×${wm[3]}` })) continue; }
+        // WORK: "N min work" / "N minute(s) work" — bare time block (no AMRAP/EMOM keyword)
+        wm = line.match(/\b(\d+)\s*min(?:utes?)?\s+work\b/i);
+        if (wm) { const n=parseInt(wm[1]); if (pushPhase(classified, { type:'work', seconds:n*60, label:`${n}′ work` })) continue; }
+        // WORK: "M:SS work" form
+        wm = line.match(/(?<![:\d])(\d+):(\d{2})\s+work\b/i);
+        if (wm) { if (pushPhase(classified, { type:'work', seconds:parseInt(wm[1])*60+parseInt(wm[2]), label:`${wm[1]}:${wm[2]} work` })) continue; }
 
         // ── REST patterns, most-specific first ──
         // (a) Time format, optional "min" between:  "2:00 rest" / "3:00 min rest" / "1:30 minutes rest"
@@ -2311,6 +2317,28 @@
         results.push({ type: 'fortime', capSeconds: capSeconds, label: capSeconds ? `${roundsLbl} (TC ${Math.floor(capSeconds/60)}′)` : roundsLbl });
       } else if (capSeconds > 0 && results.length === 0) {
         results.push({ type: 'fortime', capSeconds: capSeconds, label: `TC ${Math.floor(capSeconds/60)}′` });
+      }
+
+      // Bare "N min work" / "M:SS work" — last-resort fallback for self-paced time
+      // blocks like "10 Min Work and try to stay on the same pace" where no
+      // AMRAP/EMOM/FOR TIME keyword is present. Only fires if no other timer was
+      // detected, so it can't double up with tabata custom intervals (which need
+      // a companion "rest"/"off") or chained timelines.
+      if (!chained && results.length === 0) {
+        const minWorkRe = /\b(\d+)\s*min(?:utes?)?\s+work\b/gi;
+        while ((m = minWorkRe.exec(text)) !== null) {
+          const mins = parseInt(m[1]);
+          if (mins >= 1 && mins <= 90) {
+            results.push({ type: 'amrap', totalSeconds: mins * 60, label: `${mins}′ work` });
+          }
+        }
+        const mmssWorkRe = /(?<![:\d])(\d+):(\d{2})\s+work\b/gi;
+        while ((m = mmssWorkRe.exec(text)) !== null) {
+          const total = parseInt(m[1]) * 60 + parseInt(m[2]);
+          if (total >= 30 && total <= 90 * 60) {
+            results.push({ type: 'amrap', totalSeconds: total, label: `${m[1]}:${m[2]} work` });
+          }
+        }
       }
 
       return results;
