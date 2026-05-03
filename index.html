@@ -2188,38 +2188,65 @@
         }
       }
 
-      // EMOM patterns
-      m = text.match(/\bE(\d)MOM\b/i);
-      if (m) {
-        const iv = parseInt(m[1]) * 60;
-        const totalMatch = text.match(/\bE\dMOM\s+(\d+)/i);
-        const total = totalMatch ? parseInt(totalMatch[1]) * 60 : 600;
-        results.push({ type: 'emom', totalSeconds: total, intervalSeconds: iv, label: `E${m[1]}MOM` });
-      }
-      m = text.match(/\bEMOM\s+(\d+)\s*:?/i);
-      if (m && !results.some(r => r.type === 'emom')) {
-        results.push({ type: 'emom', totalSeconds: parseInt(m[1]) * 60, intervalSeconds: 60, label: `EMOM ${m[1]}′` });
-      }
+      // EMOM-style patterns — find ALL occurrences (each becomes its own timer
+      // button so the coach can manually start each block, leaving a self-paced
+      // rest between them when no rest is written. Skip if a chained timer was
+      // already detected above (rest IS written + uniform durations).
+      // `consumedRanges` prevents the broader "every X:XX" fallback from
+      // re-matching text already captured by the explicit "every X:XX ×N".
+      if (!chained) {
+        const consumedRanges = [];
+        const isConsumed = (start, end) => consumedRanges.some(r => start < r.end && end > r.start);
+        const consume = (mm) => consumedRanges.push({ start: mm.index, end: mm.index + mm[0].length });
 
-      // "e 1:30 mom x 8" — coach shorthand for EMOM
-      m = text.match(/\be\s*(\d+):(\d{2})\s*mom\s*(?:x|×)\s*(\d+)/i);
-      if (m && !results.some(r => r.type === 'emom')) {
-        const iv = parseInt(m[1])*60 + parseInt(m[2]);
-        const rounds = parseInt(m[3]);
-        results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv, label: `EMOM ${m[1]}:${m[2]} ×${rounds}` });
-      }
+        // E2MOM / E3MOM (with optional total minutes)
+        const eXmomRe = /\bE(\d)MOM(?:\s+(\d+))?\b/gi;
+        while ((m = eXmomRe.exec(text)) !== null) {
+          consume(m);
+          const iv = parseInt(m[1]) * 60;
+          const total = m[2] ? parseInt(m[2]) * 60 : 600;
+          results.push({ type: 'emom', totalSeconds: total, intervalSeconds: iv,
+                         label: m[2] ? `E${m[1]}MOM ${m[2]}′` : `E${m[1]}MOM` });
+        }
 
-      // every X:XX xN  (explicit multiplier)
-      m = text.match(/\bevery\s+(\d+):(\d{2})\s*(?:x|×)\s*(\d+)/i);
-      if (m) {
-        const iv = parseInt(m[1])*60 + parseInt(m[2]);
-        const rounds = parseInt(m[3]);
-        results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv, label: `Every ${m[1]}:${m[2]} ×${rounds}` });
-      }
-      // every X:XX without ×N — look for "N sets" or "N rounds" in surrounding text
-      if (!m) {
-        m = text.match(/\bevery\s+(\d+):(\d{2})/i);
-        if (m && !results.some(r => r.type === 'emom')) {
+        // EMOM N — every occurrence becomes its own timer
+        const emomRe = /\bEMOM\s+(\d+)\s*:?/gi;
+        while ((m = emomRe.exec(text)) !== null) {
+          if (isConsumed(m.index, m.index + m[0].length)) continue;
+          consume(m);
+          results.push({ type: 'emom', totalSeconds: parseInt(m[1]) * 60, intervalSeconds: 60,
+                         label: `EMOM ${m[1]}′` });
+        }
+
+        // "e 1:30 mom x 8" — coach shorthand for EMOM
+        const emomShortRe = /\be\s*(\d+):(\d{2})\s*mom\s*(?:x|×)\s*(\d+)/gi;
+        while ((m = emomShortRe.exec(text)) !== null) {
+          if (isConsumed(m.index, m.index + m[0].length)) continue;
+          consume(m);
+          const iv = parseInt(m[1])*60 + parseInt(m[2]);
+          const rounds = parseInt(m[3]);
+          results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
+                         label: `EMOM ${m[1]}:${m[2]} ×${rounds}` });
+        }
+
+        // every X:XX ×N — explicit multiplier
+        const everyExpRe = /\bevery\s+(\d+):(\d{2})\s*(?:x|×)\s*(\d+)/gi;
+        while ((m = everyExpRe.exec(text)) !== null) {
+          if (isConsumed(m.index, m.index + m[0].length)) continue;
+          consume(m);
+          const iv = parseInt(m[1])*60 + parseInt(m[2]);
+          const rounds = parseInt(m[3]);
+          results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
+                         label: `Every ${m[1]}:${m[2]} ×${rounds}` });
+        }
+
+        // every X:XX without ×N — infer rounds from "N sets / rounds" or
+        // exercise count. Inference is text-global, so each uncaptured "every"
+        // gets the same inferred round count (best effort).
+        const everyImpRe = /\bevery\s+(\d+):(\d{2})/gi;
+        while ((m = everyImpRe.exec(text)) !== null) {
+          if (isConsumed(m.index, m.index + m[0].length)) continue;
+          consume(m);
           const iv = parseInt(m[1])*60 + parseInt(m[2]);
           const setsMatch = text.match(/(\d+)\s*sets?\b/i);
           const roundsMatch = text.match(/(\d+)\s*rounds?\b/i);
@@ -2228,7 +2255,8 @@
             const exerciseLines = lines.filter(l => /^\s*\d/.test(l) && !/^\s*\d+\s*(sec|on|off|work|rest|min|set|round)/i.test(l));
             rounds = exerciseLines.length || 5;
           }
-          results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv, label: `Every ${m[1]}:${m[2]} ×${rounds}` });
+          results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
+                         label: `Every ${m[1]}:${m[2]} ×${rounds}` });
         }
       }
 
