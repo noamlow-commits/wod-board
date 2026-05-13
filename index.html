@@ -3999,9 +3999,9 @@
         return { type: 'spacer', html: '' };
       }
 
-      // Inline Rx line: "rx: 22.5/15", "rx (15/22.5)", "Rx - ..."
-      // Render as inline Rx badge
-      if (/^rx\s*[:\(\-]/i.test(text)) {
+      // Inline Rx line: "rx: 22.5/15", "rx (15/22.5)", "Rx - ...", "Rx+(24/20)"
+      // Render as inline Rx badge. Allow optional +/- (scaled markers) after "rx".
+      if (/^rx[\+\-]?\s*[:\(\-]/i.test(text)) {
         return { type: 'exercise', html: `<span style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;border-radius:6px;padding:0.15rem 0.5rem;font-weight:700;">💊 ${escapeHtml(text)}</span>` };
       }
 
