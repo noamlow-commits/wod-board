@@ -612,8 +612,8 @@
     }
 
     .exercise-line.spacer {
-      height: 0.6em;
-      min-height: 0.4rem;
+      height: 1.1em;
+      min-height: 0.9rem;
       border: none !important;
       padding: 0 !important;
     }
@@ -2233,6 +2233,41 @@
           const rounds = parseInt(m[3]);
           results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
                          label: `EMOM ${m[1]}:${m[2]} ×${rounds}` });
+        }
+
+        // "N min x M" — back-to-back interval shorthand (no rest written).
+        // e.g. "4 Min x2 (8 total)" → 4-min interval × 2 rounds = 8 min total.
+        // Modeled as an EMOM-style timer so the round transition is announced
+        // mid-workout (essential when exercises change between rounds).
+        // Sanity bounds rule out reps×weight ("10x5") and silly schedules.
+        const minXmRe = /\b(\d+)\s*min(?:utes?)?\s*(?:x|×)\s*(\d+)\b/gi;
+        while ((m = minXmRe.exec(text)) !== null) {
+          if (isConsumed(m.index, m.index + m[0].length)) continue;
+          consume(m);
+          const eachMin = parseInt(m[1]);
+          const rounds = parseInt(m[2]);
+          if (eachMin >= 1 && eachMin <= 30 && rounds >= 2 && rounds <= 10) {
+            const iv = eachMin * 60;
+            results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
+                           label: `${eachMin}′ ×${rounds} (${eachMin*rounds}′ total)` });
+          }
+        }
+
+        // "M:SS x N sets/rounds" — set-based interval shorthand without "every"/"mom"/"min".
+        // e.g. "complex: 1:30 x 4-3 sets" → 1:30 interval × 4 rounds (range → take higher).
+        // Requires trailing "sets"/"rounds" to avoid false matches like "5:00 x 3 burpees".
+        const mmssXmRe = /\b(\d+):(\d{2})\s*(?:x|×)\s*(\d+)(?:\s*[\-–]\s*(\d+))?\s*(?:sets?|rounds?)\b/gi;
+        while ((m = mmssXmRe.exec(text)) !== null) {
+          if (isConsumed(m.index, m.index + m[0].length)) continue;
+          consume(m);
+          const iv = parseInt(m[1])*60 + parseInt(m[2]);
+          const r1 = parseInt(m[3]);
+          const r2 = m[4] ? parseInt(m[4]) : 0;
+          const rounds = Math.max(r1, r2);
+          if (iv >= 30 && iv <= 30*60 && rounds >= 2 && rounds <= 20) {
+            results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
+                           label: `${m[1]}:${m[2]} ×${rounds}` });
+          }
         }
 
         // every X:XX ×N — explicit multiplier
@@ -3945,6 +3980,8 @@
         || /\bcomplete\s+\d+\s*rounds?\b/i.test(text)
         || /\bI go\s*(you|u)\s*go\b/i.test(text)
         || /\bIN TEAMS OF\b/i.test(text)
+        || /\bteams?\s+of\s+\d/i.test(text)
+        || /\b\d+\s*min(?:utes?)?\s*[x×]\s*\d+\b/i.test(text)
         || /\b(min|sec) rest\b/i.test(text);
 
       if (isInstruction) {
@@ -3977,6 +4014,10 @@
       if (!/^\s*t\.?\s*c[\-\s:]/i.test(text)) {
         html = html.replace(/^([A-Z]\d+)(?:\s*[\.\-\)]\s*|\s+)/i, '<span class="time-badge">$1.</span> ');
       }
+
+      // Numbered list items at start ("1. complex...", "2) item") — badge like A1/A2.
+      // Period/paren + whitespace differentiates from leading reps ("5 burpees") which use rep-number.
+      html = html.replace(/^(\d+)\s*[\.\)]\s+/, '<span class="time-badge">$1.</span> ');
 
       // Highlight step numbers with # (1#, 2#, 3#) as orange badge
       html = html.replace(/^(\d+#)/, '<span class="rep-number">$1</span>');
@@ -4083,7 +4124,7 @@
             let inWarmup = isUntitledWarmup;
             for (const line of cell.lines) {
               if (/warm\s*up/i.test(line)) inWarmup = true;
-              else if (/\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom/i.test(line)) inWarmup = false;
+              else if (/\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom|\b\d+\s*min(?:utes?)?\s*[x×]\s*\d+\b|\bteams?\s+of\s+\d/i.test(line)) inWarmup = false;
               const parsed = parseLine(line);
               const ec = parsed.extraClass ? ' ' + parsed.extraClass : '';
               const isGrpHdr = /^[A-Z]\s*[\.\-\)]\s+/i.test(line);
