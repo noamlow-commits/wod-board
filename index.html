@@ -2090,7 +2090,7 @@
         wm = line.match(/\bEMOM\s+(\d+)/i);
         if (wm) { if (pushPhase(classified, { type:'work', seconds:parseInt(wm[1])*60, label:`EMOM ${wm[1]}′` })) continue; }
         // WORK: every X:XX ×N
-        wm = line.match(/\bevery\s+(\d+):(\d{2})\s*(?:x|×)\s*(\d+)/i);
+        wm = line.match(/\bevery\s+(\d+):(\d{2})\s*[x×*]\s*(\d+)/i);
         if (wm) { const iv=parseInt(wm[1])*60+parseInt(wm[2]); if (pushPhase(classified, { type:'work', seconds:iv*parseInt(wm[3]), label:`Every ${wm[1]}:${wm[2]} ×${wm[3]}` })) continue; }
         // WORK: "N min work" / "N minute(s) work" — bare time block (no AMRAP/EMOM keyword)
         wm = line.match(/\b(\d+)\s*min(?:utes?)?\s+work\b/i);
@@ -2225,7 +2225,7 @@
         }
 
         // "e 1:30 mom x 8" — coach shorthand for EMOM
-        const emomShortRe = /\be\s*(\d+):(\d{2})\s*mom\s*(?:x|×)\s*(\d+)/gi;
+        const emomShortRe = /\be\s*(\d+):(\d{2})\s*mom\s*[x×*]\s*(\d+)/gi;
         while ((m = emomShortRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
@@ -2240,7 +2240,7 @@
         // Modeled as an EMOM-style timer so the round transition is announced
         // mid-workout (essential when exercises change between rounds).
         // Sanity bounds rule out reps×weight ("10x5") and silly schedules.
-        const minXmRe = /\b(\d+)\s*min(?:utes?)?\s*(?:x|×)\s*(\d+)\b/gi;
+        const minXmRe = /\b(\d+)\s*min(?:utes?)?\s*[x×*]\s*(\d+)\b/gi;
         while ((m = minXmRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
@@ -2256,7 +2256,7 @@
         // "M:SS x N sets/rounds" — set-based interval shorthand without "every"/"mom"/"min".
         // e.g. "complex: 1:30 x 4-3 sets" → 1:30 interval × 4 rounds (range → take higher).
         // Requires trailing "sets"/"rounds" to avoid false matches like "5:00 x 3 burpees".
-        const mmssXmRe = /\b(\d+):(\d{2})\s*(?:x|×)\s*(\d+)(?:\s*[\-–]\s*(\d+))?\s*(?:sets?|rounds?)\b/gi;
+        const mmssXmRe = /\b(\d+):(\d{2})\s*[x×*]\s*(\d+)(?:\s*[\-–]\s*(\d+))?\s*(?:sets?|rounds?)\b/gi;
         while ((m = mmssXmRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
@@ -2271,7 +2271,7 @@
         }
 
         // every X:XX ×N — explicit multiplier
-        const everyExpRe = /\bevery\s+(\d+):(\d{2})\s*(?:x|×)\s*(\d+)/gi;
+        const everyExpRe = /\bevery\s+(\d+):(\d{2})\s*[x×*]\s*(\d+)/gi;
         while ((m = everyExpRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
@@ -3982,7 +3982,7 @@
         || /\bI go\s*(you|u)\s*go\b/i.test(text)
         || /\bIN TEAMS OF\b/i.test(text)
         || /\bteams?\s+of\s+\d/i.test(text)
-        || /\b\d+\s*min(?:utes?)?\s*[x×]\s*\d+\b/i.test(text)
+        || /\b\d+\s*min(?:utes?)?\s*[x×*]\s*\d+\b/i.test(text)
         || /\b(min|sec) rest\b/i.test(text);
 
       if (isInstruction) {
@@ -4131,7 +4131,7 @@
             let inWarmup = isUntitledWarmup;
             for (const line of cell.lines) {
               if (/warm\s*up/i.test(line)) inWarmup = true;
-              else if (/\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom|\b\d+\s*min(?:utes?)?\s*[x×]\s*\d+\b|\bteams?\s+of\s+\d/i.test(line)) inWarmup = false;
+              else if (/\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom|\b\d+\s*min(?:utes?)?\s*[x×*]\s*\d+\b|\bteams?\s+of\s+\d/i.test(line)) inWarmup = false;
               const parsed = parseLine(line);
               const ec = parsed.extraClass ? ' ' + parsed.extraClass : '';
               const isGrpHdr = /^[A-Z]\s*[\.\-\)]\s+/i.test(line);
