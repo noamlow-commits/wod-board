@@ -4005,6 +4005,12 @@
         return { type: 'exercise', html: `<span style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;border-radius:6px;padding:0.15rem 0.5rem;font-weight:700;">💊 ${escapeHtml(text)}</span>` };
       }
 
+      // Weight prescription line: "30/50 sandbag", "24/16 ktb", "70/50 lb", "1.5/1 pood".
+      // Two numbers split by "/" + equipment word — same blue Rx badge.
+      if (/^\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\s+\S/.test(text)) {
+        return { type: 'exercise', html: `<span style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;border-radius:6px;padding:0.15rem 0.5rem;font-weight:700;">💊 ${escapeHtml(text)}</span>` };
+      }
+
       let html = escapeHtml(text);
 
       // Highlight exercise labels at start of line (A1., A2-, A1 -, B2., B5 bw, etc.) as a badge.
