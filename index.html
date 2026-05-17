@@ -2327,8 +2327,9 @@
         if (wr) {
           const workSec = parseInt(wr[1]);
           const restSec = parseInt(wr[2]);
-          // Try to find round count: "x5", "x 8", "× 6", "5 rounds"
-          const roundsMatch = text.match(/[x×]\s*(\d+)/i) || text.match(/(\d+)\s*rounds?/i);
+          // Try to find round count: "x5", "x 8", "× 6", "* 2", "5 rounds"
+          // ("*" is coach shorthand — "30 work, 10 rest * 2")
+          const roundsMatch = text.match(/[x×*]\s*(\d+)/i) || text.match(/(\d+)\s*rounds?/i);
           // If no explicit rounds, count exercise-like lines in the same cell
           // (lines starting with a number or bullet — rough heuristic, fallback to 5)
           let rounds = roundsMatch ? parseInt(roundsMatch[1]) : 0;
