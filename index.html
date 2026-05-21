@@ -2137,8 +2137,9 @@
       return classified.filter(c => c.type === 'work' || c.type === 'rest');
     }
 
-    // Extract ALL timer configs from workout text lines (returns array)
-    function extractTimerConfigs(lines) {
+    // Detect timer configs from a flat list of workout lines (returns array).
+    // Part-unaware — extractTimerConfigs() below wraps this with "part N" splitting.
+    function detectTimers(lines) {
       if (!lines || lines.length === 0) return [];
       const results = [];
       const text = lines.join('\n');
@@ -2378,6 +2379,98 @@
       }
 
       return results;
+    }
+
+    // Recognizes a "part N" block header. Kept as ONE shared literal so the
+    // line parser, the warm-up reset, the column layout and the timer splitter
+    // all agree on what a part header is (see the 3-place-pattern rule).
+    const PART_HEADER_RE = /^\s*part\s*\d+\b/i;
+
+    // Parse a duration token ("1:00", "45 sec", "3 min", "2m") -> seconds, or null.
+    function parseDur(str) {
+      str = (str || '').trim();
+      let m = str.match(/^(\d+):(\d{2})$/);
+      if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
+      m = str.match(/^(\d+)\s*(min(?:ute)?s?|m|sec(?:ond)?s?|s)$/i);
+      if (m) return /^s/i.test(m[2]) ? parseInt(m[1]) : parseInt(m[1]) * 60;
+      return null;
+    }
+
+    // Compact duration label: 180 -> "3′", 45 -> "45″", 90 -> "1:30".
+    function fmtDur(s) {
+      if (s % 60 === 0) return (s / 60) + '′';
+      if (s < 60) return s + '″';
+      return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    }
+
+    // Detect a coach-style interval block written with activity lines instead
+    // of the literal word "work": "<dur> <activity>" + "<dur> rest" + a
+    // separate "×N" / "N sets" multiplier. Returns a chained-interval config
+    // (tabata-type) or null. A time unit is REQUIRED on the work line so a
+    // bare rep line like "20 ring row" can't be mistaken for a duration.
+    function detectActivityInterval(lines) {
+      if (!lines || lines.length < 2) return null;
+      let workSec = 0, restSec = 0, rounds = 0;
+      for (const raw of lines) {
+        const l = (raw || '').trim();
+        if (!l || l === '__SPACER__') continue;
+        // Multiplier: "×2", "x 5", "5 sets", "×5 sets", "5 rounds"
+        let mm = l.match(/^[x×*]\s*(\d+)(?:\s*(?:sets?|rounds?))?$/i)
+              || l.match(/^(\d+)\s*(?:sets?|rounds?)$/i);
+        if (mm && !rounds) {
+          const r = parseInt(mm[1]);
+          if (r >= 2 && r <= 20) { rounds = r; continue; }
+        }
+        // Rest line: "<dur> rest" or "rest <dur>"
+        let rm = l.match(/^(.+?)\s+rest$/i) || l.match(/^rest\s+(.+)$/i);
+        if (rm && !restSec) {
+          const d = parseDur(rm[1]);
+          if (d) { restSec = d; continue; }
+        }
+        // Work line: "<dur> <activity>" — explicit time unit (or M:SS) required.
+        let wm = l.match(/^(\d+:\d{2}|\d+\s*(?:min(?:ute)?s?|m|sec(?:ond)?s?|s))\s+(.+)$/i);
+        if (wm && !workSec && !/^rest\b/i.test(wm[2].trim())) {
+          const d = parseDur(wm[1]);
+          if (d) workSec = d;
+        }
+      }
+      if (workSec >= 5 && workSec <= 30 * 60 && restSec >= 1 && restSec <= 10 * 60 && rounds >= 2) {
+        return { type: 'tabata', workSeconds: workSec, restSeconds: restSec,
+                 rounds: rounds, skipLastRest: false,
+                 label: `${fmtDur(workSec)}/${fmtDur(restSec)} ×${rounds}` };
+      }
+      return null;
+    }
+
+    // Extract ALL timer configs from workout text (returns array). When the
+    // workout is split into "part N" blocks, each part is scanned on its own
+    // so every part yields its own timer button — a series of timers.
+    function extractTimerConfigs(lines) {
+      if (!lines || lines.length === 0) return [];
+      const partIdx = lines.map((l, i) => PART_HEADER_RE.test(l || '') ? i : -1).filter(i => i >= 0);
+      if (partIdx.length < 2) return detectTimers(lines);
+
+      const segments = [];
+      if (partIdx[0] > 0) segments.push({ num: 0, lines: lines.slice(0, partIdx[0]) });
+      for (let p = 0; p < partIdx.length; p++) {
+        const start = partIdx[p];
+        const end = p + 1 < partIdx.length ? partIdx[p + 1] : lines.length;
+        const numMatch = lines[start].match(/part\s*(\d+)/i);
+        segments.push({ num: numMatch ? parseInt(numMatch[1]) : p + 1,
+                        lines: lines.slice(start + 1, end) });
+      }
+
+      const out = [];
+      for (const seg of segments) {
+        let cfgs = detectTimers(seg.lines);
+        if (cfgs.length === 0) {
+          const ai = detectActivityInterval(seg.lines);
+          if (ai) cfgs = [ai];
+        }
+        const tag = seg.num ? `P${seg.num} · ` : '';
+        for (const c of cfgs) out.push({ ...c, label: tag + c.label });
+      }
+      return out;
     }
 
     // Legacy single-result wrapper
@@ -3933,6 +4026,15 @@
         const rest = escapeHtml(groupMatch[2]);
         return { type: 'sub-header', html: `<span class="time-badge">${label}.</span> ${rest}` };
       }
+      // "part N" workout-block header — "part 1:", "Part 2: 8 min total".
+      // Rendered uniformly (so every part looks the same) and flagged so the
+      // column layout starts each part at the top of its own column.
+      if (PART_HEADER_RE.test(text)) {
+        let partHtml = escapeHtml(text);
+        partHtml = partHtml.replace(/\b(\d+)\s*min(?:utes?)?\b/gi, '<span class="time-badge">$1 min</span>');
+        partHtml = partHtml.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
+        return { type: 'sub-header', isPartHeader: true, html: partHtml };
+      }
       // Detect sub-headers (lines ending with : or all-caps)
       if (/^[A-Z\s]{4,}:?$/.test(text) || /^.{2,}:$/.test(text)) {
         return { type: 'sub-header', html: escapeHtml(text) };
@@ -4133,11 +4235,11 @@
             let inWarmup = isUntitledWarmup;
             for (const line of cell.lines) {
               if (/warm\s*up/i.test(line)) inWarmup = true;
-              else if (/\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom|\b\d+\s*min(?:utes?)?\s*[x×*]\s*\d+\b|\bteams?\s+of\s+\d/i.test(line)) inWarmup = false;
+              else if (PART_HEADER_RE.test(line) || /\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom|\b\d+\s*min(?:utes?)?\s*[x×*]\s*\d+\b|\bteams?\s+of\s+\d/i.test(line)) inWarmup = false;
               const parsed = parseLine(line);
               const ec = parsed.extraClass ? ' ' + parsed.extraClass : '';
               const isGrpHdr = /^[A-Z]\s*[\.\-\)]\s+/i.test(line);
-              allItems.push({ type: 'line', section: currentSection, isGroupHeader: isGrpHdr, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}" dir="auto">${parsed.html}</div>` });
+              allItems.push({ type: 'line', section: currentSection, isGroupHeader: isGrpHdr, isPartHeader: !!parsed.isPartHeader, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}" dir="auto">${parsed.html}</div>` });
             }
           }
           // Inject Rx cells as a badge at the end of the last section (appears under the main workout)
@@ -4148,8 +4250,20 @@
 
           // Split into columns: mandatory break at every header, plus sub-splits for long sections
           const headerIndices = allItems.map((it, i) => it.type === 'header' ? i : -1).filter(i => i >= 0);
-          // Start with mandatory breaks at every header
-          const mandatoryBreaks = [...headerIndices];
+          // Mandatory column breaks: every section header, plus a break before
+          // each "part N" header so every part starts at the top of its own
+          // column. Skip a part-break that would only orphan a section header.
+          const partBreaks = [];
+          for (let pi = 0; pi < allItems.length; pi++) {
+            if (!(allItems[pi].type === 'line' && allItems[pi].isPartHeader)) continue;
+            const prev = Math.max(0, ...headerIndices.filter(h => h < pi), ...partBreaks);
+            let hasLine = false;
+            for (let j = prev; j < pi; j++) {
+              if (allItems[j].type === 'line') { hasLine = true; break; }
+            }
+            if (hasLine) partBreaks.push(pi);
+          }
+          const mandatoryBreaks = [...new Set([...headerIndices, ...partBreaks])].sort((a, b) => a - b);
           if (mandatoryBreaks[0] !== 0) mandatoryBreaks.unshift(0);
           mandatoryBreaks.push(allItems.length);
           // Sub-split long sections into newspaper columns (max ~8 items per column)
