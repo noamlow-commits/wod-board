@@ -4252,16 +4252,29 @@
           const headerIndices = allItems.map((it, i) => it.type === 'header' ? i : -1).filter(i => i >= 0);
           // Mandatory column breaks: every section header, plus a break before
           // each "part N" header so every part starts at the top of its own
-          // column. Skip a part-break that would only orphan a section header.
+          // column. Softening: a part too small to fill a column on its own
+          // (< MIN_PART_LINES) is merged into the column it follows, so the
+          // board never shows a near-empty lonely column. Greedy — break only
+          // once the column being closed holds enough content; the orphan-
+          // header case falls out naturally (acc resets right after a header).
+          const MIN_PART_LINES = 3;
           const partBreaks = [];
+          let acc = 0; // content lines accumulated since the last break
           for (let pi = 0; pi < allItems.length; pi++) {
-            if (!(allItems[pi].type === 'line' && allItems[pi].isPartHeader)) continue;
-            const prev = Math.max(0, ...headerIndices.filter(h => h < pi), ...partBreaks);
-            let hasLine = false;
-            for (let j = prev; j < pi; j++) {
-              if (allItems[j].type === 'line') { hasLine = true; break; }
+            const it = allItems[pi];
+            if (it.type === 'header') { acc = 0; continue; }
+            if (it.type === 'line' && it.isPartHeader && acc >= MIN_PART_LINES) {
+              partBreaks.push(pi);
+              acc = 0;
             }
-            if (hasLine) partBreaks.push(pi);
+            if (it.type === 'line') acc++;
+          }
+          // Tail guard: if the final part-column ended up too small, merge it
+          // up. Only pops a part-break (not a section break) for the last col.
+          const lastHeader = headerIndices.length ? headerIndices[headerIndices.length - 1] : 0;
+          if (acc < MIN_PART_LINES && partBreaks.length > 0
+              && partBreaks[partBreaks.length - 1] > lastHeader) {
+            partBreaks.pop();
           }
           const mandatoryBreaks = [...new Set([...headerIndices, ...partBreaks])].sort((a, b) => a - b);
           if (mandatoryBreaks[0] !== 0) mandatoryBreaks.unshift(0);

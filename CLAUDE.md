@@ -69,6 +69,7 @@ Fix: define data client-side in a JS map (e.g., `BADGE_DATA`) keyed by ID, not r
 ### Newspaper Flow
 Content flows in flex columns. Smart column breaks prefer section headers at top of columns.
 Spanning headers: when a section spills into multiple columns, its header spans all those columns.
+`part N` headers force a column break — every `part 1/2/3` block starts at the top of its own column (the section header spans them all). **Softening:** a part too small to fill a column on its own (fewer than 3 lines) is merged into the column it follows, so the board never shows a near-empty lonely column.
 
 ### Section Colors
 - WOD sections: orange gradient `#ea580c → #f97316`
@@ -148,6 +149,15 @@ Sanity limits for chains: total ≤ 90 min, work ≥ 30s, rest ≤ 10 min, unifo
 
 Chained timer button label: `${timerName} ×${rounds} · ${workMins}' work / ${restShort} rest` → e.g. `AMRAP ×3 · 10' work / 2' rest`.
 
+### Per-part timer detection (added 2026-05-21)
+`extractTimerConfigs` is a **part-aware wrapper** around the core `detectTimers`. When a cell holds a multi-part workout (≥2 `part 1:` / `part 2:` / `part 3:` lines), each part is scanned independently and yields **its own timer button** — a series of timers.
+
+`detectActivityInterval` recognizes the coach's interval style: a work line written as `<duration> <activity>` (`3 min run`, `45 sec sprint`) instead of the literal word "work", paired with a `<duration> rest` line and a separate `×N` / `N sets` multiplier. A time unit is **required** on the work line so a bare rep line (`20 ring row`) is never read as a duration.
+
+`part N` recognition is one shared literal — `PART_HEADER_RE` — reused by the line parser, the warm-up reset, the column-break logic, and the timer splitter (keep them in sync — see the 3-place-pattern note above).
+
+**Timer detection surfaces only explicitly-written values.** Work, rest, and round counts must all be parsed from the coach's text; a block missing a value (e.g. no `×N`) yields **no timer**, never a guessed default. Do not invent times or offer timing variants.
+
 ### Switching clock display (phase-based, not total-based)
 For `timerType === 'tabata'` (real Tabata AND chained AMRAPs), the big clock shows the **current phase's remaining time**, not a single long countdown. A chained `AMRAP 10 × 3 + 2:00 rest` displays 10:00 → 0:00 → 2:00 → 0:00 → 10:00... matching real CrossFit interval timers.
 
@@ -201,7 +211,7 @@ Flags `_tabataPhaseHalfwayDone` / `_tabataPhaseOneMinDone` / `_tabataPhaseTenSec
 - EMOM interval warning ticks (added 2026-04-13)
 
 ### SW Cache Versioning
-**Critical:** bump `CACHE_NAME` in `sw.js` on every code change (currently **v24**). Cache-first strategy means old clients serve stale code otherwise.
+**Critical:** bump `CACHE_NAME` in `sw.js` on every code change (`sw.js` is the source of truth — currently **v79**). Cache-first strategy means old clients serve stale code otherwise.
 
 **Status:** Chained interval display and per-phase voice cues implemented. **Apps Script must be redeployed** to coach's sheet for timer sync to work (console `_timerCb_` / `_scoreCb_` errors until deployed).
 
