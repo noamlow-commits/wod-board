@@ -2098,6 +2098,10 @@
         // WORK: "M:SS work" form
         wm = line.match(/(?<![:\d])(\d+):(\d{2})\s+work\b/i);
         if (wm) { if (pushPhase(classified, { type:'work', seconds:parseInt(wm[1])*60+parseInt(wm[2]), label:`${wm[1]}:${wm[2]} work` })) continue; }
+        // WORK: "N min tc" / "N min t.c" — coach's time-cap shorthand (TC after the number,
+        // on its own line). Label starts with "TC" so a chained label reads "TC ×2 · 16′ work / 2′ rest".
+        wm = line.match(/^(\d+)\s*min(?:utes?)?\s+t\.?\s*c\b/i);
+        if (wm) { const n=parseInt(wm[1]); if (pushPhase(classified, { type:'work', seconds:n*60, label:`TC ${n}′` })) continue; }
 
         // ── REST patterns, most-specific first ──
         // (a) Time format, optional "min" between:  "2:00 rest" / "3:00 min rest" / "1:30 minutes rest"
@@ -2123,6 +2127,14 @@
           const sec = parseInt(timeOnly[1])*60 + parseInt(timeOnly[2]);
           if (sec >= 10 && sec <= 600) { classified.push({ type: 'time_standalone', seconds: sec }); continue; }
         }
+        // MIN_STANDALONE: bare "16 min" on its own line — promoted to WORK in Pass 3
+        // when the cell already has an explicit work block (catches the coach's
+        // "16 min tc / ... / 2 min rest / 16 min / ..." continuation pattern).
+        const minOnly = line.match(/^(\d+)\s*min(?:utes?)?\s*:?\s*$/i);
+        if (minOnly) {
+          const n = parseInt(minOnly[1]);
+          if (n >= 1 && n <= 60) { classified.push({ type: 'min_standalone', seconds: n*60 }); continue; }
+        }
         // Everything else: exercise text — no timing impact
       }
 
@@ -2132,6 +2144,19 @@
         const hasBefore = classified.slice(0, i).some(c => c.type === 'work');
         const hasAfter  = classified.slice(i + 1).some(c => c.type === 'work');
         if (hasBefore && hasAfter) classified[i].type = 'rest';
+      }
+
+      // Pass 3: promote MIN_STANDALONE → WORK only when the cell already has an
+      // explicit work block. Without that guard, "10 min easy" / "5 min" lines
+      // in warm-ups would over-fire. With it, bare "16 min" between rest blocks
+      // (CARDIO 2026-03-04 case) becomes the second work phase of a chained timer.
+      const hasExplicitWork = classified.some(c => c.type === 'work');
+      if (hasExplicitWork) {
+        for (let i = 0; i < classified.length; i++) {
+          if (classified[i].type !== 'min_standalone') continue;
+          classified[i].type = 'work';
+          classified[i].label = `${classified[i].seconds/60}′`;
+        }
       }
 
       return classified.filter(c => c.type === 'work' || c.type === 'rest');
@@ -2144,14 +2169,23 @@
       const results = [];
       const text = lines.join('\n');
 
-      // Global time cap — allow whitespace between "t" and "c" so we also
-      // catch the post-parseLine DOM form "t. c 42"
-      // Accept ":" as a separator too — coaches often write "t.c: 16".
-      let tcMatch = text.match(/\bt\.?\s*c[\-\s:]*(\d+(?::\d{2})?)/i);
+      // Global time cap — scan line-by-line so the regex never crosses a newline.
+      // The previous version used `\s` and matched "tc\n800" on the boundary
+      // between "16 min tc" and "800m run", producing TC 800' (CARDIO 2026-03-04).
+      // Two directions accepted on each line:
+      //   (a) "tc 16" / "t.c 16" / "t. c 42" / "t.c: 16"   — TC before the number
+      //   (b) "16 min tc" / "16 tc" / "16:00 tc"           — TC after the number
       let capSeconds = 0;
-      if (tcMatch) {
-        const tv = tcMatch[1];
-        capSeconds = tv.includes(':') ? parseInt(tv.split(':')[0])*60 + parseInt(tv.split(':')[1]) : parseInt(tv)*60;
+      for (const rawLn of lines) {
+        const ln = (rawLn || '').trim();
+        if (!ln || ln === '__SPACER__') continue;
+        let mm = ln.match(/\bt\.?[ \t]*c[\-: \t]*(\d+(?::\d{2})?)\b/i);
+        if (!mm) mm = ln.match(/^(\d+(?::\d{2})?)[ \t]*(?:min(?:utes?)?[ \t]+)?t\.?[ \t]*c\b/i);
+        if (mm) {
+          const tv = mm[1];
+          capSeconds = tv.includes(':') ? parseInt(tv.split(':')[0])*60 + parseInt(tv.split(':')[1]) : parseInt(tv)*60;
+          break;
+        }
       }
 
       // ── Sequential timeline parser ──
@@ -4089,6 +4123,9 @@
 
       if (isInstruction) {
         let html = escapeHtml(text);
+        // Coach shorthand "e 1:30 mom" / "e1:30mom" → normalize to "EMOM 1:30"
+        // so the EMOM badge below catches it instead of leaving stray "e"/"mom".
+        html = html.replace(/\be\s*(\d{1,2}:\d{2})\s*mom\b/gi, 'EMOM $1');
         // Keep time-badge highlighting inside instruction lines
         html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM|TABATA|TBATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
         html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
