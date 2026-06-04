@@ -4073,8 +4073,13 @@
         partHtml = partHtml.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
         return { type: 'sub-header', isPartHeader: true, html: partHtml };
       }
-      // Detect sub-headers (lines ending with : or all-caps)
-      if (/^[A-Z\s]{4,}:?$/.test(text) || /^.{2,}:$/.test(text)) {
+      // Detect sub-headers (lines ending with : or all-caps). EXCEPT lines that
+      // start with a letter+digit label ("A1. 4 Sets Of:") — those keep their red
+      // label badge for visual consistency with A2./A3., so let them fall through
+      // to the generic renderer (which badges the leading label) instead of
+      // rendering as a plain colon sub-header.
+      if ((/^[A-Z\s]{4,}:?$/.test(text) || /^.{2,}:$/.test(text))
+          && !/^[A-Z]\d+\s*[\.\-\)]/i.test(text)) {
         return { type: 'sub-header', html: escapeHtml(text) };
       }
 
@@ -4338,7 +4343,26 @@
             const start = breaks[breaks.length - 1];
             const end = mandatoryBreaks[b];
             const colSize = end - start;
-            if (colSize > MAX_PER_COL) {
+            // Group-priority splitting: when the section has A./B./C. group
+            // headers, give each group its OWN column kept whole. This respects
+            // the coach's logical grouping instead of chopping by raw line count
+            // (which fragmented group A across two columns and left group B alone).
+            // A group header at the very start is the first column's natural top,
+            // not a break point.
+            const segGroupHdrs = [];
+            for (let idx = start + 1; idx < end; idx++) {
+              if (allItems[idx].isGroupHeader) segGroupHdrs.push(idx);
+            }
+            const innerGroupBreaks = segGroupHdrs.filter(g => g > start + 1);
+            if (innerGroupBreaks.length >= 1 && colSize >= 5) {
+              // One column per group. Skip a break that would leave < 2 items in
+              // the column being closed (avoids thin/near-empty columns when two
+              // group headers sit adjacent).
+              for (const g of innerGroupBreaks) {
+                if (g > breaks[breaks.length - 1] + 1) breaks.push(g);
+              }
+            } else if (colSize > MAX_PER_COL) {
+              // No group structure — fall back to count-based newspaper columns.
               const numSub = Math.ceil(colSize / MAX_PER_COL);
               const subSize = Math.ceil(colSize / numSub);
               for (let s = 1; s < numSub; s++) {
@@ -4359,37 +4383,14 @@
                     bestBreak = sh; bestDist = effectiveDist; bestIsWorkout = isWorkout;
                   }
                 }
-                // Anti-widow: never end a column on a group header (e.g. "B.HSPU")
-                // — that strands the header from the lines it introduces. Pull the
-                // break back so the header travels to the next column with its group.
+                // Anti-widow: never end a column on a group header — pull the break
+                // back so the header travels to the next column with its group.
                 while (bestBreak - 1 > breaks[breaks.length - 1] + 1
                        && allItems[bestBreak - 1] && allItems[bestBreak - 1].isGroupHeader) {
                   bestBreak--;
                 }
                 if (bestBreak > breaks[breaks.length - 1] + 2) {
                   breaks.push(bestBreak);
-                }
-              }
-            } else if (colSize >= 5) {
-              // Group-header splitting: A./B./C. exercise groups create natural
-              // column breaks even when section doesn't exceed MAX_PER_COL.
-              // This gives a balanced 2-column layout when viewing a single part.
-              const sectionGroupHdrs = [];
-              for (let idx = start + 1; idx < end; idx++) {
-                if (allItems[idx].isGroupHeader) sectionGroupHdrs.push(idx);
-              }
-              if (sectionGroupHdrs.length >= 2) {
-                // Find the most balanced split point among group headers
-                const mid = (start + end) / 2;
-                let bestSplit = sectionGroupHdrs[1];
-                let bestDist = Math.abs(sectionGroupHdrs[1] - mid);
-                for (let g = 1; g < sectionGroupHdrs.length; g++) {
-                  const dist = Math.abs(sectionGroupHdrs[g] - mid);
-                  if (dist < bestDist) { bestDist = dist; bestSplit = sectionGroupHdrs[g]; }
-                }
-                // Only split if each half has ≥ 2 items (header side ≥ 3 incl. header)
-                if (bestSplit - start >= 3 && end - bestSplit >= 2) {
-                  breaks.push(bestSplit);
                 }
               }
             }
