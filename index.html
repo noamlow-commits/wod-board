@@ -4052,9 +4052,13 @@
           html: `<span class="${badgeClass}">${badgeText}</span>${restHtml}`
         };
       }
-      // Detect exercise group headers: "A. Bench press", "B - Kipping > KTE"
-      // Single letter (no digit) + separator → new group = sub-header with badge
-      const groupMatch = text.match(/^([A-Z])\s*[\.\-\)]\s+(.+)/i);
+      // Detect exercise group headers: "A. Bench press", "B - Kipping > KTE",
+      // "B.HSPU" (no space after the dot). Single letter (no digit) + separator
+      // → new group = sub-header with badge. Allow zero space after the
+      // separator, but skip the time-cap pattern ("t.c 42") which also reads
+      // as letter+dot.
+      const groupMatch = !/^\s*t\.?\s*c[\-\s:]/i.test(text)
+        && text.match(/^([A-Z])\s*[\.\-\)]\s*(.+)/i);
       if (groupMatch) {
         const label = groupMatch[1].toUpperCase();
         const rest = escapeHtml(groupMatch[2]);
@@ -4174,6 +4178,9 @@
       // (3+ numbers separated by dashes or dots)
       html = html.replace(/^((?:\d+[\-\.]){2,}\d+)(\s|$)/, '<span class="rep-number">$1</span>$2');
 
+      // Highlight distance reps with no space before unit: "1000m run", "500m run", "5km".
+      // Coach writes both "1000 m run" and "1000m run" — both should bold the digits.
+      html = html.replace(/^(\d+)(m|km)(\s|$)/i, '<span class="rep-number">$1</span>$2$3');
       // Highlight numbers at start of line (reps)
       html = html.replace(/^(\d+[\-x×]?\d*)\s/, '<span class="rep-number">$1</span> ');
 
@@ -4275,7 +4282,7 @@
               else if (PART_HEADER_RE.test(line) || /\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom|\b\d+\s*min(?:utes?)?\s*[x×*]\s*\d+\b|\bteams?\s+of\s+\d/i.test(line)) inWarmup = false;
               const parsed = parseLine(line);
               const ec = parsed.extraClass ? ' ' + parsed.extraClass : '';
-              const isGrpHdr = /^[A-Z]\s*[\.\-\)]\s+/i.test(line);
+              const isGrpHdr = /^[A-Z]\s*[\.\-\)]/i.test(line) && !/^\s*t\.?\s*c[\-\s:]/i.test(line);
               allItems.push({ type: 'line', section: currentSection, isGroupHeader: isGrpHdr, isPartHeader: !!parsed.isPartHeader, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}" dir="auto">${parsed.html}</div>` });
             }
           }
@@ -4351,6 +4358,13 @@
                   if (effectiveDist < bestDist || (isWorkout && !bestIsWorkout && dist <= 4)) {
                     bestBreak = sh; bestDist = effectiveDist; bestIsWorkout = isWorkout;
                   }
+                }
+                // Anti-widow: never end a column on a group header (e.g. "B.HSPU")
+                // — that strands the header from the lines it introduces. Pull the
+                // break back so the header travels to the next column with its group.
+                while (bestBreak - 1 > breaks[breaks.length - 1] + 1
+                       && allItems[bestBreak - 1] && allItems[bestBreak - 1].isGroupHeader) {
+                  bestBreak--;
                 }
                 if (bestBreak > breaks[breaks.length - 1] + 2) {
                   breaks.push(bestBreak);
