@@ -4389,6 +4389,19 @@
                        && allItems[bestBreak - 1] && allItems[bestBreak - 1].isGroupHeader) {
                   bestBreak--;
                 }
+                // Anti-widow (count split): don't break if it leaves a near-empty
+                // column on either side. Short sections (e.g. a 9-line squat cycle)
+                // render fine in one column once autoFit scales them up — splitting
+                // there only adds an empty gap. Mirrors the MIN_PART_LINES softening
+                // used for "part N" blocks.
+                const countLines = (a, b) => {
+                  let n = 0;
+                  for (let k = a; k < b; k++) if (allItems[k] && allItems[k].type === 'line') n++;
+                  return n;
+                };
+                const leftLines = countLines(breaks[breaks.length - 1], bestBreak);
+                const rightLines = countLines(bestBreak, end);
+                if (leftLines < MIN_PART_LINES || rightLines < MIN_PART_LINES) continue;
                 if (bestBreak > breaks[breaks.length - 1] + 2) {
                   breaks.push(bestBreak);
                 }
