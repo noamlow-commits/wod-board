@@ -4288,7 +4288,8 @@
               const parsed = parseLine(line);
               const ec = parsed.extraClass ? ' ' + parsed.extraClass : '';
               const isGrpHdr = /^[A-Z]\s*[\.\-\)]/i.test(line) && !/^\s*t\.?\s*c[\-\s:]/i.test(line);
-              allItems.push({ type: 'line', section: currentSection, isGroupHeader: isGrpHdr, isPartHeader: !!parsed.isPartHeader, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}" dir="auto">${parsed.html}</div>` });
+              const isStation = /^\s*\d+\s*#/.test(line); // "1#", "2#", "3#" station markers — clean break points
+              allItems.push({ type: 'line', section: currentSection, isGroupHeader: isGrpHdr, isStation, isPartHeader: !!parsed.isPartHeader, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}" dir="auto">${parsed.html}</div>` });
             }
           }
           // Inject Rx cells as a badge at the end of the last section (appears under the main workout)
@@ -4389,19 +4390,38 @@
                        && allItems[bestBreak - 1] && allItems[bestBreak - 1].isGroupHeader) {
                   bestBreak--;
                 }
-                // Anti-widow (count split): don't break if it leaves a near-empty
-                // column on either side. Short sections (e.g. a 9-line squat cycle)
-                // render fine in one column once autoFit scales them up — splitting
-                // there only adds an empty gap. Mirrors the MIN_PART_LINES softening
-                // used for "part N" blocks.
+                // Anti-widow (count split): the preferred sub-header break can sit
+                // near the very top or bottom of the segment, leaving one column
+                // with a single line and the rest crammed beside it (the "first row
+                // alone on the left, everything else on the right" bug). When that
+                // happens, don't collapse the whole segment into ONE narrow column —
+                // fall back to the most BALANCED break that still clears
+                // MIN_PART_LINES on both sides, preferring a clean boundary
+                // (sub-header / A.B. group / "N#" station) so the new column starts
+                // on a fresh line, not mid-instruction. A genuinely short segment
+                // with no balanced break stays one column (fbBreak < 0 → skip).
                 const countLines = (a, b) => {
                   let n = 0;
                   for (let k = a; k < b; k++) if (allItems[k] && allItems[k].type === 'line') n++;
                   return n;
                 };
-                const leftLines = countLines(breaks[breaks.length - 1], bestBreak);
-                const rightLines = countLines(bestBreak, end);
-                if (leftLines < MIN_PART_LINES || rightLines < MIN_PART_LINES) continue;
+                const prevBreak = breaks[breaks.length - 1];
+                if (countLines(prevBreak, bestBreak) < MIN_PART_LINES
+                    || countLines(bestBreak, end) < MIN_PART_LINES) {
+                  const mid = prevBreak + (end - prevBreak) / 2;
+                  let fbBreak = -1, fbScore = Infinity;
+                  for (let i = prevBreak + 1; i < end; i++) {
+                    if (countLines(prevBreak, i) < MIN_PART_LINES) continue;
+                    if (countLines(i, end) < MIN_PART_LINES) continue;
+                    const it = allItems[i];
+                    const natural = it && (it.isGroupHeader || it.isStation
+                      || (it.html && it.html.includes('sub-header')));
+                    const score = Math.abs(i - mid) - (natural ? 0.75 : 0);
+                    if (score < fbScore) { fbScore = score; fbBreak = i; }
+                  }
+                  if (fbBreak < 0) continue; // too short to split evenly — keep one column
+                  bestBreak = fbBreak;
+                }
                 if (bestBreak > breaks[breaks.length - 1] + 2) {
                   breaks.push(bestBreak);
                 }

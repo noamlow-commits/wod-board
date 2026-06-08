@@ -71,6 +71,8 @@ Content flows in flex columns. Smart column breaks prefer section headers at top
 Spanning headers: when a section spills into multiple columns, its header spans all those columns.
 `part N` headers force a column break — every `part 1/2/3` block starts at the top of its own column (the section header spans them all). **Softening:** a part too small to fill a column on its own (fewer than 3 lines) is merged into the column it follows, so the board never shows a near-empty lonely column.
 
+**Count-split widow guard + balanced fallback:** when a long section is split into newspaper columns by line count, the break is first pulled to the nearest sub-header. If that sub-header sits near the very top/bottom (leaving <3 lines on one side — the "first row alone left, rest right" bug), the break is **not** abandoned: it falls back to the most *balanced* break point that keeps ≥3 lines on both sides, preferring a clean boundary (sub-header / `A.`/`B.` group / `N#` station) so column 2 starts on a fresh line. A section with no balanced break (genuinely short) stays one column. The guard is "no empty gaps," **not** "never split short sections" — a 10-line block becomes two even columns, never one line beside nine.
+
 ### Section Colors
 - WOD sections: orange gradient `#ea580c → #f97316`
 - CARDIO sections: purple gradient (default theme)
