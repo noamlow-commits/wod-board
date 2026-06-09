@@ -2216,6 +2216,37 @@
         }
       }
 
+      // ── Single-line interval: "N min work, M min rest ×K sets" ──
+      // Work duration, rest duration AND the round count all on ONE line. The
+      // sequential timeline parser below only captures the first phase per line
+      // (it `continue`s after the work match), so without this the rest and the
+      // ×K are silently dropped and the block reads as a bare "N′ work" — the
+      // minutes case especially (the seconds case was already covered by the
+      // custom work/rest pattern). Handles min or sec on each side independently.
+      for (const rawLn of lines) {
+        const ln = (rawLn || '').trim();
+        if (!ln || ln === '__SPACER__') continue;
+        const wr = ln.match(/(\d+)\s*(min(?:utes?)?|sec(?:onds?)?|m|s)\s*(?:of\s+)?work\b[\s,/\-]*(\d+)\s*(min(?:utes?)?|sec(?:onds?)?|m|s)\s*(?:of\s+)?rest\b/i);
+        if (!wr) continue;
+        const mult = ln.match(/[x×*]\s*(\d+)(?:\s*[\-–]\s*(\d+))?\s*(?:sets?|rounds?)?\b/i)
+                  || ln.match(/\b(\d+)(?:\s*[\-–]\s*(\d+))?\s*(?:sets?|rounds?)\b/i);
+        if (!mult) continue;
+        const unit = u => /^m/i.test(u) ? 60 : 1;
+        const workSec = parseInt(wr[1]) * unit(wr[2]);
+        const restSec = parseInt(wr[3]) * unit(wr[4]);
+        // round count: take the higher end of a range ("5-4 sets" → 5)
+        const rounds = Math.max(parseInt(mult[1]), mult[2] ? parseInt(mult[2]) : 0);
+        if (workSec >= 5 && restSec >= 1 && rounds >= 2 && rounds <= 30
+            && (workSec + restSec) * rounds <= 90 * 60) {
+          results.push({
+            type: 'tabata', workSeconds: workSec, restSeconds: restSec,
+            rounds, skipLastRest: false,
+            label: `×${rounds} · ${fmtDur(workSec)} work / ${fmtDur(restSec)} rest`
+          });
+          return results; // the interval line is the timer for this block
+        }
+      }
+
       // ── Sequential timeline parser ──
       // Scans lines top→bottom, builds [work, rest, work, rest, work] phases.
       // If 2+ work phases with uniform durations + rest → one chained timer.
