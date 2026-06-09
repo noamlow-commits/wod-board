@@ -579,6 +579,34 @@
       font-size: 90%;
     }
 
+    /* Part-structure markers (distinct from red=time, orange=reps).
+       Cyan = "this is a workout PART": A/B/C group letters + A1/B2 sub-stations. */
+    .exercise-line .group-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #0891b2, #06b6d4);
+      color: #fff;
+      padding: 0.05rem 0.6rem;
+      border-radius: 6px;
+      font-weight: 900;
+      font-size: 110%;
+      letter-spacing: 0.02em;
+      box-shadow: 0 0 0 1px rgba(6,182,212,0.45), 0 2px 6px rgba(6,182,212,0.3);
+    }
+    .exercise-line .subgroup-badge {
+      display: inline-block;
+      background: rgba(6, 182, 212, 0.18);
+      color: #22d3ee;
+      padding: 0.1rem 0.5rem;
+      border-radius: 6px;
+      font-weight: 800;
+      font-size: 90%;
+    }
+    /* A group-header line (A- / B- / C-) reads as a part divider, not amber. */
+    .exercise-line.sub-header.group-line {
+      color: #cffafe;
+      border-bottom: 2px solid rgba(6, 182, 212, 0.45);
+    }
+
     .exercise-line .work-badge,
     .exercise-line .hold-badge {
       display: inline-block;
@@ -4057,12 +4085,14 @@
       // → new group = sub-header with badge. Allow zero space after the
       // separator, but skip the time-cap pattern ("t.c 42") which also reads
       // as letter+dot.
+      // Allow an empty trailing group ("A-" / "B-" / "C-" alone on a line) so a
+      // bare part-letter divider still gets emphasized as a group header.
       const groupMatch = !/^\s*t\.?\s*c[\-\s:]/i.test(text)
-        && text.match(/^([A-Z])\s*[\.\-\)]\s*(.+)/i);
+        && text.match(/^([A-Z])\s*[\.\-\)]\s*(.*)/i);
       if (groupMatch) {
         const label = groupMatch[1].toUpperCase();
         const rest = escapeHtml(groupMatch[2]);
-        return { type: 'sub-header', html: `<span class="time-badge">${label}.</span> ${rest}` };
+        return { type: 'sub-header', isGroupTitle: true, html: `<span class="group-badge">${label}</span>${rest ? ' ' + rest : ''}` };
       }
       // "part N" workout-block header — "part 1:", "Part 2: 8 min total".
       // Rendered uniformly (so every part looks the same) and flagged so the
@@ -4169,12 +4199,18 @@
       // just whitespace (handles "B5 bw cossack squat" without a period).
       // Skip if the line is actually a time-cap pattern ("t.c 42", "tc 12:00").
       if (!/^\s*t\.?\s*c[\-\s:]/i.test(text)) {
-        html = html.replace(/^([A-Z]\d+)(?:\s*[\.\-\)]\s*|\s+)/i, '<span class="time-badge">$1.</span> ');
+        html = html.replace(/^([A-Z]\d+)(?:\s*[\.\-\)]\s*|\s+)/i, '<span class="subgroup-badge">$1</span> ');
       }
 
       // Numbered list items at start ("1. complex...", "2) item") — badge like A1/A2.
       // Period/paren + whitespace differentiates from leading reps ("5 burpees") which use rep-number.
       html = html.replace(/^(\d+)\s*[\.\)]\s+/, '<span class="time-badge">$1.</span> ');
+
+      // Leading parenthetical rep complex: "(4)", "(2+3+4)", "(2+3+4+5+7)",
+      // "(Start +1+2)", "(Start-7)" — the coach's clean-progression notation.
+      // Without this the digits inside the parens stayed plain white while a
+      // bare leading number ("1 squat clean") got the orange rep highlight.
+      html = html.replace(/^(\([^)]*\d[^)]*\))/, '<span class="rep-number">$1</span>');
 
       // Highlight step numbers with # (1#, 2#, 3#) as orange badge
       html = html.replace(/^(\d+#)/, '<span class="rep-number">$1</span>');
@@ -4263,6 +4299,7 @@
           const allItems = [];
           let currentSection = '';
           const cellTimerConfigs = {}; // map section → extracted timer config
+          const isGrpLine = l => /^[A-Z]\s*[\.\-\)]/i.test(l) && !/^\s*t\.?\s*c[\-\s:]/i.test(l);
           for (const cell of contentCells) {
             currentSection = cell.header;
             const isUntitledWarmup = !cell.header;
@@ -4272,24 +4309,44 @@
             const detectedTimers = extractTimerConfigs(cell.lines);
             if (detectedTimers.length > 0) cellTimerConfigs[cell.header] = detectedTimers;
 
+            // Promote a leading section title (e.g. "C&J Prog") into the
+            // spanning section header instead of letting it occupy its own
+            // orphan column to the left of group A. Only when the cell is
+            // group-structured (≥2 A-/B-/C- dividers) and the first content
+            // line is a short, non-group, non-instruction label.
+            let promotedIdx = -1, promotedTitle = '';
+            if (cell.lines.filter(isGrpLine).length >= 2) {
+              const fi = cell.lines.findIndex(l => l && l !== '__SPACER__');
+              if (fi >= 0) {
+                const fl = cell.lines[fi];
+                const isInstr = /\b(amrap|emom|for time|tabata|every|rounds?|sets?|min|sec|rest|max|cal)\b/i.test(fl);
+                if (!isGrpLine(fl) && !isInstr && fl.length <= 24 && !/^[\(\d]/.test(fl)) {
+                  promotedIdx = fi; promotedTitle = fl;
+                }
+              }
+            }
+
             if (isUntitledWarmup) {
               allItems.push({ type: 'header', section: currentSection, html: 'WARM UP', isWarmupHeader: true });
             } else if (isNumericHeader) {
               seqNum++;
-              allItems.push({ type: 'header', section: currentSection, html: escapeHtml(String(seqNum)) });
+              allItems.push({ type: 'header', section: currentSection, html: escapeHtml(promotedTitle || String(seqNum)) });
             } else {
-              allItems.push({ type: 'header', section: currentSection, html: escapeHtml(cell.header) });
+              allItems.push({ type: 'header', section: currentSection, html: escapeHtml(promotedTitle || cell.header) });
             }
 
             let inWarmup = isUntitledWarmup;
-            for (const line of cell.lines) {
+            for (let li = 0; li < cell.lines.length; li++) {
+              if (li === promotedIdx) continue; // lifted into the section header
+              const line = cell.lines[li];
               if (/warm\s*up/i.test(line)) inWarmup = true;
               else if (PART_HEADER_RE.test(line) || /\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom|\b\d+\s*min(?:utes?)?\s*[x×*]\s*\d+\b|\bteams?\s+of\s+\d/i.test(line)) inWarmup = false;
               const parsed = parseLine(line);
               const ec = parsed.extraClass ? ' ' + parsed.extraClass : '';
-              const isGrpHdr = /^[A-Z]\s*[\.\-\)]/i.test(line) && !/^\s*t\.?\s*c[\-\s:]/i.test(line);
+              const grpCls = parsed.isGroupTitle ? ' group-line' : '';
+              const isGrpHdr = isGrpLine(line);
               const isStation = /^\s*\d+\s*#/.test(line); // "1#", "2#", "3#" station markers — clean break points
-              allItems.push({ type: 'line', section: currentSection, isGroupHeader: isGrpHdr, isStation, isPartHeader: !!parsed.isPartHeader, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}" dir="auto">${parsed.html}</div>` });
+              allItems.push({ type: 'line', section: currentSection, isGroupHeader: isGrpHdr, isStation, isPartHeader: !!parsed.isPartHeader, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}${grpCls}" dir="auto">${parsed.html}</div>` });
             }
           }
           // Inject Rx cells as a badge at the end of the last section (appears under the main workout)
