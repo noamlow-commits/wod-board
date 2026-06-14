@@ -1472,6 +1472,101 @@
       overflow: hidden;
     }
     #tvCenterOverlay.open { display: flex; }
+
+    /* ── On-board Timer Setup overlay (TV-remote configurable) ───────────── */
+    #timerSetupOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9500; /* above floating timer bar (9400), nav (9300), center overlay (9200) */
+      background: rgba(0,0,0,0.82);
+      backdrop-filter: blur(8px);
+      justify-content: center;
+      align-items: center;
+      font-family: 'Heebo', sans-serif;
+    }
+    #timerSetupOverlay.open { display: flex; }
+    #timerSetupOverlay .tsu-panel {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 20px;
+      padding: 1.8rem 2rem;
+      width: 90%;
+      max-width: 640px;
+      max-height: 92vh;
+      overflow-y: auto;
+      direction: rtl;
+      box-shadow: 0 0 0 3px rgba(249,115,22,0.25), 0 24px 60px rgba(0,0,0,0.6);
+    }
+    #timerSetupOverlay h2 {
+      font-size: 1.7rem;
+      font-weight: 900;
+      margin-bottom: 1.2rem;
+      text-align: center;
+      color: #fff;
+    }
+    .tsu-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.7rem 1rem;
+      margin-bottom: 0.55rem;
+      background: #111;
+      border: 2px solid #2a2a2a;
+      border-radius: 12px;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .tsu-row .tsu-label {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      letter-spacing: 0.02em;
+    }
+    .tsu-row .tsu-value {
+      font-size: 1.7rem;
+      font-weight: 900;
+      color: #fff;
+      direction: ltr;
+      font-variant-numeric: tabular-nums;
+      min-width: 3.5ch;
+      text-align: left;
+    }
+    /* focused row — mirrors .form-group input:focus accent */
+    .tsu-row.tsu-focus {
+      border-color: var(--skill-start);
+      background: #161616;
+      box-shadow: inset 0 0 0 1px var(--skill-start);
+    }
+    /* digit-entry caret on the focused value */
+    .tsu-row.tsu-focus .tsu-value.tsu-editing {
+      color: var(--metcon-start, #f97316);
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+    .tsu-row.tsu-start {
+      justify-content: center;
+      background: linear-gradient(135deg, #ea580c, #f97316);
+      border-color: transparent;
+      margin-top: 0.9rem;
+    }
+    .tsu-row.tsu-start .tsu-label {
+      color: #fff;
+      font-size: 1.4rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+    }
+    .tsu-row.tsu-start.tsu-focus {
+      box-shadow: 0 0 0 3px #fff;
+      filter: brightness(1.08);
+    }
+    .tsu-hint {
+      margin-top: 1rem;
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666;
+      direction: rtl;
+    }
     #tvCenterOverlay .tvo-header {
       color: #fff;
       font-size: 1.6rem;
@@ -1700,6 +1795,15 @@
     <div class="tvo-body" id="tvoCenterBody"></div>
   </div>
 
+  <!-- On-board Timer Setup overlay (TV-remote configurable). Body rendered by TimerSetup.render() -->
+  <div id="timerSetupOverlay">
+    <div class="tsu-panel">
+      <h2>⚙ הגדרת טיימר</h2>
+      <div id="tsuBody"></div>
+      <div class="tsu-hint">↑↓ בחירת שדה · ←→ שינוי ערך · מספרים להקלדה · OK/אישור להפעלה · Esc ביטול</div>
+    </div>
+  </div>
+
   <!-- TV Navigation Panel (floating, controlled by remote D-pad) -->
   <div id="tvNav" class="tv-nav" style="display:none;">
     <button class="tv-btn" id="tvPrev" onclick="navigatePart(-1)" tabindex="0" title="חלק קודם">◄</button>
@@ -1708,6 +1812,7 @@
     <button class="tv-btn" id="tvCenterBtn" onclick="toggleCenterFocus()" tabindex="0" title="מרכז את החלק במסך">⊙</button>
     <button class="tv-btn" id="tvTimerBtn" onclick="startPartTimer()" tabindex="0" title="הפעל טיימר — לחיצה ארוכה לסייקול" style="display:none;">▶ <span id="tvTimerLabel"></span></button>
     <button class="tv-btn" id="tvTimerCycleBtn" onclick="cyclePartTimer()" tabindex="0" title="החלף טיימר" style="display:none;">⏱↻</button>
+    <button class="tv-btn" id="tvTimerSetupBtn" onclick="TimerSetup.openFromDetected()" tabindex="0" title="הגדרת טיימר ידנית (שלט)">⚙</button>
     <div class="tv-timer-controls" id="tvTimerControls">
       <button onclick="pauseTimer();updateFloatingTimerBar();" title="השהה/המשך">⏸</button>
       <button id="ftbVoiceBtn" onclick="toggleTimerVoice();" title="קול מאמן">🔊</button>
@@ -5049,6 +5154,184 @@
       showFloatingTimerBar();
     }
 
+    // ── On-board Timer Setup (TV-remote configurable) ─────────────────────
+    // Lets the TV remote configure + start a timer locally. Seeds from the
+    // detected timer of the focused part (or amrap defaults), then every field
+    // is editable. Fully operable with arrows + OK; digits 0-9 accelerate entry.
+    // Local start only — no backend POST (mirrors startPartTimer's trio).
+    const TSU_TYPES = ['amrap', 'fortime', 'emom', 'tabata', 'mix'];
+    const TSU_TYPE_LABELS = { amrap: 'AMRAP', fortime: 'For Time', emom: 'EMOM', tabata: 'Tabata', mix: 'אינטרוולים' };
+    const TSU_DEFAULTS = {
+      amrap:   { totalSeconds: 720 },
+      fortime: { capSeconds: 0 },
+      emom:    { totalSeconds: 600, intervalSeconds: 60 },
+      tabata:  { workSeconds: 20, restSeconds: 10, rounds: 8, skipLastRest: false },
+      mix:     { rounds: 5, intervals: [ { name: 'עבודה', seconds: 40 }, { name: 'מנוחה', seconds: 20 } ] }
+    };
+    function tsuFmt(s) { s = Math.max(0, Math.round(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+    function tsuBufToSec(buf) { if (!buf) return 0; const ss = parseInt(buf.slice(-2), 10) || 0; const mm = parseInt(buf.slice(0, -2) || '0', 10) || 0; return mm * 60 + Math.min(ss, 59); }
+    function tsuFieldsFor(type, d) {
+      switch (type) {
+        case 'amrap':   return [ { key: 'totalSeconds', label: 'זמן', kind: 'time', min: 0, max: 5999, step: 5 } ];
+        case 'fortime': return [ { key: 'capSeconds', label: 'מגבלת זמן (0=ללא)', kind: 'time', min: 0, max: 5999, step: 5 } ];
+        case 'emom':    return [
+          { key: 'totalSeconds', label: 'זמן כולל', kind: 'time', min: 60, max: 5999, step: 60 },
+          { key: 'intervalSeconds', label: 'אורך אינטרוול', kind: 'time', min: 5, max: 600, step: 5 }
+        ];
+        case 'tabata':  return [
+          { key: 'workSeconds', label: 'עבודה', kind: 'time', min: 1, max: 300, step: 5 },
+          { key: 'restSeconds', label: 'מנוחה', kind: 'time', min: 0, max: 300, step: 5 },
+          { key: 'rounds', label: 'סיבובים', kind: 'rounds', min: 1, max: 50, step: 1 },
+          { key: 'skipLastRest', label: 'דלג מנוחה אחרונה', kind: 'toggle' }
+        ];
+        case 'mix': {
+          const fs = [ { key: 'rounds', label: 'סיבובים', kind: 'rounds', min: 1, max: 50, step: 1 } ];
+          (d.intervals || []).forEach((iv, i) => fs.push({ key: 'iv' + i, label: iv.name || ('אינטרוול ' + (i + 1)), kind: 'time', min: 1, max: 600, step: 5, ivIndex: i }));
+          return fs;
+        }
+      }
+      return [];
+    }
+    const TimerSetup = {
+      open: false,
+      type: 'amrap',
+      draft: {},
+      focusIdx: 0,   // 0 = TYPE row; 1..N = fields; N+1 = START row
+      buffer: '',    // digit-entry buffer for the focused numeric field
+
+      seedDefaults(type) {
+        this.type = TSU_TYPES.includes(type) ? type : 'amrap';
+        this.draft = JSON.parse(JSON.stringify(TSU_DEFAULTS[this.type]));
+      },
+      seedFromConfig(cfg) {
+        this.seedDefaults(cfg.type);
+        const d = this.draft;
+        if (this.type === 'mix') {
+          if (Array.isArray(cfg.intervals) && cfg.intervals.length) {
+            d.intervals = cfg.intervals.map(iv => ({ name: iv.name || 'אינטרוול', seconds: Math.max(1, Math.round(iv.seconds || 30)) }));
+          }
+          if (cfg.rounds != null) d.rounds = cfg.rounds;
+        } else {
+          Object.keys(d).forEach(key => { if (cfg[key] != null && typeof cfg[key] !== 'object') d[key] = cfg[key]; });
+        }
+      },
+      getFieldValue(f) { if (f.ivIndex != null) return (this.draft.intervals[f.ivIndex] || {}).seconds || 0; return this.draft[f.key]; },
+      setFieldValue(f, val) { if (f.ivIndex != null) { if (this.draft.intervals[f.ivIndex]) this.draft.intervals[f.ivIndex].seconds = val; } else { this.draft[f.key] = val; } },
+
+      openFromDetected() {
+        const seed = (typeof getSelectedPartTimer === 'function') ? getSelectedPartTimer() : null;
+        if (seed && seed.type) this.seedFromConfig(seed); else this.seedDefaults('amrap');
+        this.focusIdx = 0; this.buffer = ''; this.open = true;
+        const ov = document.getElementById('timerSetupOverlay'); if (ov) ov.classList.add('open');
+        this.render();
+      },
+      close() {
+        this.open = false; this.buffer = '';
+        const ov = document.getElementById('timerSetupOverlay'); if (ov) ov.classList.remove('open');
+      },
+
+      _row(label, value, focused, editing) {
+        return `<div class="tsu-row ${focused ? 'tsu-focus' : ''}"><span class="tsu-label">${label}</span><span class="tsu-value ${editing ? 'tsu-editing' : ''}">${value}</span></div>`;
+      },
+      render() {
+        const d = this.draft, fields = tsuFieldsFor(this.type, d), rows = [];
+        rows.push(this._row('סוג', TSU_TYPE_LABELS[this.type], this.focusIdx === 0, false));
+        fields.forEach((f, i) => {
+          const focused = this.focusIdx === i + 1;
+          let disp;
+          if (f.kind === 'toggle') disp = this.getFieldValue(f) ? 'כן' : 'לא';
+          else if (focused && this.buffer) disp = (f.kind === 'time') ? tsuFmt(tsuBufToSec(this.buffer)) : this.buffer;
+          else disp = (f.kind === 'time') ? tsuFmt(this.getFieldValue(f)) : String(this.getFieldValue(f));
+          rows.push(this._row(f.label, disp, focused, focused && !!this.buffer));
+        });
+        const startIdx = fields.length + 1;
+        rows.push(`<div class="tsu-row tsu-start ${this.focusIdx === startIdx ? 'tsu-focus' : ''}"><span class="tsu-label">▶ התחל</span></div>`);
+        const body = document.getElementById('tsuBody'); if (body) body.innerHTML = rows.join('');
+      },
+
+      commitBuffer() {
+        if (!this.buffer) return;
+        const fields = tsuFieldsFor(this.type, this.draft);
+        if (this.focusIdx > 0 && this.focusIdx <= fields.length) {
+          const f = fields[this.focusIdx - 1];
+          if (f.kind !== 'toggle') {
+            let v = f.kind === 'time' ? tsuBufToSec(this.buffer) : (parseInt(this.buffer, 10) || 0);
+            v = Math.max(f.min, Math.min(f.max, v));
+            this.setFieldValue(f, v);
+          }
+        }
+        this.buffer = '';
+      },
+      focusMove(dir) {
+        this.commitBuffer();
+        const fields = tsuFieldsFor(this.type, this.draft);
+        this.focusIdx = Math.max(0, Math.min(fields.length + 1, this.focusIdx + dir));
+        this.render();
+      },
+      nudge(dir) {
+        this.commitBuffer();
+        const fields = tsuFieldsFor(this.type, this.draft);
+        if (this.focusIdx === 0) { // TYPE row — cycle type, reseed defaults
+          let i = (TSU_TYPES.indexOf(this.type) + dir + TSU_TYPES.length) % TSU_TYPES.length;
+          this.seedDefaults(TSU_TYPES[i]); this.focusIdx = 0; this.buffer = ''; this.render(); return;
+        }
+        if (this.focusIdx === fields.length + 1) { this.render(); return; } // START row
+        const f = fields[this.focusIdx - 1];
+        if (f.kind === 'toggle') this.setFieldValue(f, !this.getFieldValue(f));
+        else { let v = this.getFieldValue(f) + dir * (f.step || 1); v = Math.max(f.min, Math.min(f.max, v)); this.setFieldValue(f, v); }
+        this.render();
+      },
+      digit(ch) {
+        const fields = tsuFieldsFor(this.type, this.draft);
+        if (this.focusIdx === 0 || this.focusIdx === fields.length + 1) return;
+        const f = fields[this.focusIdx - 1];
+        if (f.kind === 'toggle') return;
+        const maxLen = f.kind === 'time' ? 4 : 3;
+        if (this.buffer.length >= maxLen) this.buffer = this.buffer.slice(1);
+        this.buffer += ch;
+        this.render();
+      },
+      backspace() { if (this.buffer) { this.buffer = this.buffer.slice(0, -1); this.render(); } },
+
+      buildConfig() {
+        this.commitBuffer();
+        const d = this.draft, t = this.type;
+        const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v || 0)));
+        let config;
+        if (t === 'amrap') config = { totalSeconds: clamp(d.totalSeconds, 0, 5999) };
+        else if (t === 'fortime') config = { capSeconds: Math.max(0, Math.round(d.capSeconds || 0)) };
+        else if (t === 'emom') config = { totalSeconds: clamp(d.totalSeconds, 60, 5999), intervalSeconds: clamp(d.intervalSeconds, 5, 600) || 60 };
+        else if (t === 'tabata') config = { workSeconds: clamp(d.workSeconds, 1, 300), restSeconds: clamp(d.restSeconds, 0, 300), rounds: clamp(d.rounds, 1, 50), skipLastRest: !!d.skipLastRest };
+        else if (t === 'mix') config = { intervals: (d.intervals || []).map(iv => ({ name: iv.name || 'אינטרוול', seconds: clamp(iv.seconds, 1, 600) })), rounds: clamp(d.rounds, 1, 50) };
+        return { type: t, config };
+      },
+      start() {
+        const { type, config } = this.buildConfig();
+        if (typeof TimerAudio !== 'undefined') TimerAudio.init();
+        if (displayMode !== 'timer') { timerPrevMode = displayMode; setDisplayMode('timer'); }
+        this.close();
+        configureTimer(type, config);
+        startTimer();
+        showFloatingTimerBar();
+      },
+
+      handleKey(e) {
+        const k = e.key;
+        if (k === 'ArrowUp' || k === 'PageUp' || k === 'ChannelUp') this.focusMove(-1);
+        else if (k === 'ArrowDown' || k === 'PageDown' || k === 'ChannelDown') this.focusMove(1);
+        else if (k === 'ArrowLeft') this.nudge(-1);
+        else if (k === 'ArrowRight') this.nudge(1);
+        else if (k.length === 1 && k >= '0' && k <= '9') this.digit(k);
+        else if (k === 'Enter' || k === 'Select' || k === 'MediaPlayPause' || k === ' ') {
+          const fields = tsuFieldsFor(this.type, this.draft);
+          if (this.focusIdx === fields.length + 1) this.start(); else this.focusMove(1);
+        }
+        else if (k === 'Backspace' || k === 'Delete') this.backspace();
+        else if (k === 'Escape') this.close();
+      }
+    };
+    window.TimerSetup = TimerSetup; // reachable from inline onclick handlers
+
     // Side timer panel control
     let _timerBarPartIdx = null;
 
@@ -5681,6 +5964,9 @@
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
+      // On-board timer setup overlay captures ALL keys while open — nothing falls
+      // through to the global shortcuts below (Space/Enter/digits/arrows neutralized).
+      if (TimerSetup.open) { TimerSetup.handleKey(e); e.preventDefault(); e.stopPropagation(); return; }
       // Blur ANY focused element (except inputs) so TV remote / browser spatial navigation
       // doesn't intercept keys — fixes keys not working in BOARD/scoreboard mode
       const ae = document.activeElement;
@@ -5709,6 +5995,8 @@
         if (e.key === '4') { sectionFilter = null; applySectionFilter(); setDisplayMode('pr'); }
         // T: timer mode
         if (e.key === 't') { setDisplayMode('timer'); }
+        // G: open on-board timer setup (configure the timer via the TV remote)
+        if (e.key === 'g') { TimerSetup.openFromDetected(); }
         // Space or MediaPlayPause: start/pause timer
         if (e.key === ' ' || e.key === 'MediaPlayPause') {
           const timerDocked = document.getElementById('mainContent')?.classList.contains('timer-docked');
@@ -5743,6 +6031,11 @@
           const dir = e.key === 'ArrowRight' ? 1 : -1;
           const next = modes[(modes.indexOf(displayMode) + dir + modes.length) % modes.length];
           setDisplayMode(next);
+        }
+        // ↑ in timer mode while idle: open the on-board timer setup (remote-friendly)
+        if (e.key === 'ArrowUp' && displayMode === 'timer'
+            && (timerState === 'idle' || timerState === 'configured' || timerState === 'finished')) {
+          e.preventDefault(); TimerSetup.openFromDetected(); return;
         }
         // ↑↓ Arrow keys: cycle section filter (only in WOD/SPLIT modes where sections are visible)
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
