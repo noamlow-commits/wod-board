@@ -4377,7 +4377,13 @@
               const grpCls = parsed.isGroupTitle ? ' group-line' : '';
               const isGrpHdr = isGrpLine(line);
               const isStation = /^\s*\d+\s*#/.test(line); // "1#", "2#", "3#" station markers — clean break points
-              allItems.push({ type: 'line', section: currentSection, isGroupHeader: isGrpHdr, isStation, isPartHeader: !!parsed.isPartHeader, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}${grpCls}" dir="auto">${parsed.html}</div>` });
+              // Sub-group headers ("B4. 4 sets of:", "A1.") and instruction
+              // sub-headers introduce the lines below them — like a group header,
+              // they must never be left stranded at the bottom of a column while
+              // their content flows into the next one.
+              const isSubGroupHeader = /subgroup-badge/.test(parsed.html);
+              const isSubHeaderLine = parsed.type === 'sub-header';
+              allItems.push({ type: 'line', section: currentSection, isGroupHeader: isGrpHdr, isSubGroupHeader, isSubHeaderLine, isStation, isPartHeader: !!parsed.isPartHeader, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}${grpCls}" dir="auto">${parsed.html}</div>` });
             }
           }
           // Inject Rx cells as a badge at the end of the last section (appears under the main workout)
@@ -4472,10 +4478,17 @@
                     bestBreak = sh; bestDist = effectiveDist; bestIsWorkout = isWorkout;
                   }
                 }
-                // Anti-widow: never end a column on a group header — pull the break
-                // back so the header travels to the next column with its group.
+                // Anti-widow: never end a column on a lead-in line — a group
+                // header ("B."), a sub-group header ("B4. 4 sets of:"), a station
+                // ("2#"), or an instruction sub-header (AMRAP / "×3 sets"). All of
+                // these introduce the lines beneath them, so pull the break back
+                // until the column being closed ends on a real content line — the
+                // header then travels to the next column WITH its content (fixes
+                // "B4 stranded at the bottom, its sets flow into the next column").
+                const isLeadIn = it => it && (it.isGroupHeader || it.isSubGroupHeader
+                  || it.isStation || it.isSubHeaderLine || it.isPartHeader);
                 while (bestBreak - 1 > breaks[breaks.length - 1] + 1
-                       && allItems[bestBreak - 1] && allItems[bestBreak - 1].isGroupHeader) {
+                       && isLeadIn(allItems[bestBreak - 1])) {
                   bestBreak--;
                 }
                 // Anti-widow (count split): the preferred sub-header break can sit
@@ -4503,6 +4516,7 @@
                     if (countLines(i, end) < MIN_PART_LINES) continue;
                     const it = allItems[i];
                     const natural = it && (it.isGroupHeader || it.isStation
+                      || it.isSubGroupHeader || it.isSubHeaderLine
                       || (it.html && it.html.includes('sub-header')));
                     const score = Math.abs(i - mid) - (natural ? 0.75 : 0);
                     if (score < fbScore) { fbScore = score; fbBreak = i; }

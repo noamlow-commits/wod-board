@@ -73,6 +73,8 @@ Spanning headers: when a section spills into multiple columns, its header spans 
 
 **Count-split widow guard + balanced fallback:** when a long section is split into newspaper columns by line count, the break is first pulled to the nearest sub-header. If that sub-header sits near the very top/bottom (leaving <3 lines on one side — the "first row alone left, rest right" bug), the break is **not** abandoned: it falls back to the most *balanced* break point that keeps ≥3 lines on both sides, preferring a clean boundary (sub-header / `A.`/`B.` group / `N#` station) so column 2 starts on a fresh line. A section with no balanced break (genuinely short) stays one column. The guard is "no empty gaps," **not** "never split short sections" — a 10-line block becomes two even columns, never one line beside nine.
 
+**Lead-in anti-widow (never strand a header from its content):** a column must never *end* on a line that introduces the lines beneath it. The pull-back covers all "lead-in" lines, not just single-letter group headers: `A.`/`B.` group headers, **sub-group headers (`B4. 4 sets of:`, `A1.`)**, `N#` stations, instruction sub-headers (AMRAP / `×3 sets`), and `part N`. Each item is flagged (`isGroupHeader` / `isSubGroupHeader` / `isStation` / `isSubHeaderLine` / `isPartHeader`) and `isLeadIn()` pulls the break back until the closing column ends on a real content line — so e.g. `B4` travels to the next column **with its sets**, instead of being stranded at the bottom while its rows flow into the next column. The balanced fallback also prefers landing the break *before* a sub-group header.
+
 ### Section Colors
 - WOD sections: orange gradient `#ea580c → #f97316`
 - CARDIO sections: purple gradient (default theme)
@@ -213,7 +215,7 @@ Flags `_tabataPhaseHalfwayDone` / `_tabataPhaseOneMinDone` / `_tabataPhaseTenSec
 - EMOM interval warning ticks (added 2026-04-13)
 
 ### SW Cache Versioning
-**Critical:** bump `CACHE_NAME` in `sw.js` on every code change (`sw.js` is the source of truth — currently **v79**). Cache-first strategy means old clients serve stale code otherwise.
+**Critical:** bump `CACHE_NAME` in `sw.js` on every code change (`sw.js` is the source of truth — currently **v87**). Cache-first strategy means old clients serve stale code otherwise.
 
 **Status:** Chained interval display and per-phase voice cues implemented. **Apps Script must be redeployed** to coach's sheet for timer sync to work (console `_timerCb_` / `_scoreCb_` errors until deployed).
 
