@@ -1516,6 +1516,7 @@
       border: 2px solid #2a2a2a;
       border-radius: 12px;
       transition: border-color 0.12s, background 0.12s;
+      cursor: pointer; /* every row is also pointer-clickable (clickItem) */
     }
     .tsu-row .tsu-label {
       font-size: 1.15rem;
@@ -1557,6 +1558,14 @@
       border-color: transparent;
       margin-top: 0.9rem;
     }
+    .tsu-row.tsu-cancel {
+      justify-content: center;
+      background: #2a2a2a;
+      border-color: #3a3a3a;
+      margin-top: 0.4rem;
+    }
+    .tsu-row.tsu-cancel .tsu-label { color: #ccc; font-size: 1.2rem; font-weight: 800; }
+    .tsu-row.tsu-cancel.tsu-focus { border-color: var(--skill-start); background: #333; }
     .tsu-row.tsu-start .tsu-label {
       color: #fff;
       font-size: 1.4rem;
@@ -5268,11 +5277,7 @@
         const ov = document.getElementById('timerSetupOverlay'); if (ov) ov.classList.remove('open');
       },
 
-      _row(label, value, focused, editing) {
-        return `<div class="tsu-row ${focused ? 'tsu-focus' : ''}"><span class="tsu-label">${label}</span><span class="tsu-value ${editing ? 'tsu-editing' : ''}">${value}</span></div>`;
-      },
-      // Ordered list of focusable rows: TYPE, each field, (mix only: add/remove
-      // action rows), START. focusIdx indexes into this array.
+      // Ordered focusable rows: TYPE, each field, (mix: add/remove actions), START, CANCEL.
       buildItems() {
         const items = [{ kind: 'type' }];
         tsuFieldsFor(this.type, this.draft).forEach(field => items.push({ kind: 'field', field }));
@@ -5282,27 +5287,44 @@
           if ((this.draft.intervals || []).length > 1) items.push({ kind: 'action', action: 'delLast', label: '🗑 הסר מקטע אחרון' });
         }
         items.push({ kind: 'start', label: '▶ התחל' });
+        items.push({ kind: 'cancel', label: '✖ יציאה' });
         return items;
       },
+      // Every row is BOTH arrow+OK navigable AND mouse/pointer-clickable (clickItem),
+      // so the overlay works identically with a TV D-pad remote and with a pointer.
       render() {
         const items = this.buildItems();
         this.focusIdx = Math.max(0, Math.min(items.length - 1, this.focusIdx));
         const rows = items.map((it, i) => {
           const focused = this.focusIdx === i;
-          if (it.kind === 'type') return this._row('סוג', TSU_TYPE_LABELS[this.type], focused, false);
+          const click = `onclick="TimerSetup.clickItem(${i})"`;
+          if (it.kind === 'type') return `<div class="tsu-row ${focused ? 'tsu-focus' : ''}" ${click}><span class="tsu-label">סוג</span><span class="tsu-value">${TSU_TYPE_LABELS[this.type]}</span></div>`;
           if (it.kind === 'field') {
             const f = it.field;
             let disp;
             if (f.kind === 'toggle') disp = this.getFieldValue(f) ? 'כן' : 'לא';
             else if (focused && this.buffer) disp = (f.kind === 'time') ? tsuFmt(tsuBufToSec(this.buffer)) : this.buffer;
             else disp = (f.kind === 'time') ? tsuFmt(this.getFieldValue(f)) : String(this.getFieldValue(f));
-            return this._row(f.label, disp, focused, focused && !!this.buffer);
+            const editing = focused && !!this.buffer;
+            return `<div class="tsu-row ${focused ? 'tsu-focus' : ''}" ${click}><span class="tsu-label">${f.label}</span><span class="tsu-value ${editing ? 'tsu-editing' : ''}">${disp}</span></div>`;
           }
-          if (it.kind === 'action') return `<div class="tsu-row tsu-action ${focused ? 'tsu-focus' : ''}"><span class="tsu-label">${it.label}</span></div>`;
-          return `<div class="tsu-row tsu-start ${focused ? 'tsu-focus' : ''}"><span class="tsu-label">${it.label}</span></div>`;
+          const cls = it.kind === 'action' ? 'tsu-action' : (it.kind === 'cancel' ? 'tsu-cancel' : 'tsu-start');
+          return `<div class="tsu-row ${cls} ${focused ? 'tsu-focus' : ''}" ${click}><span class="tsu-label">${it.label}</span></div>`;
         });
         const body = document.getElementById('tsuBody');
         if (body) { body.innerHTML = rows.join(''); const fr = body.querySelector('.tsu-focus'); if (fr) fr.scrollIntoView({ block: 'nearest' }); }
+      },
+      // Pointer/mouse click on any row — focuses it, and fires its action for
+      // start/cancel/action rows (mirror of the OK-key path).
+      clickItem(i) {
+        this.commitBuffer();
+        this.focusIdx = i;
+        const it = this.buildItems()[i];
+        if (!it) { this.render(); return; }
+        if (it.kind === 'start') this.start();
+        else if (it.kind === 'cancel') this.close();
+        else if (it.kind === 'action') this.doAction(it.action);
+        else this.render(); // type / field — just focus it
       },
 
       commitBuffer() {
@@ -5392,11 +5414,14 @@
         else if (k === 'Enter' || k === 'Select' || k === 'MediaPlayPause' || k === ' ') {
           const it = this.buildItems()[this.focusIdx];
           if (it && it.kind === 'start') this.start();
+          else if (it && it.kind === 'cancel') this.close();
           else if (it && it.kind === 'action') this.doAction(it.action);
           else this.focusMove(1);
         }
-        else if (k === 'Backspace' || k === 'Delete') this.backspace();
-        else if (k === 'Escape') this.close();
+        // Back/Delete: erase a typed digit mid-entry, otherwise EXIT the setup
+        else if (k === 'Backspace' || k === 'Delete') { if (this.buffer) this.backspace(); else this.close(); }
+        // Esc and common remote "Back" keycodes all exit
+        else if (k === 'Escape' || k === 'BrowserBack' || k === 'GoBack') this.close();
       }
     };
     window.TimerSetup = TimerSetup; // reachable from inline onclick handlers
