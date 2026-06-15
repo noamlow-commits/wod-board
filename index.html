@@ -1598,6 +1598,29 @@
       letter-spacing: 0.04em;
     }
     #ftbStopBtn:hover { filter: brightness(1.1); }
+
+    /* ── Key diagnostic viewer (hidden by default; debug the TV remote) ──── */
+    #keyDiagOverlay {
+      display: none;
+      position: fixed;
+      left: 12px; bottom: 12px;
+      z-index: 99998;
+      width: 470px; max-width: 46vw;
+      background: rgba(0,0,0,0.9);
+      border: 1px solid #2b4a5a;
+      border-radius: 10px;
+      padding: 0.6rem 0.8rem;
+      font-family: 'Courier New', monospace;
+      direction: ltr;
+      color: #cfe;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+    }
+    #keyDiagOverlay .kd-title { color: #7fd1ff; font-weight: 700; font-family: 'Heebo', sans-serif; direction: rtl; margin-bottom: 0.4rem; font-size: 0.95rem; }
+    #keyDiagOverlay .kd-foot { color: #667; font-size: 0.7rem; margin-top: 0.4rem; }
+    #keyDiagOverlay .kd-line { font-size: 0.85rem; padding: 0.1rem 0; border-bottom: 1px solid rgba(255,255,255,0.06); white-space: nowrap; overflow: hidden; }
+    #keyDiagOverlay .kd-line b { color: #fff; }
+    #keyDiagOverlay .kd-k { color: #9fd; }
+    #keyDiagOverlay .kd-t { color: #557; margin-left: 0.5rem; }
     #tvCenterOverlay .tvo-header {
       color: #fff;
       font-size: 1.6rem;
@@ -1836,6 +1859,13 @@
     </div>
   </div>
 
+  <!-- Key diagnostic viewer — hidden; toggle via Ctrl+Shift+K or the Settings checkbox -->
+  <div id="keyDiagOverlay">
+    <div class="kd-title">🔑 אבחון מקשים — לחץ כפתורים בשלט</div>
+    <div id="kdList"></div>
+    <div class="kd-foot">Ctrl+Shift+K to toggle · log saved in localStorage['wodboard-keylog']</div>
+  </div>
+
   <!-- TV Navigation Panel (floating, controlled by remote D-pad) -->
   <div id="tvNav" class="tv-nav" style="display:none;">
     <button class="tv-btn" id="tvPrev" onclick="navigatePart(-1)" tabindex="0" title="חלק קודם">◄</button>
@@ -1923,6 +1953,11 @@
         <div class="form-group" style="display:flex;align-items:center;gap:0.8rem;">
           <input type="checkbox" id="inputAutoSplit" checked style="width:auto;accent-color:var(--metcon-start);">
           <label for="inputAutoSplit" style="margin:0;">עבור אוטומטית ל-SPLIT כשנכנסות תוצאות</label>
+        </div>
+
+        <div class="form-group" style="display:flex;align-items:center;gap:0.8rem;">
+          <input type="checkbox" id="inputKeyDiag" style="width:auto;accent-color:var(--metcon-start);">
+          <label for="inputKeyDiag" style="margin:0;">🔑 אבחון מקשים (הצג קודי שלט בפינה)</label>
         </div>
       </div>
 
@@ -3370,6 +3405,7 @@
       document.getElementById('inputShowQR').checked = settings.showQR !== false;
       document.getElementById('inputShowQRinWod').checked = settings.showQRinWod !== false;
       document.getElementById('inputAutoSplit').checked = settings.autoSplitOnScores !== false;
+      document.getElementById('inputKeyDiag').checked = !!settings.keyDiag;
       renderTabChips();
       document.getElementById('settingsModal').classList.add('open');
     }
@@ -3412,6 +3448,7 @@
       settings.showQR = document.getElementById('inputShowQR').checked;
       settings.showQRinWod = document.getElementById('inputShowQRinWod').checked;
       settings.autoSplitOnScores = document.getElementById('inputAutoSplit').checked;
+      settings.keyDiag = document.getElementById('inputKeyDiag').checked;
       saveSettings(settings);
       closeSettings();
       applySettings();
@@ -3426,6 +3463,7 @@
       // Show/hide clear scores button based on Apps Script URL
       const clearBtn = document.getElementById('clearScoresBtn');
       if (clearBtn) clearBtn.style.display = settings.appsScriptUrl ? '' : 'none';
+      KeyDiag.show(!!settings.keyDiag);
     }
 
     // Auto-fit: find the largest font scale that doesn't cause overflow
@@ -5433,6 +5471,43 @@
     }
     function stopActiveTimer() { coachStopTimer(); hideFloatingTimerBar(); }
 
+    // ── Key diagnostic (hidden by default) ────────────────────────────────
+    // Silently logs EVERY keydown (key / code / keyCode) to a rolling 50-entry
+    // buffer + localStorage['wodboard-keylog'] — so we can see exactly what the
+    // TV remote emits, even without opening anything. The on-screen viewer stays
+    // hidden unless toggled (Ctrl+Shift+K, or the Settings checkbox). Never
+    // intercepts keys (capture-phase, no preventDefault) so it can't break input.
+    const KeyDiag = {
+      log: [],
+      _visible: false,
+      push(e) {
+        this.log.unshift({ key: e.key, code: e.code || '', keyCode: e.keyCode || 0, t: Date.now() });
+        if (this.log.length > 50) this.log.length = 50;
+        try { localStorage.setItem('wodboard-keylog', JSON.stringify(this.log)); } catch (_) {}
+        if (this._visible) this.render();
+      },
+      render() {
+        const el = document.getElementById('kdList');
+        if (!el) return;
+        el.innerHTML = this.log.slice(0, 14).map(k => {
+          const time = new Date(k.t).toLocaleTimeString('en-GB');
+          const key = String(k.key).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+          return `<div class="kd-line"><span class="kd-k">key=<b>${key}</b></span> <span>code=${k.code}</span> <span>keyCode=${k.keyCode}</span><span class="kd-t">${time}</span></div>`;
+        }).join('') || '<div class="kd-line">(press a remote button…)</div>';
+      },
+      show(on) {
+        this._visible = !!on;
+        const ov = document.getElementById('keyDiagOverlay');
+        if (ov) ov.style.display = on ? 'block' : 'none';
+        if (on) this.render();
+      },
+      toggle() { this.show(!this._visible); },
+      dump() { return this.log.map(k => `key=${k.key}  code=${k.code}  keyCode=${k.keyCode}`).join('\n'); }
+    };
+    window.KeyDiag = KeyDiag;
+    // Capture phase + always-on: records before any handler, regardless of overlays.
+    document.addEventListener('keydown', (e) => KeyDiag.push(e), true);
+
     // Side timer panel control
     let _timerBarPartIdx = null;
 
@@ -6065,6 +6140,8 @@
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
+      // Ctrl+Shift+K: toggle the hidden key-diagnostic viewer (works in any state)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'K' || e.key === 'k')) { e.preventDefault(); KeyDiag.toggle(); return; }
       // On-board timer overlays capture ALL keys while open — nothing falls
       // through to the global shortcuts below (Space/Enter/digits/arrows neutralized).
       if (TimerSetup.open) { TimerSetup.handleKey(e); e.preventDefault(); e.stopPropagation(); return; }
