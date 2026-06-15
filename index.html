@@ -1557,13 +1557,6 @@
       border-color: transparent;
       margin-top: 0.9rem;
     }
-    .tsu-row.tsu-stop {
-      justify-content: center;
-      background: linear-gradient(135deg, #b91c1c, #ef4444);
-      border-color: transparent;
-    }
-    .tsu-row.tsu-stop .tsu-label { color: #fff; font-size: 1.4rem; font-weight: 900; letter-spacing: 0.06em; }
-    .tsu-row.tsu-stop.tsu-focus { box-shadow: 0 0 0 3px #fff; filter: brightness(1.08); }
     .tsu-row.tsu-start .tsu-label {
       color: #fff;
       font-size: 1.4rem;
@@ -1581,12 +1574,21 @@
       color: #666;
       direction: rtl;
     }
-    #ftbHint {
-      font-size: 0.8rem;
-      color: rgba(255,255,255,0.65);
+    #ftbStopBtn {
+      margin-top: 0.35rem;
+      padding: 0.4rem 1.3rem;
+      font-family: 'Heebo', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 900;
+      color: #fff;
+      background: linear-gradient(135deg, #b91c1c, #ef4444);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
       direction: rtl;
-      margin-top: 0.2rem;
+      letter-spacing: 0.04em;
     }
+    #ftbStopBtn:hover { filter: brightness(1.1); }
     #tvCenterOverlay .tvo-header {
       color: #fff;
       font-size: 1.6rem;
@@ -1801,7 +1803,7 @@
       <span id="ftbTime"></span>
       <span id="ftbRound"></span>
       <div id="ftbProgress"></div>
-      <span id="ftbHint">אישור = שליטה (השהה/עצור)</span>
+      <button id="ftbStopBtn" onclick="coachStopTimer();hideFloatingTimerBar();" title="עצור את הטיימר (OK / Backspace)">⏹ עצור</button>
     </div>
   </div>
 
@@ -1822,15 +1824,6 @@
       <h2>⚙ הגדרת טיימר</h2>
       <div id="tsuBody"></div>
       <div class="tsu-hint">↑↓ בחירת שדה · ←→ שינוי ערך · מספרים להקלדה · OK/אישור להפעלה · Esc ביטול</div>
-    </div>
-  </div>
-
-  <!-- On-board Timer Control overlay (pause/resume/stop). Body rendered by TimerControl.render() -->
-  <div id="timerControlOverlay" class="tsu-overlay">
-    <div class="tsu-panel">
-      <h2>⏱ שליטה בטיימר</h2>
-      <div id="tcoBody"></div>
-      <div class="tsu-hint">↑↓ בחירה · OK/אישור לביצוע · Esc חזרה</div>
     </div>
   </div>
 
@@ -2125,25 +2118,27 @@
         if (num > 0) this.beep(660, 0.18, 1);
         else this.beep(990, 0.5, 1); // GO!
       },
-      // Loud, unmistakable interval transition — athletes must hear this to switch exercises
+      // Loud, unmistakable interval transition — athletes must hear this to switch
+      // exercises WITHOUT looking at the board. Louder (0.85) + longer (~0.95s) than
+      // the countdown ticks, sawtooth for cut-through, final tone sustained.
       intervalBeep() {
         if (timerMuted || !this.ctx) return;
-        const t = this.ctx.currentTime;
-        // Three ascending tones: low → mid → high, loud and clear
-        [660, 880, 1100].forEach((freq, i) => {
+        let start = this.ctx.currentTime;
+        // Ascending: low → mid → high, last note held long.
+        [{ f: 660, d: 0.24 }, { f: 880, d: 0.24 }, { f: 1100, d: 0.5 }].forEach(({ f, d }) => {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.connect(gain);
           gain.connect(this.ctx.destination);
-          osc.frequency.value = freq;
-          osc.type = 'sine';
-          const start = t + i * 0.16;
+          osc.frequency.value = f;
+          osc.type = 'sawtooth';
           gain.gain.setValueAtTime(0, start);
-          gain.gain.linearRampToValueAtTime(0.7, start + 0.01);
-          gain.gain.setValueAtTime(0.7, start + 0.1);
-          gain.gain.linearRampToValueAtTime(0.001, start + 0.14);
+          gain.gain.linearRampToValueAtTime(0.85, start + 0.01);
+          gain.gain.setValueAtTime(0.85, start + d - 0.07);
+          gain.gain.linearRampToValueAtTime(0.001, start + d);
           osc.start(start);
-          osc.stop(start + 0.16);
+          osc.stop(start + d + 0.02);
+          start += d; // sequential (no overlap → no clipping)
         });
       },
       warningBeep()   { this.beep(660, 0.09, 3, 0.08); },           // short triple tick
@@ -2154,40 +2149,42 @@
       // even without the voice cue.
       tabataWork() {
         if (timerMuted || !this.ctx) return;
-        const t = this.ctx.currentTime;
-        // Ascending fanfare — A5 → D6 → A6 (root, 4th, octave). 0.55s total.
-        [880, 1175, 1760].forEach((freq, i) => {
+        let start = this.ctx.currentTime;
+        // Ascending fanfare — A5 → D6 → A6 (root, 4th, octave). Louder (0.85) +
+        // longer (~1.0s, final note sustained) so it carries across the gym.
+        [{ f: 880, d: 0.28 }, { f: 1175, d: 0.28 }, { f: 1760, d: 0.55 }].forEach(({ f, d }) => {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.connect(gain); gain.connect(this.ctx.destination);
-          osc.frequency.value = freq;
+          osc.frequency.value = f;
           osc.type = 'sawtooth';
-          const start = t + i * 0.18;
           gain.gain.setValueAtTime(0, start);
-          gain.gain.linearRampToValueAtTime(0.6, start + 0.006);
-          gain.gain.setValueAtTime(0.6, start + 0.14);
-          gain.gain.linearRampToValueAtTime(0.001, start + 0.18);
+          gain.gain.linearRampToValueAtTime(0.85, start + 0.008);
+          gain.gain.setValueAtTime(0.85, start + d - 0.08);
+          gain.gain.linearRampToValueAtTime(0.001, start + d);
           osc.start(start);
-          osc.stop(start + 0.20);
+          osc.stop(start + d + 0.02);
+          start += d;
         });
       },
       tabataRest() {
         if (timerMuted || !this.ctx) return;
-        const t = this.ctx.currentTime;
-        // Descending fanfare — D5 → A4 → D4 (octave-down arpeggio). 0.55s total.
-        [587, 440, 294].forEach((freq, i) => {
+        let start = this.ctx.currentTime;
+        // Descending fanfare — D5 → A4 → D4 (octave-down arpeggio). Louder (0.8) +
+        // longer (~1.0s, final note sustained).
+        [{ f: 587, d: 0.28 }, { f: 440, d: 0.28 }, { f: 294, d: 0.55 }].forEach(({ f, d }) => {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
           osc.connect(gain); gain.connect(this.ctx.destination);
-          osc.frequency.value = freq;
+          osc.frequency.value = f;
           osc.type = 'sawtooth';
-          const start = t + i * 0.18;
           gain.gain.setValueAtTime(0, start);
-          gain.gain.linearRampToValueAtTime(0.55, start + 0.006);
-          gain.gain.setValueAtTime(0.55, start + 0.14);
-          gain.gain.linearRampToValueAtTime(0.001, start + 0.18);
+          gain.gain.linearRampToValueAtTime(0.8, start + 0.008);
+          gain.gain.setValueAtTime(0.8, start + d - 0.08);
+          gain.gain.linearRampToValueAtTime(0.001, start + d);
           osc.start(start);
-          osc.stop(start + 0.20);
+          osc.stop(start + d + 0.02);
+          start += d;
         });
       },
       finishSound() {
@@ -5393,60 +5390,12 @@
     };
     window.TimerSetup = TimerSetup; // reachable from inline onclick handlers
 
-    // ── On-board Timer Control (pause / resume / stop) ────────────────────
-    // A clear, remote-operable control row shown while a timer is running.
-    // Opened by OK/Enter or ⚙→ while a timer is active (see keydown handler).
-    // Fully operable with arrows + OK, so it never depends on a specific remote
-    // "Back"/"Stop" key existing.
+    // True while a timer is configured-and-counting (any phase). Used to route the
+    // remote's OK / g / Backspace to STOP the running timer.
     function timerIsActive() {
       return timerState === 'running' || timerState === 'paused' || timerState === 'countdown321';
     }
-    const TimerControl = {
-      open: false,
-      focusIdx: 0,
-      items() {
-        return [
-          { kind: 'toggle', label: timerState === 'paused' ? '▶ המשך' : '⏸ השהה' },
-          { kind: 'stop', label: '⏹ עצור' },
-          { kind: 'close', label: '✖ חזרה' }
-        ];
-      },
-      openMenu() {
-        if (!timerIsActive()) return;
-        this.open = true; this.focusIdx = 0;
-        const ov = document.getElementById('timerControlOverlay'); if (ov) ov.classList.add('open');
-        this.render();
-      },
-      close() {
-        this.open = false;
-        const ov = document.getElementById('timerControlOverlay'); if (ov) ov.classList.remove('open');
-      },
-      render() {
-        const items = this.items();
-        this.focusIdx = Math.max(0, Math.min(items.length - 1, this.focusIdx));
-        const body = document.getElementById('tcoBody');
-        if (!body) return;
-        body.innerHTML = items.map((it, i) => {
-          const cls = it.kind === 'stop' ? 'tsu-stop' : (it.kind === 'toggle' ? 'tsu-start' : 'tsu-action');
-          return `<div class="tsu-row ${cls} ${this.focusIdx === i ? 'tsu-focus' : ''}"><span class="tsu-label">${it.label}</span></div>`;
-        }).join('');
-      },
-      activate() {
-        const it = this.items()[this.focusIdx];
-        if (!it) return;
-        if (it.kind === 'toggle') { toggleTimerPause(); updateFloatingTimerBar(); this.render(); }
-        else if (it.kind === 'stop') { this.close(); coachStopTimer(); hideFloatingTimerBar(); }
-        else this.close();
-      },
-      handleKey(e) {
-        const k = e.key;
-        if (k === 'ArrowUp' || k === 'ArrowLeft' || k === 'PageUp' || k === 'ChannelUp') { this.focusIdx--; this.render(); }
-        else if (k === 'ArrowDown' || k === 'ArrowRight' || k === 'PageDown' || k === 'ChannelDown') { this.focusIdx++; this.render(); }
-        else if (k === 'Enter' || k === 'Select' || k === 'MediaPlayPause' || k === ' ') this.activate();
-        else if (k === 'Escape' || k === 'Backspace') this.close();
-      }
-    };
-    window.TimerControl = TimerControl;
+    function stopActiveTimer() { coachStopTimer(); hideFloatingTimerBar(); }
 
     // Side timer panel control
     let _timerBarPartIdx = null;
@@ -6083,7 +6032,6 @@
       // On-board timer overlays capture ALL keys while open — nothing falls
       // through to the global shortcuts below (Space/Enter/digits/arrows neutralized).
       if (TimerSetup.open) { TimerSetup.handleKey(e); e.preventDefault(); e.stopPropagation(); return; }
-      if (TimerControl.open) { TimerControl.handleKey(e); e.preventDefault(); e.stopPropagation(); return; }
       // Blur ANY focused element (except inputs) so TV remote / browser spatial navigation
       // doesn't intercept keys — fixes keys not working in BOARD/scoreboard mode
       const ae = document.activeElement;
@@ -6112,8 +6060,8 @@
         if (e.key === '4') { sectionFilter = null; applySectionFilter(); setDisplayMode('pr'); }
         // T: timer mode
         if (e.key === 't') { setDisplayMode('timer'); }
-        // G: timer menu — controls while a timer runs, otherwise the setup form
-        if (e.key === 'g') { if (timerIsActive()) TimerControl.openMenu(); else TimerSetup.openFromDetected(); }
+        // G: stop while a timer runs, otherwise open the setup form
+        if (e.key === 'g') { if (timerIsActive()) stopActiveTimer(); else TimerSetup.openFromDetected(); }
         // Space or MediaPlayPause: start/pause timer
         if (e.key === ' ' || e.key === 'MediaPlayPause') {
           const timerDocked = document.getElementById('mainContent')?.classList.contains('timer-docked');
@@ -6219,13 +6167,12 @@
           fetchScoreboard();
         }
       }
-      // Enter / OK: while a timer is running, open the remote timer-control menu
-      // (pause/resume/stop) — the reliable, remote-proof stop path. Otherwise it
-      // keeps its normal job of toggling fullscreen.
+      // Enter / OK: while a timer is running, STOP it (the reliable, remote-proof
+      // stop — no menu, no pause). Otherwise it keeps toggling fullscreen.
       if (e.key === 'Enter' && document.activeElement.tagName !== 'INPUT') {
-        if (timerIsActive() && !TimerControl.open && !TimerSetup.open) {
+        if (timerIsActive() && !TimerSetup.open) {
           e.preventDefault();
-          TimerControl.openMenu();
+          stopActiveTimer();
         } else if (!document.fullscreenElement) document.documentElement.requestFullscreen();
         else document.exitFullscreen();
       }
