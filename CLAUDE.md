@@ -155,7 +155,8 @@ Chained timer button label: `${timerName} ×${rounds} · ${workMins}' work / ${r
 
 ### On-board timer setup + control — TV remote (added 2026-06-15)
 The board itself can configure/start/stop the timer via the TV remote (previously only `coach.html` could). All client-side, **local start only** (no backend POST).
-- **Setup overlay** `#timerSetupOverlay` (open: ⚙ `#tvTimerSetupBtn` in the nav / `g` / `↑` in timer mode). `TimerSetup` object (items-based focus model). Edits all 5 types (amrap/fortime/emom/tabata/mix); MIX builds arbitrary work/rest sequences via add/remove "מקטע" rows. Remote-operable with arrows+OK; digits type MM:SS (shift-in); a focusable `▶ התחל` row starts. Every key is captured while open (guard at the top of the keydown listener: `if (TimerSetup.open) {...return;}`).
+- **Setup overlay** `#timerSetupOverlay` (open: ⚙ `#tvTimerSetupBtn` in the nav / `g` / `↑` in timer mode). `TimerSetup` object (items-based focus model). Edits all 5 types (amrap/fortime/emom/tabata/mix); MIX builds arbitrary work/rest sequences via add/remove "מקטע" rows. Remote-operable with arrows+OK; digits type MM:SS (shift-in); a focusable `▶ התחל` row starts and a `✖ יציאה` row exits. **Every row is also pointer-clickable** (`clickItem`) so the form works the same with a D-pad remote or a pointer — not keyboard-only. Exit: `✖ יציאה` row / `Esc` / remote Back (`Backspace` erases a digit mid-entry else exits, `BrowserBack`/`GoBack`). Every key is captured while open (guard at the top of the keydown listener: `if (TimerSetup.open) {...return;}`).
+- **Key diagnostic (hidden, debug the remote)**: `KeyDiag` silently logs every keydown (key/code/keyCode) to a rolling buffer + `localStorage['wodboard-keylog']`, even with nothing open (capture-phase, never intercepts). Hidden viewer (bottom-left) toggled by `Ctrl+Shift+K` or the "🔑 אבחון מקשים" Settings checkbox (`settings.keyDiag`). `KeyDiag.dump()` returns readable text. Use it to map which codes a specific TV remote emits before assigning keys.
 - **Seed priority** (`openFromDetected`): (1) the **live floating-bar clock** if one is docked (so edits are a quick correction of the deployed clock), (2) the part's auto-detected timer (`getSelectedPartTimer`), (3) amrap defaults.
 - **Start docks, doesn't take over the screen**: `TimerSetup.start()` shows the floating bar over the board (does NOT force full timer mode). The existing coach-driven `processTimerCommand('start')` path is unchanged (still goes full-screen).
 - **Stop = one red `⏹ עצור` button** on the floating bar (`#ftbStopBtn`); while a timer runs, `OK/Enter` / `g` / `Backspace` all stop too (`stopActiveTimer()`). No pause menu (Space still pauses as a low-key shortcut).
@@ -223,7 +224,7 @@ Flags `_tabataPhaseHalfwayDone` / `_tabataPhaseOneMinDone` / `_tabataPhaseTenSec
 - EMOM interval warning ticks (added 2026-04-13)
 
 ### SW Cache Versioning
-**Critical:** bump `CACHE_NAME` in `sw.js` on every code change (`sw.js` is the source of truth — currently **v92**). Cache-first strategy means old clients serve stale code otherwise.
+**Critical:** bump `CACHE_NAME` in `sw.js` on every code change (`sw.js` is the source of truth — currently **v94**). Cache-first strategy means old clients serve stale code otherwise.
 
 **Status:** Chained interval display and per-phase voice cues implemented. **Apps Script must be redeployed** to coach's sheet for timer sync to work (console `_timerCb_` / `_scoreCb_` errors until deployed).
 
