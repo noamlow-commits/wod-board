@@ -5246,8 +5246,19 @@
       setFieldValue(f, val) { if (f.ivIndex != null) { if (this.draft.intervals[f.ivIndex]) this.draft.intervals[f.ivIndex].seconds = val; } else { this.draft[f.key] = val; } },
 
       openFromDetected() {
-        const seed = (typeof getSelectedPartTimer === 'function') ? getSelectedPartTimer() : null;
-        if (seed && seed.type) this.seedFromConfig(seed); else this.seedDefaults('amrap');
+        // Seed priority:
+        //  1. The timer currently shown in the floating bar (a deployed/running clock)
+        //     — so opening settings pre-fills the live clock for a quick correction.
+        //  2. The timer auto-detected from the focused part.
+        //  3. amrap defaults.
+        const mc = document.getElementById('mainContent');
+        const liveClock = mc && mc.classList.contains('timer-docked') && timerType && timerConfig && Object.keys(timerConfig).length;
+        if (liveClock) {
+          this.seedFromConfig({ type: timerType, ...timerConfig });
+        } else {
+          const seed = (typeof getSelectedPartTimer === 'function') ? getSelectedPartTimer() : null;
+          if (seed && seed.type) this.seedFromConfig(seed); else this.seedDefaults('amrap');
+        }
         this.focusIdx = 0; this.buffer = ''; this.open = true;
         const ov = document.getElementById('timerSetupOverlay'); if (ov) ov.classList.add('open');
         this.render();
