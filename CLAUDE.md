@@ -153,6 +153,14 @@ Sanity limits for chains: total ≤ 90 min, work ≥ 30s, rest ≤ 10 min, unifo
 
 Chained timer button label: `${timerName} ×${rounds} · ${workMins}' work / ${restShort} rest` → e.g. `AMRAP ×3 · 10' work / 2' rest`.
 
+### On-board timer setup + control — TV remote (added 2026-06-15)
+The board itself can configure/start/stop the timer via the TV remote (previously only `coach.html` could). All client-side, **local start only** (no backend POST).
+- **Setup overlay** `#timerSetupOverlay` (open: ⚙ `#tvTimerSetupBtn` in the nav / `g` / `↑` in timer mode). `TimerSetup` object (items-based focus model). Edits all 5 types (amrap/fortime/emom/tabata/mix); MIX builds arbitrary work/rest sequences via add/remove "מקטע" rows. Remote-operable with arrows+OK; digits type MM:SS (shift-in); a focusable `▶ התחל` row starts. Every key is captured while open (guard at the top of the keydown listener: `if (TimerSetup.open) {...return;}`).
+- **Seed priority** (`openFromDetected`): (1) the **live floating-bar clock** if one is docked (so edits are a quick correction of the deployed clock), (2) the part's auto-detected timer (`getSelectedPartTimer`), (3) amrap defaults.
+- **Start docks, doesn't take over the screen**: `TimerSetup.start()` shows the floating bar over the board (does NOT force full timer mode). The existing coach-driven `processTimerCommand('start')` path is unchanged (still goes full-screen).
+- **Stop = one red `⏹ עצור` button** on the floating bar (`#ftbStopBtn`); while a timer runs, `OK/Enter` / `g` / `Backspace` all stop too (`stopActiveTimer()`). No pause menu (Space still pauses as a low-key shortcut).
+- **Segment-transition cues are loud + long** (`intervalBeep`, `tabataWork`, `tabataRest`): sawtooth, gain 0.8–0.85, ~1s with a sustained final tone — heard across the gym without looking. The 3-2-1 countdown ticks were deliberately left unchanged.
+
 ### Per-part timer detection (added 2026-05-21)
 `extractTimerConfigs` is a **part-aware wrapper** around the core `detectTimers`. When a cell holds a multi-part workout (≥2 `part 1:` / `part 2:` / `part 3:` lines), each part is scanned independently and yields **its own timer button** — a series of timers.
 
@@ -215,7 +223,7 @@ Flags `_tabataPhaseHalfwayDone` / `_tabataPhaseOneMinDone` / `_tabataPhaseTenSec
 - EMOM interval warning ticks (added 2026-04-13)
 
 ### SW Cache Versioning
-**Critical:** bump `CACHE_NAME` in `sw.js` on every code change (`sw.js` is the source of truth — currently **v87**). Cache-first strategy means old clients serve stale code otherwise.
+**Critical:** bump `CACHE_NAME` in `sw.js` on every code change (`sw.js` is the source of truth — currently **v92**). Cache-first strategy means old clients serve stale code otherwise.
 
 **Status:** Chained interval display and per-phase voice cues implemented. **Apps Script must be redeployed** to coach's sheet for timer sync to work (console `_timerCb_` / `_scoreCb_` errors until deployed).
 
