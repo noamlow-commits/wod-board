@@ -1473,8 +1473,8 @@
     }
     #tvCenterOverlay.open { display: flex; }
 
-    /* ── On-board Timer Setup overlay (TV-remote configurable) ───────────── */
-    #timerSetupOverlay {
+    /* ── On-board Timer Setup + Control overlays (TV-remote driven) ──────── */
+    .tsu-overlay {
       display: none;
       position: fixed;
       inset: 0;
@@ -1485,8 +1485,8 @@
       align-items: center;
       font-family: 'Heebo', sans-serif;
     }
-    #timerSetupOverlay.open { display: flex; }
-    #timerSetupOverlay .tsu-panel {
+    .tsu-overlay.open { display: flex; }
+    .tsu-overlay .tsu-panel {
       background: #1a1a1a;
       border: 1px solid #333;
       border-radius: 20px;
@@ -1498,7 +1498,7 @@
       direction: rtl;
       box-shadow: 0 0 0 3px rgba(249,115,22,0.25), 0 24px 60px rgba(0,0,0,0.6);
     }
-    #timerSetupOverlay h2 {
+    .tsu-overlay h2 {
       font-size: 1.7rem;
       font-weight: 900;
       margin-bottom: 1.2rem;
@@ -1557,6 +1557,13 @@
       border-color: transparent;
       margin-top: 0.9rem;
     }
+    .tsu-row.tsu-stop {
+      justify-content: center;
+      background: linear-gradient(135deg, #b91c1c, #ef4444);
+      border-color: transparent;
+    }
+    .tsu-row.tsu-stop .tsu-label { color: #fff; font-size: 1.4rem; font-weight: 900; letter-spacing: 0.06em; }
+    .tsu-row.tsu-stop.tsu-focus { box-shadow: 0 0 0 3px #fff; filter: brightness(1.08); }
     .tsu-row.tsu-start .tsu-label {
       color: #fff;
       font-size: 1.4rem;
@@ -1573,6 +1580,12 @@
       font-size: 0.85rem;
       color: #666;
       direction: rtl;
+    }
+    #ftbHint {
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.65);
+      direction: rtl;
+      margin-top: 0.2rem;
     }
     #tvCenterOverlay .tvo-header {
       color: #fff;
@@ -1788,6 +1801,7 @@
       <span id="ftbTime"></span>
       <span id="ftbRound"></span>
       <div id="ftbProgress"></div>
+      <span id="ftbHint">אישור = שליטה (השהה/עצור)</span>
     </div>
   </div>
 
@@ -1803,11 +1817,20 @@
   </div>
 
   <!-- On-board Timer Setup overlay (TV-remote configurable). Body rendered by TimerSetup.render() -->
-  <div id="timerSetupOverlay">
+  <div id="timerSetupOverlay" class="tsu-overlay">
     <div class="tsu-panel">
       <h2>⚙ הגדרת טיימר</h2>
       <div id="tsuBody"></div>
       <div class="tsu-hint">↑↓ בחירת שדה · ←→ שינוי ערך · מספרים להקלדה · OK/אישור להפעלה · Esc ביטול</div>
+    </div>
+  </div>
+
+  <!-- On-board Timer Control overlay (pause/resume/stop). Body rendered by TimerControl.render() -->
+  <div id="timerControlOverlay" class="tsu-overlay">
+    <div class="tsu-panel">
+      <h2>⏱ שליטה בטיימר</h2>
+      <div id="tcoBody"></div>
+      <div class="tsu-hint">↑↓ בחירה · OK/אישור לביצוע · Esc חזרה</div>
     </div>
   </div>
 
@@ -5340,8 +5363,12 @@
       start() {
         const { type, config } = this.buildConfig();
         if (typeof TimerAudio !== 'undefined') TimerAudio.init();
-        if (displayMode !== 'timer') { timerPrevMode = displayMode; setDisplayMode('timer'); }
         this.close();
+        // Keep the workout board visible with the docked floating clock + controls.
+        // Do NOT take over the whole screen — full timer mode hides the board and
+        // the floating bar, leaving no on-screen controls. If we're in full timer
+        // mode, drop back to the board so the docked clock (and its controls) show.
+        if (displayMode === 'timer') setDisplayMode(timerPrevMode && timerPrevMode !== 'timer' ? timerPrevMode : 'wod');
         configureTimer(type, config);
         startTimer();
         showFloatingTimerBar();
@@ -5365,6 +5392,61 @@
       }
     };
     window.TimerSetup = TimerSetup; // reachable from inline onclick handlers
+
+    // ── On-board Timer Control (pause / resume / stop) ────────────────────
+    // A clear, remote-operable control row shown while a timer is running.
+    // Opened by OK/Enter or ⚙→ while a timer is active (see keydown handler).
+    // Fully operable with arrows + OK, so it never depends on a specific remote
+    // "Back"/"Stop" key existing.
+    function timerIsActive() {
+      return timerState === 'running' || timerState === 'paused' || timerState === 'countdown321';
+    }
+    const TimerControl = {
+      open: false,
+      focusIdx: 0,
+      items() {
+        return [
+          { kind: 'toggle', label: timerState === 'paused' ? '▶ המשך' : '⏸ השהה' },
+          { kind: 'stop', label: '⏹ עצור' },
+          { kind: 'close', label: '✖ חזרה' }
+        ];
+      },
+      openMenu() {
+        if (!timerIsActive()) return;
+        this.open = true; this.focusIdx = 0;
+        const ov = document.getElementById('timerControlOverlay'); if (ov) ov.classList.add('open');
+        this.render();
+      },
+      close() {
+        this.open = false;
+        const ov = document.getElementById('timerControlOverlay'); if (ov) ov.classList.remove('open');
+      },
+      render() {
+        const items = this.items();
+        this.focusIdx = Math.max(0, Math.min(items.length - 1, this.focusIdx));
+        const body = document.getElementById('tcoBody');
+        if (!body) return;
+        body.innerHTML = items.map((it, i) => {
+          const cls = it.kind === 'stop' ? 'tsu-stop' : (it.kind === 'toggle' ? 'tsu-start' : 'tsu-action');
+          return `<div class="tsu-row ${cls} ${this.focusIdx === i ? 'tsu-focus' : ''}"><span class="tsu-label">${it.label}</span></div>`;
+        }).join('');
+      },
+      activate() {
+        const it = this.items()[this.focusIdx];
+        if (!it) return;
+        if (it.kind === 'toggle') { toggleTimerPause(); updateFloatingTimerBar(); this.render(); }
+        else if (it.kind === 'stop') { this.close(); coachStopTimer(); hideFloatingTimerBar(); }
+        else this.close();
+      },
+      handleKey(e) {
+        const k = e.key;
+        if (k === 'ArrowUp' || k === 'ArrowLeft' || k === 'PageUp' || k === 'ChannelUp') { this.focusIdx--; this.render(); }
+        else if (k === 'ArrowDown' || k === 'ArrowRight' || k === 'PageDown' || k === 'ChannelDown') { this.focusIdx++; this.render(); }
+        else if (k === 'Enter' || k === 'Select' || k === 'MediaPlayPause' || k === ' ') this.activate();
+        else if (k === 'Escape' || k === 'Backspace') this.close();
+      }
+    };
+    window.TimerControl = TimerControl;
 
     // Side timer panel control
     let _timerBarPartIdx = null;
@@ -5998,9 +6080,10 @@
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-      // On-board timer setup overlay captures ALL keys while open — nothing falls
+      // On-board timer overlays capture ALL keys while open — nothing falls
       // through to the global shortcuts below (Space/Enter/digits/arrows neutralized).
       if (TimerSetup.open) { TimerSetup.handleKey(e); e.preventDefault(); e.stopPropagation(); return; }
+      if (TimerControl.open) { TimerControl.handleKey(e); e.preventDefault(); e.stopPropagation(); return; }
       // Blur ANY focused element (except inputs) so TV remote / browser spatial navigation
       // doesn't intercept keys — fixes keys not working in BOARD/scoreboard mode
       const ae = document.activeElement;
@@ -6029,8 +6112,8 @@
         if (e.key === '4') { sectionFilter = null; applySectionFilter(); setDisplayMode('pr'); }
         // T: timer mode
         if (e.key === 't') { setDisplayMode('timer'); }
-        // G: open on-board timer setup (configure the timer via the TV remote)
-        if (e.key === 'g') { TimerSetup.openFromDetected(); }
+        // G: timer menu — controls while a timer runs, otherwise the setup form
+        if (e.key === 'g') { if (timerIsActive()) TimerControl.openMenu(); else TimerSetup.openFromDetected(); }
         // Space or MediaPlayPause: start/pause timer
         if (e.key === ' ' || e.key === 'MediaPlayPause') {
           const timerDocked = document.getElementById('mainContent')?.classList.contains('timer-docked');
@@ -6048,8 +6131,9 @@
             startPartTimer();
           }
         }
-        // Backspace: reset timer (only in timer mode)
-        if (e.key === 'Backspace' && displayMode === 'timer') { e.preventDefault(); coachStopTimer(); }
+        // Backspace: stop+reset whenever a timer is active (any mode — the timer
+        // may run docked over the board, not only in full timer mode)
+        if (e.key === 'Backspace' && (displayMode === 'timer' || timerIsActive())) { e.preventDefault(); coachStopTimer(); hideFloatingTimerBar(); }
         // Q / 9: toggle QR
         if (e.key === 'q' || e.key === '9') {
           settings.showQR = !settings.showQR;
@@ -6135,9 +6219,14 @@
           fetchScoreboard();
         }
       }
-      // Enter: toggle fullscreen (works even from input)
+      // Enter / OK: while a timer is running, open the remote timer-control menu
+      // (pause/resume/stop) — the reliable, remote-proof stop path. Otherwise it
+      // keeps its normal job of toggling fullscreen.
       if (e.key === 'Enter' && document.activeElement.tagName !== 'INPUT') {
-        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        if (timerIsActive() && !TimerControl.open && !TimerSetup.open) {
+          e.preventDefault();
+          TimerControl.openMenu();
+        } else if (!document.fullscreenElement) document.documentElement.requestFullscreen();
         else document.exitFullscreen();
       }
     });
