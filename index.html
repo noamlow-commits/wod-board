@@ -1544,6 +1544,13 @@
       text-decoration: underline;
       text-underline-offset: 4px;
     }
+    .tsu-row.tsu-action {
+      justify-content: center;
+      background: #14202a;
+      border-color: #2b4a5a;
+    }
+    .tsu-row.tsu-action .tsu-label { color: #7fd1ff; font-weight: 800; font-size: 1.15rem; }
+    .tsu-row.tsu-action.tsu-focus { border-color: var(--skill-start); background: #182733; }
     .tsu-row.tsu-start {
       justify-content: center;
       background: linear-gradient(135deg, #ea580c, #f97316);
@@ -5196,7 +5203,7 @@
       open: false,
       type: 'amrap',
       draft: {},
-      focusIdx: 0,   // 0 = TYPE row; 1..N = fields; N+1 = START row
+      focusIdx: 0,   // index into buildItems(): TYPE, fields…, (mix actions…), START
       buffer: '',    // digit-entry buffer for the focused numeric field
 
       seedDefaults(type) {
@@ -5233,62 +5240,87 @@
       _row(label, value, focused, editing) {
         return `<div class="tsu-row ${focused ? 'tsu-focus' : ''}"><span class="tsu-label">${label}</span><span class="tsu-value ${editing ? 'tsu-editing' : ''}">${value}</span></div>`;
       },
+      // Ordered list of focusable rows: TYPE, each field, (mix only: add/remove
+      // action rows), START. focusIdx indexes into this array.
+      buildItems() {
+        const items = [{ kind: 'type' }];
+        tsuFieldsFor(this.type, this.draft).forEach(field => items.push({ kind: 'field', field }));
+        if (this.type === 'mix') {
+          items.push({ kind: 'action', action: 'addWork', label: '➕ הוסף עבודה' });
+          items.push({ kind: 'action', action: 'addRest', label: '➕ הוסף מנוחה' });
+          if ((this.draft.intervals || []).length > 1) items.push({ kind: 'action', action: 'delLast', label: '🗑 הסר מקטע אחרון' });
+        }
+        items.push({ kind: 'start', label: '▶ התחל' });
+        return items;
+      },
       render() {
-        const d = this.draft, fields = tsuFieldsFor(this.type, d), rows = [];
-        rows.push(this._row('סוג', TSU_TYPE_LABELS[this.type], this.focusIdx === 0, false));
-        fields.forEach((f, i) => {
-          const focused = this.focusIdx === i + 1;
-          let disp;
-          if (f.kind === 'toggle') disp = this.getFieldValue(f) ? 'כן' : 'לא';
-          else if (focused && this.buffer) disp = (f.kind === 'time') ? tsuFmt(tsuBufToSec(this.buffer)) : this.buffer;
-          else disp = (f.kind === 'time') ? tsuFmt(this.getFieldValue(f)) : String(this.getFieldValue(f));
-          rows.push(this._row(f.label, disp, focused, focused && !!this.buffer));
+        const items = this.buildItems();
+        this.focusIdx = Math.max(0, Math.min(items.length - 1, this.focusIdx));
+        const rows = items.map((it, i) => {
+          const focused = this.focusIdx === i;
+          if (it.kind === 'type') return this._row('סוג', TSU_TYPE_LABELS[this.type], focused, false);
+          if (it.kind === 'field') {
+            const f = it.field;
+            let disp;
+            if (f.kind === 'toggle') disp = this.getFieldValue(f) ? 'כן' : 'לא';
+            else if (focused && this.buffer) disp = (f.kind === 'time') ? tsuFmt(tsuBufToSec(this.buffer)) : this.buffer;
+            else disp = (f.kind === 'time') ? tsuFmt(this.getFieldValue(f)) : String(this.getFieldValue(f));
+            return this._row(f.label, disp, focused, focused && !!this.buffer);
+          }
+          if (it.kind === 'action') return `<div class="tsu-row tsu-action ${focused ? 'tsu-focus' : ''}"><span class="tsu-label">${it.label}</span></div>`;
+          return `<div class="tsu-row tsu-start ${focused ? 'tsu-focus' : ''}"><span class="tsu-label">${it.label}</span></div>`;
         });
-        const startIdx = fields.length + 1;
-        rows.push(`<div class="tsu-row tsu-start ${this.focusIdx === startIdx ? 'tsu-focus' : ''}"><span class="tsu-label">▶ התחל</span></div>`);
-        const body = document.getElementById('tsuBody'); if (body) body.innerHTML = rows.join('');
+        const body = document.getElementById('tsuBody');
+        if (body) { body.innerHTML = rows.join(''); const fr = body.querySelector('.tsu-focus'); if (fr) fr.scrollIntoView({ block: 'nearest' }); }
       },
 
       commitBuffer() {
         if (!this.buffer) return;
-        const fields = tsuFieldsFor(this.type, this.draft);
-        if (this.focusIdx > 0 && this.focusIdx <= fields.length) {
-          const f = fields[this.focusIdx - 1];
-          if (f.kind !== 'toggle') {
-            let v = f.kind === 'time' ? tsuBufToSec(this.buffer) : (parseInt(this.buffer, 10) || 0);
-            v = Math.max(f.min, Math.min(f.max, v));
-            this.setFieldValue(f, v);
-          }
+        const it = this.buildItems()[this.focusIdx];
+        if (it && it.kind === 'field' && it.field.kind !== 'toggle') {
+          const f = it.field;
+          let v = f.kind === 'time' ? tsuBufToSec(this.buffer) : (parseInt(this.buffer, 10) || 0);
+          v = Math.max(f.min, Math.min(f.max, v));
+          this.setFieldValue(f, v);
         }
         this.buffer = '';
       },
       focusMove(dir) {
         this.commitBuffer();
-        const fields = tsuFieldsFor(this.type, this.draft);
-        this.focusIdx = Math.max(0, Math.min(fields.length + 1, this.focusIdx + dir));
+        const len = this.buildItems().length;
+        this.focusIdx = Math.max(0, Math.min(len - 1, this.focusIdx + dir));
         this.render();
       },
       nudge(dir) {
         this.commitBuffer();
-        const fields = tsuFieldsFor(this.type, this.draft);
-        if (this.focusIdx === 0) { // TYPE row — cycle type, reseed defaults
+        const it = this.buildItems()[this.focusIdx];
+        if (!it) { this.render(); return; }
+        if (it.kind === 'type') { // cycle type, reseed defaults
           let i = (TSU_TYPES.indexOf(this.type) + dir + TSU_TYPES.length) % TSU_TYPES.length;
           this.seedDefaults(TSU_TYPES[i]); this.focusIdx = 0; this.buffer = ''; this.render(); return;
         }
-        if (this.focusIdx === fields.length + 1) { this.render(); return; } // START row
-        const f = fields[this.focusIdx - 1];
-        if (f.kind === 'toggle') this.setFieldValue(f, !this.getFieldValue(f));
-        else { let v = this.getFieldValue(f) + dir * (f.step || 1); v = Math.max(f.min, Math.min(f.max, v)); this.setFieldValue(f, v); }
-        this.render();
+        if (it.kind === 'field') {
+          const f = it.field;
+          if (f.kind === 'toggle') this.setFieldValue(f, !this.getFieldValue(f));
+          else { let v = this.getFieldValue(f) + dir * (f.step || 1); v = Math.max(f.min, Math.min(f.max, v)); this.setFieldValue(f, v); }
+        }
+        this.render(); // action / start rows: no nudge
       },
       digit(ch) {
-        const fields = tsuFieldsFor(this.type, this.draft);
-        if (this.focusIdx === 0 || this.focusIdx === fields.length + 1) return;
-        const f = fields[this.focusIdx - 1];
-        if (f.kind === 'toggle') return;
-        const maxLen = f.kind === 'time' ? 4 : 3;
+        const it = this.buildItems()[this.focusIdx];
+        if (!it || it.kind !== 'field' || it.field.kind === 'toggle') return;
+        const maxLen = it.field.kind === 'time' ? 4 : 3;
         if (this.buffer.length >= maxLen) this.buffer = this.buffer.slice(1);
         this.buffer += ch;
+        this.render();
+      },
+      // MIX only: append/remove an interval block. Adding keeps focus on the same
+      // action row (it shifts down by the inserted field row).
+      doAction(action) {
+        const ivs = this.draft.intervals = this.draft.intervals || [];
+        if (action === 'addWork') { ivs.push({ name: 'עבודה', seconds: 60 }); this.focusIdx++; }
+        else if (action === 'addRest') { ivs.push({ name: 'מנוחה', seconds: 60 }); this.focusIdx++; }
+        else if (action === 'delLast') { if (ivs.length > 1) { ivs.pop(); this.focusIdx = Math.max(0, this.focusIdx - 1); } }
         this.render();
       },
       backspace() { if (this.buffer) { this.buffer = this.buffer.slice(0, -1); this.render(); } },
@@ -5323,8 +5355,10 @@
         else if (k === 'ArrowRight') this.nudge(1);
         else if (k.length === 1 && k >= '0' && k <= '9') this.digit(k);
         else if (k === 'Enter' || k === 'Select' || k === 'MediaPlayPause' || k === ' ') {
-          const fields = tsuFieldsFor(this.type, this.draft);
-          if (this.focusIdx === fields.length + 1) this.start(); else this.focusMove(1);
+          const it = this.buildItems()[this.focusIdx];
+          if (it && it.kind === 'start') this.start();
+          else if (it && it.kind === 'action') this.doAction(it.action);
+          else this.focusMove(1);
         }
         else if (k === 'Backspace' || k === 'Delete') this.backspace();
         else if (k === 'Escape') this.close();
