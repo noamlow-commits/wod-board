@@ -1545,6 +1545,35 @@
       text-decoration: underline;
       text-underline-offset: 4px;
     }
+    /* +/- stepper buttons — let a mouse/pointer change a value without typing.
+       Two step sizes per side (fine inner, coarse outer); amount printed on each. */
+    .tsu-stepper {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      direction: ltr; /* −coarse −fine  VALUE  +fine +coarse, left→right */
+    }
+    .tsu-stepper .tsu-value { margin: 0 0.55rem; min-width: 4ch; text-align: center; }
+    .tsu-step {
+      min-width: 3.3rem;
+      padding: 0.5rem 0.45rem;
+      font-size: 1.05rem;
+      font-weight: 800;
+      line-height: 1;
+      background: #1c1c1c;
+      color: #ddd;
+      border: 2px solid #333;
+      border-radius: 9px;
+      cursor: pointer;
+      font-variant-numeric: tabular-nums;
+      transition: background 0.1s, border-color 0.1s, transform 0.05s;
+    }
+    .tsu-step:hover { background: #2a2a2a; border-color: #666; }
+    .tsu-step:active { transform: translateY(1px); }
+    .tsu-step.minus { color: #ff9a86; }
+    .tsu-step.plus  { color: #9fe0b0; }
+    /* clickable toggle value (mouse can flip כן/לא, not only the remote) */
+    .tsu-row .tsu-value.tsu-toggle { cursor: pointer; }
     .tsu-row.tsu-action {
       justify-content: center;
       background: #14202a;
@@ -1855,7 +1884,7 @@
     <div class="tsu-panel">
       <h2>⚙ הגדרת טיימר</h2>
       <div id="tsuBody"></div>
-      <div class="tsu-hint">↑↓ בחירת שדה · ←→ שינוי ערך · מספרים להקלדה · OK/אישור להפעלה · Esc ביטול</div>
+      <div class="tsu-hint">לחצני +/− לשינוי בעכבר · ↑↓ בחירת שדה · ←→ שינוי ערך · מספרים להקלדה · OK/אישור להפעלה · Esc ביטול</div>
     </div>
   </div>
 
@@ -5244,23 +5273,30 @@
     };
     function tsuFmt(s) { s = Math.max(0, Math.round(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
     function tsuBufToSec(buf) { if (!buf) return 0; const ss = parseInt(buf.slice(-2), 10) || 0; const mm = parseInt(buf.slice(0, -2) || '0', 10) || 0; return mm * 60 + Math.min(ss, 59); }
+    // Label printed on a +/- stepper button: time → 10″ / 30″ / 1:00; counts → bare number.
+    function tsuStepLabel(f, n) { return f.kind === 'time' ? (n < 60 ? n + '″' : tsuFmt(n)) : String(n); }
+    // Per-field step sizes [fine, coarse]. fine also drives the remote ←→ nudge (= field.step).
+    //  - interval/work/rest seconds → 10″ / 30″ (the coach's mental units)
+    //  - whole-workout times        → 0:30 / 1:00 (minute thinking)
+    //  - round counts               → 1 / 5
+    const TSU_STEPS_INTERVAL = [10, 30], TSU_STEPS_TOTAL = [30, 60], TSU_STEPS_ROUNDS = [1, 5];
     function tsuFieldsFor(type, d) {
       switch (type) {
-        case 'amrap':   return [ { key: 'totalSeconds', label: 'זמן', kind: 'time', min: 0, max: 5999, step: 5 } ];
-        case 'fortime': return [ { key: 'capSeconds', label: 'מגבלת זמן (0=ללא)', kind: 'time', min: 0, max: 5999, step: 5 } ];
+        case 'amrap':   return [ { key: 'totalSeconds', label: 'זמן', kind: 'time', min: 0, max: 5999, step: 30, steps: TSU_STEPS_TOTAL } ];
+        case 'fortime': return [ { key: 'capSeconds', label: 'מגבלת זמן (0=ללא)', kind: 'time', min: 0, max: 5999, step: 30, steps: TSU_STEPS_TOTAL } ];
         case 'emom':    return [
-          { key: 'totalSeconds', label: 'זמן כולל', kind: 'time', min: 60, max: 5999, step: 60 },
-          { key: 'intervalSeconds', label: 'אורך אינטרוול', kind: 'time', min: 5, max: 600, step: 5 }
+          { key: 'totalSeconds', label: 'זמן כולל', kind: 'time', min: 60, max: 5999, step: 60, steps: TSU_STEPS_TOTAL },
+          { key: 'intervalSeconds', label: 'אורך אינטרוול', kind: 'time', min: 5, max: 600, step: 10, steps: TSU_STEPS_INTERVAL }
         ];
         case 'tabata':  return [
-          { key: 'workSeconds', label: 'עבודה', kind: 'time', min: 1, max: 300, step: 5 },
-          { key: 'restSeconds', label: 'מנוחה', kind: 'time', min: 0, max: 300, step: 5 },
-          { key: 'rounds', label: 'סיבובים', kind: 'rounds', min: 1, max: 50, step: 1 },
+          { key: 'workSeconds', label: 'עבודה', kind: 'time', min: 1, max: 300, step: 10, steps: TSU_STEPS_INTERVAL },
+          { key: 'restSeconds', label: 'מנוחה', kind: 'time', min: 0, max: 300, step: 10, steps: TSU_STEPS_INTERVAL },
+          { key: 'rounds', label: 'סיבובים', kind: 'rounds', min: 1, max: 50, step: 1, steps: TSU_STEPS_ROUNDS },
           { key: 'skipLastRest', label: 'דלג מנוחה אחרונה', kind: 'toggle' }
         ];
         case 'mix': {
-          const fs = [ { key: 'rounds', label: 'סיבובים', kind: 'rounds', min: 1, max: 50, step: 1 } ];
-          (d.intervals || []).forEach((iv, i) => fs.push({ key: 'iv' + i, label: iv.name || ('אינטרוול ' + (i + 1)), kind: 'time', min: 1, max: 600, step: 5, ivIndex: i }));
+          const fs = [ { key: 'rounds', label: 'סיבובים', kind: 'rounds', min: 1, max: 50, step: 1, steps: TSU_STEPS_ROUNDS } ];
+          (d.intervals || []).forEach((iv, i) => fs.push({ key: 'iv' + i, label: iv.name || ('אינטרוול ' + (i + 1)), kind: 'time', min: 1, max: 600, step: 10, steps: TSU_STEPS_INTERVAL, ivIndex: i }));
           return fs;
         }
       }
@@ -5339,12 +5375,21 @@
           if (it.kind === 'type') return `<div class="tsu-row ${focused ? 'tsu-focus' : ''}" ${click}><span class="tsu-label">סוג</span><span class="tsu-value">${TSU_TYPE_LABELS[this.type]}</span></div>`;
           if (it.kind === 'field') {
             const f = it.field;
+            const editing = focused && !!this.buffer;
             let disp;
             if (f.kind === 'toggle') disp = this.getFieldValue(f) ? 'כן' : 'לא';
-            else if (focused && this.buffer) disp = (f.kind === 'time') ? tsuFmt(tsuBufToSec(this.buffer)) : this.buffer;
+            else if (editing) disp = (f.kind === 'time') ? tsuFmt(tsuBufToSec(this.buffer)) : this.buffer;
             else disp = (f.kind === 'time') ? tsuFmt(this.getFieldValue(f)) : String(this.getFieldValue(f));
-            const editing = focused && !!this.buffer;
-            return `<div class="tsu-row ${focused ? 'tsu-focus' : ''}" ${click}><span class="tsu-label">${f.label}</span><span class="tsu-value ${editing ? 'tsu-editing' : ''}">${disp}</span></div>`;
+            // Toggle: the value itself is the click target (no +/- stepper).
+            if (f.kind === 'toggle') {
+              return `<div class="tsu-row ${focused ? 'tsu-focus' : ''}" ${click}><span class="tsu-label">${f.label}</span><span class="tsu-value tsu-toggle">${disp}</span></div>`;
+            }
+            // Numeric/time: −coarse −fine  VALUE  +fine +coarse (amount printed on each button).
+            const steps = (f.steps && f.steps.length) ? f.steps : [f.step || 1];
+            const stop = 'event.stopPropagation();';
+            const minusBtns = steps.slice().reverse().map(s => `<button type="button" tabindex="-1" class="tsu-step minus" onclick="${stop}TimerSetup.stepBy(${i}, ${-s})">−${tsuStepLabel(f, s)}</button>`).join('');
+            const plusBtns = steps.map(s => `<button type="button" tabindex="-1" class="tsu-step plus" onclick="${stop}TimerSetup.stepBy(${i}, ${s})">+${tsuStepLabel(f, s)}</button>`).join('');
+            return `<div class="tsu-row ${focused ? 'tsu-focus' : ''}" ${click}><span class="tsu-label">${f.label}</span><div class="tsu-stepper">${minusBtns}<span class="tsu-value ${editing ? 'tsu-editing' : ''}">${disp}</span>${plusBtns}</div></div>`;
           }
           const cls = it.kind === 'action' ? 'tsu-action' : (it.kind === 'cancel' ? 'tsu-cancel' : 'tsu-start');
           return `<div class="tsu-row ${cls} ${focused ? 'tsu-focus' : ''}" ${click}><span class="tsu-label">${it.label}</span></div>`;
@@ -5362,7 +5407,21 @@
         if (it.kind === 'start') this.start();
         else if (it.kind === 'cancel') this.close();
         else if (it.kind === 'action') this.doAction(it.action);
-        else this.render(); // type / field — just focus it
+        else if (it.kind === 'field' && it.field.kind === 'toggle') { this.setFieldValue(it.field, !this.getFieldValue(it.field)); this.render(); }
+        else this.render(); // type / numeric field — just focus it (use the +/- buttons to change)
+      },
+      // Pointer +/- stepper: focus the row and add `amount` to its value (clamped).
+      // Reused for both step sizes; clicking a button never starts/cancels the timer.
+      stepBy(i, amount) {
+        this.commitBuffer();
+        this.focusIdx = i;
+        const it = this.buildItems()[i];
+        if (!it || it.kind !== 'field' || it.field.kind === 'toggle') { this.render(); return; }
+        const f = it.field;
+        let v = this.getFieldValue(f) + amount;
+        v = Math.max(f.min, Math.min(f.max, v));
+        this.setFieldValue(f, v);
+        this.render();
       },
 
       commitBuffer() {
