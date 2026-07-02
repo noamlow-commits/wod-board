@@ -4383,10 +4383,18 @@
         return { type: 'spacer', html: '' };
       }
 
+      // A descriptive line that merely MENTIONS a format keyword — a warm-up
+      // list like "Warm up- Tabata: 1. S.run. 2. Inch worm. ..." — is not a
+      // timer instruction. Detect it (starts with "warm up", or embeds a
+      // numbered exercise list) so the keyword doesn't flip the whole line to a
+      // sub-header or get a stray red time-badge mid-sentence.
+      const isDescriptiveList = /warm\s*up/i.test(text)
+        || (text.match(/\d+\.\s/g) || []).length >= 2;
+
       // Detect instruction lines: workout format acronyms + rep/time schemes
       // e.g. "E2MOM x 6", "18 min amrap", "2 rounds", "For Time", "Tabata 8 rounds"
       // Also accept "TBATA" — common coach typo for "TABATA".
-      const isInstruction = /\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM|TABATA|TBATA|METCON|RFT|YGIG)\b/i.test(text)
+      const isInstruction = (!isDescriptiveList && /\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM|TABATA|TBATA|METCON|RFT|YGIG)\b/i.test(text))
         || /\be\s*\d+:\d{2}\s*mom\b/i.test(text)
         || /^\d+\s*(rounds?|min|sec(onds?)?|sets?)\b/i.test(text)
         || /^(every|each)\s+\d/i.test(text)
@@ -4466,7 +4474,7 @@
 
       // Highlight time patterns
       html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
-      html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM|TABATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
+      if (!isDescriptiveList) html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM|TABATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
       html = html.replace(/\b(\d+)\s*sec(?:onds?)?\b/gi, '<span class="time-badge">$1 sec</span>');
       // Highlight time cap numbers: "t.c 37", "tc 12:00", "t.c- 5", "t. c 42"
       html = html.replace(/\b(t\.?\s*c[\-\s:]*)\s*(\d+(?::\d{2})?)/gi, '$1<span class="time-badge">$2</span>');
@@ -4591,7 +4599,8 @@
               // their content flows into the next one.
               const isSubGroupHeader = /subgroup-badge/.test(parsed.html);
               const isSubHeaderLine = parsed.type === 'sub-header';
-              allItems.push({ type: 'line', section: currentSection, isGroupHeader: isGrpHdr, isSubGroupHeader, isSubHeaderLine, isStation, isPartHeader: !!parsed.isPartHeader, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}${grpCls}" dir="auto">${parsed.html}</div>` });
+              const isSpacer = parsed.type === 'spacer'; // blank-line divider — no real content
+              allItems.push({ type: 'line', section: currentSection, isGroupHeader: isGrpHdr, isSubGroupHeader, isSubHeaderLine, isStation, isSpacer, isPartHeader: !!parsed.isPartHeader, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}${grpCls}" dir="auto">${parsed.html}</div>` });
             }
           }
           // Inject Rx cells as a badge at the end of the last section (appears under the main workout)
@@ -4631,110 +4640,99 @@
           const mandatoryBreaks = [...new Set([...headerIndices, ...partBreaks])].sort((a, b) => a - b);
           if (mandatoryBreaks[0] !== 0) mandatoryBreaks.unshift(0);
           mandatoryBreaks.push(allItems.length);
-          // Sub-split long sections into newspaper columns (max ~8 items per column)
-          // Prefer breaking at sub-header items so instructions start at the top of a column
+          // ── Newspaper sub-split: divide each section into BALANCED columns ──
+          // Balance is measured in REAL content lines — blank-line spacers don't
+          // count — so a leading or in-between blank never spawns a ghost column.
+          // Break points sit near the balance target but SNAP to the coach's own
+          // logical dividers: a blank line (start of a new block) first, then an
+          // A./B. group header, then a sub-group / station / instruction header.
           const MAX_PER_COL = Math.max(8, Math.ceil(allItems.length / 4));
-          // Find all sub-header positions within items (for smart break points)
-          const subHeaderIndices = allItems.map((it, idx) => {
-            if (it.type !== 'line') return -1;
-            // Check if the exercise-line contains sub-header class
-            return it.html.includes('sub-header') ? idx : -1;
-          }).filter(idx => idx >= 0);
+          // Count real (non-spacer) content lines in [a, z).
+          const realLines = (a, z) => {
+            let n = 0;
+            for (let k = a; k < z; k++) {
+              const it = allItems[k];
+              if (it && it.type === 'line' && !it.isSpacer) n++;
+            }
+            return n;
+          };
+          // Rank of a candidate column-START at index i (higher = cleaner break).
+          const boundaryRank = i => {
+            const it = allItems[i];
+            if (!it || it.type !== 'line' || it.isSpacer) return -1; // never start on a blank
+            const prev = allItems[i - 1];
+            if (prev && prev.isSpacer) return 3;                     // start of a new block
+            if (it.isGroupHeader) return 2;                          // A./B./C. group
+            if (it.isSubGroupHeader || it.isStation || it.isSubHeaderLine
+                || (it.html && it.html.includes('sub-header'))) return 1;
+            return 0;
+          };
 
           const breaks = [mandatoryBreaks[0]];
           for (let b = 1; b < mandatoryBreaks.length; b++) {
             const start = breaks[breaks.length - 1];
             const end = mandatoryBreaks[b];
             const colSize = end - start;
-            // Group-priority splitting: when the section has A./B./C. group
-            // headers, give each group its OWN column kept whole. This respects
-            // the coach's logical grouping instead of chopping by raw line count
-            // (which fragmented group A across two columns and left group B alone).
-            // A group header at the very start is the first column's natural top,
-            // not a break point.
+            const segReal = realLines(start, end);
+
+            // Group headers in this segment, and how many are "substantial" — a
+            // group whose OWN content (up to the next blank / group header) has
+            // ≥2 real lines. Two+ multi-line groups justify the whole-group
+            // "A | B" layout; a cluster of one-line labels (B/C/D/E) is not
+            // substantial and balances better as an ordinary newspaper split.
             const segGroupHdrs = [];
             for (let idx = start + 1; idx < end; idx++) {
               if (allItems[idx].isGroupHeader) segGroupHdrs.push(idx);
             }
-            const innerGroupBreaks = segGroupHdrs.filter(g => g > start + 1);
-            if (innerGroupBreaks.length >= 1 && colSize >= 5) {
-              // One column per group. Skip a break that would leave < 2 items in
-              // the column being closed (avoids thin/near-empty columns when two
-              // group headers sit adjacent).
-              for (const g of innerGroupBreaks) {
-                if (g > breaks[breaks.length - 1] + 1) breaks.push(g);
+            const isBlockEnd = k => {
+              const it = allItems[k];
+              return !it || it.isSpacer || it.isGroupHeader || it.type === 'header';
+            };
+            let substantialGroups = 0;
+            for (const g of segGroupHdrs) {
+              let own = 0;
+              for (let k = g; k < end; k++) {
+                if (k > g && isBlockEnd(k)) break;
+                if (allItems[k].type === 'line' && !allItems[k].isSpacer) own++;
               }
-            } else if (colSize > MAX_PER_COL) {
-              // No group structure — fall back to count-based newspaper columns.
-              const numSub = Math.ceil(colSize / MAX_PER_COL);
-              const subSize = Math.ceil(colSize / numSub);
-              for (let s = 1; s < numSub; s++) {
-                const idealBreak = start + s * subSize;
-                // Look for nearest sub-header within ±3 of ideal break
-                // Prefer workout-type headers (AMRAP/EMOM/FOR TIME) over rest lines
-                let bestBreak = idealBreak;
-                let bestDist = 999;
-                let bestIsWorkout = false;
-                for (const sh of subHeaderIndices) {
-                  if (sh <= start || sh >= end) continue;
-                  const dist = Math.abs(sh - idealBreak);
-                  if (dist > 4) continue;
-                  const isWorkout = /time-badge/.test(allItems[sh].html); // AMRAP/EMOM/etc have time-badge
-                  // Prefer workout headers: treat their distance as halved
-                  const effectiveDist = isWorkout ? dist * 0.5 : dist;
-                  if (effectiveDist < bestDist || (isWorkout && !bestIsWorkout && dist <= 4)) {
-                    bestBreak = sh; bestDist = effectiveDist; bestIsWorkout = isWorkout;
-                  }
-                }
-                // Anti-widow: never end a column on a lead-in line — a group
-                // header ("B."), a sub-group header ("B4. 4 sets of:"), a station
-                // ("2#"), or an instruction sub-header (AMRAP / "×3 sets"). All of
-                // these introduce the lines beneath them, so pull the break back
-                // until the column being closed ends on a real content line — the
-                // header then travels to the next column WITH its content (fixes
-                // "B4 stranded at the bottom, its sets flow into the next column").
-                const isLeadIn = it => it && (it.isGroupHeader || it.isSubGroupHeader
-                  || it.isStation || it.isSubHeaderLine || it.isPartHeader);
-                while (bestBreak - 1 > breaks[breaks.length - 1] + 1
-                       && isLeadIn(allItems[bestBreak - 1])) {
-                  bestBreak--;
-                }
-                // Anti-widow (count split): the preferred sub-header break can sit
-                // near the very top or bottom of the segment, leaving one column
-                // with a single line and the rest crammed beside it (the "first row
-                // alone on the left, everything else on the right" bug). When that
-                // happens, don't collapse the whole segment into ONE narrow column —
-                // fall back to the most BALANCED break that still clears
-                // MIN_PART_LINES on both sides, preferring a clean boundary
-                // (sub-header / A.B. group / "N#" station) so the new column starts
-                // on a fresh line, not mid-instruction. A genuinely short segment
-                // with no balanced break stays one column (fbBreak < 0 → skip).
-                const countLines = (a, b) => {
-                  let n = 0;
-                  for (let k = a; k < b; k++) if (allItems[k] && allItems[k].type === 'line') n++;
-                  return n;
-                };
+              if (own >= 2) substantialGroups++;
+            }
+
+            if (substantialGroups >= 2) {
+              // Whole-group columns: break before each group header, but merge a
+              // group too small to stand alone (< 2 real lines in the column being
+              // closed) into the column it follows, and never empty either side.
+              for (const g of segGroupHdrs) {
                 const prevBreak = breaks[breaks.length - 1];
-                if (countLines(prevBreak, bestBreak) < MIN_PART_LINES
-                    || countLines(bestBreak, end) < MIN_PART_LINES) {
-                  const mid = prevBreak + (end - prevBreak) / 2;
-                  let fbBreak = -1, fbScore = Infinity;
-                  for (let i = prevBreak + 1; i < end; i++) {
-                    if (countLines(prevBreak, i) < MIN_PART_LINES) continue;
-                    if (countLines(i, end) < MIN_PART_LINES) continue;
-                    const it = allItems[i];
-                    const natural = it && (it.isGroupHeader || it.isStation
-                      || it.isSubGroupHeader || it.isSubHeaderLine
-                      || (it.html && it.html.includes('sub-header')));
-                    const score = Math.abs(i - mid) - (natural ? 0.75 : 0);
-                    if (score < fbScore) { fbScore = score; fbBreak = i; }
-                  }
-                  if (fbBreak < 0) continue; // too short to split evenly — keep one column
-                  bestBreak = fbBreak;
+                if (g <= prevBreak + 1) continue;
+                if (realLines(prevBreak, g) >= 2 && realLines(g, end) >= 1) breaks.push(g);
+              }
+              // Tail guard: merge a too-small final group column back up.
+              if (breaks[breaks.length - 1] > start
+                  && realLines(breaks[breaks.length - 1], end) < 2) {
+                breaks.pop();
+              }
+            } else {
+              // Balanced newspaper split. Column count follows the overflow rule
+              // (by item count, so long metcons still split); a structured
+              // section (any group header) divides into two on the wide TV even
+              // when it would fit in one column.
+              let numCols = Math.max(1, Math.ceil(colSize / MAX_PER_COL));
+              if (numCols === 1 && segGroupHdrs.length >= 1 && segReal >= 6) numCols = 2;
+              const target = segReal / numCols; // real lines per column
+              for (let s = 1; s < numCols; s++) {
+                const prevBreak = breaks[breaks.length - 1];
+                const want = s * target; // desired cumulative real lines from segment start
+                let best = -1, bestScore = Infinity;
+                for (let i = prevBreak + 1; i < end; i++) {
+                  const r = boundaryRank(i);
+                  if (r < 0) continue;                       // don't start on a blank
+                  if (realLines(prevBreak, i) < 1) continue; // no empty left column
+                  if (realLines(i, end) < 1) continue;       // no empty right column
+                  const score = Math.abs(realLines(start, i) - want) - r * 0.7;
+                  if (score < bestScore) { bestScore = score; best = i; }
                 }
-                if (bestBreak > breaks[breaks.length - 1] + 2) {
-                  breaks.push(bestBreak);
-                }
+                if (best > prevBreak + 1) breaks.push(best);
               }
             }
             breaks.push(end);
