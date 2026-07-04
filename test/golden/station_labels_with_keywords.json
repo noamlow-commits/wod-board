@@ -1,0 +1,36 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "כוח",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "A. Deadlift Prog-8 min",
+              "2 sets of 4 reps",
+              "A1 Lift Drop Reset (For Strength)",
+              "80%",
+              "A2. T&GO (For Metcon)",
+              "85%",
+              "tempo deadlift",
+              "(31x1)",
+              "2 sets of 5 reps",
+              "70%"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "כוח",
+      "header": "WOD",
+      "timers": []
+    }
+  ]
+}

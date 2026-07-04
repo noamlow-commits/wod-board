@@ -1,0 +1,67 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3"
+    ],
+    "rows": [
+      {
+        "label": "סבב",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "3 sets",
+              "10 Deadlift",
+              "10 Box Jump"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "AMRAP 8",
+              "5 Pull-ups",
+              "10 Push-ups"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "Tabata",
+              "20/10 ×8",
+              "Hollow Hold"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "סבב",
+      "header": "1",
+      "timers": []
+    },
+    {
+      "section": "סבב",
+      "header": "2",
+      "timers": [
+        {
+          "label": "AMRAP 8′",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "סבב",
+      "header": "3",
+      "timers": [
+        {
+          "label": "Tabata",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

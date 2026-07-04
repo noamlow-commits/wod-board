@@ -1,0 +1,53 @@
+{
+  "data": {
+    "headers": [
+      "WOD",
+      "CARDIO"
+    ],
+    "rows": [
+      {
+        "label": "גוף",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "EMOM 10",
+              "15 KB Swings"
+            ]
+          },
+          {
+            "header": "CARDIO",
+            "lines": [
+              "For Time",
+              "21-15-9",
+              "Thrusters",
+              "Pull-ups"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "גוף",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "EMOM 10′",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "גוף",
+      "header": "CARDIO",
+      "timers": [
+        {
+          "label": "For Time",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}

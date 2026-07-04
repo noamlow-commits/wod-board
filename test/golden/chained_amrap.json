@@ -1,0 +1,42 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "מטקון",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "AMRAP 10",
+              "10 Wall Balls",
+              "10 T2B",
+              "rest 2:00",
+              "AMRAP 10",
+              "10 Wall Balls",
+              "10 T2B",
+              "rest 2:00",
+              "AMRAP 10",
+              "10 Wall Balls",
+              "10 T2B"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "מטקון",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "AMRAP ×3 · 10′ work / 2′ rest",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

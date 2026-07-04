@@ -1,0 +1,35 @@
+{
+  "data": {
+    "headers": [
+      "אימון"
+    ],
+    "rows": [
+      {
+        "label": "מטקון",
+        "cells": [
+          {
+            "header": "אימון",
+            "lines": [
+              "AMRAP 12",
+              "10 Cal Row",
+              "10 Burpees",
+              "15 Wall Balls"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "מטקון",
+      "header": "אימון",
+      "timers": [
+        {
+          "label": "AMRAP 12′",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}

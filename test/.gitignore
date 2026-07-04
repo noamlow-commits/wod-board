@@ -1,0 +1,4 @@
+# regression diff artifacts (written only on a failing run)
+golden/*.actual.json
+# any screenshot output (heavy media — never commit to this Pages repo)
+screenshots/

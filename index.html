@@ -4407,7 +4407,11 @@
         || /\b\d+\s*min(?:utes?)?\s*[x×*]\s*\d+\b/i.test(text)
         || /\b(min|sec) rest\b/i.test(text);
 
-      if (isInstruction) {
+      // A line that opens with a station label ("A1.", "A2.", "B2 -") keeps its
+      // subgroup badge even when it mentions a format keyword (Metcon / For Time /
+      // AMRAP). Station-label classification wins over instruction classification.
+      // Mirrors the same guard on the colon/all-caps sub-header rule above.
+      if (isInstruction && !/^[A-Z]\d+\s*[\.\-\)]/i.test(text)) {
         let html = escapeHtml(text);
         // Coach shorthand "e 1:30 mom" / "e1:30mom" → normalize to "EMOM 1:30"
         // so the EMOM badge below catches it instead of leaving stray "e"/"mom".

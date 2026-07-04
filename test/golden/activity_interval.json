@@ -1,0 +1,29 @@
+{
+  "data": {
+    "headers": [
+      "CARDIO"
+    ],
+    "rows": [
+      {
+        "label": "ריצה",
+        "cells": [
+          {
+            "header": "CARDIO",
+            "lines": [
+              "5 sets",
+              "3 min run",
+              "1 min rest"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "ריצה",
+      "header": "CARDIO",
+      "timers": []
+    }
+  ]
+}
