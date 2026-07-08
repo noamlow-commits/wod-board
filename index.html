@@ -4212,7 +4212,11 @@
           } else {
             // Content cell — use column header, or fallback to column letter
             // Filter out lines that are bare URLs (e.g. emergency links stored in the sheet)
-            const rawLines = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*/))
+            const rawLines = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*(?!\d|bw\b|rpe\b)/i))
+              // NOTE: an inline load qualifier ("x 6 reps @75%", "Deadlift @100kg",
+              // "@BW", "@RPE8") stays ON its line — the negative lookahead only
+              // splits `@` that is NOT introducing a weight/%/RM. Splitting a bare
+              // load onto its own giant line was the "75%" widow bug (2026-07-08).
               // Auto-split lines where exercises are concatenated (missing newline in sheet).
               // Rule 1: lowercase/Hebrew letter directly touching digit+space+word
               //         e.g. "press4 clean" → ["press", "4 clean"]
@@ -4587,6 +4591,7 @@
             }
 
             let inWarmup = isUntitledWarmup;
+            let curGroupLetter = null; // active letter-group (A/B/C) for cohesion tagging
             for (let li = 0; li < cell.lines.length; li++) {
               if (li === promotedIdx) continue; // lifted into the section header
               const line = cell.lines[li];
@@ -4604,7 +4609,31 @@
               const isSubGroupHeader = /subgroup-badge/.test(parsed.html);
               const isSubHeaderLine = parsed.type === 'sub-header';
               const isSpacer = parsed.type === 'spacer'; // blank-line divider — no real content
-              allItems.push({ type: 'line', section: currentSection, isGroupHeader: isGrpHdr, isSubGroupHeader, isSubHeaderLine, isStation, isSpacer, isPartHeader: !!parsed.isPartHeader, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}${grpCls}" dir="auto">${parsed.html}</div>` });
+              // Group cohesion: tag each item with the letter-group it belongs to.
+              // A group is an "A." header + its A1/A2 sub-stations AND their detail
+              // lines (sets/reps/%/tempo/rest) — a superset that must be READ as one
+              // unit. Detail lines and a cosmetic blank line between siblings inherit
+              // the group; only a real new block ends it: a new group letter, a part
+              // header, a format header (AMRAP/EMOM/For Time/Tabata/EMOM…), a "1#"
+              // station, or a warm-up line. The column splitter uses this to never
+              // tear A1 from A2 (the 2026-07-08 superset-torn-across-columns bug).
+              const isFormatHeader = /\b(amrap|emom|for\s*time|tabata|every|e\d?mom|rft|rounds?\s+for\s+time)\b/i.test(line);
+              let groupLetter = curGroupLetter;
+              if (isGrpHdr) {
+                const m = line.match(/^\s*([A-Za-z])/);
+                curGroupLetter = m ? m[1].toUpperCase() : null;
+                groupLetter = curGroupLetter;
+              } else if (isSubGroupHeader) {
+                const m = line.match(/^\s*([A-Za-z])\s*\d/);
+                if (m) curGroupLetter = m[1].toUpperCase();
+                groupLetter = curGroupLetter;
+              } else if (isStation || parsed.isPartHeader || isFormatHeader || /warm\s*up/i.test(line)) {
+                curGroupLetter = null;
+                groupLetter = null;
+              } else {
+                groupLetter = curGroupLetter; // detail line / spacer inherits the group
+              }
+              allItems.push({ type: 'line', section: currentSection, isGroupHeader: isGrpHdr, isSubGroupHeader, isSubHeaderLine, isStation, isSpacer, isPartHeader: !!parsed.isPartHeader, groupLetter, html: `<div class="exercise-line ${parsed.type}${inWarmup ? ' warmup-line' : ''}${ec}${grpCls}" dir="auto">${parsed.html}</div>` });
             }
           }
           // Inject Rx cells as a badge at the end of the last section (appears under the main workout)
@@ -4719,10 +4748,23 @@
             } else {
               // Balanced newspaper split. Column count follows the overflow rule
               // (by item count, so long metcons still split); a structured
-              // section (any group header) divides into two on the wide TV even
-              // when it would fit in one column.
+              // section divides into two on the wide TV even when it would fit in
+              // one column — BUT only when it holds ≥2 INDEPENDENT blocks. A part
+              // that is a single group (one A. + its A1/A2 sub-stations + details)
+              // is one atomic superset: force-splitting it tears A1 from A2 (the
+              // 2026-07-08 bug). Count independent blocks = distinct group letters
+              // + runs of non-group content.
+              const segLetters = new Set();
+              let nonGroupRuns = 0, inNonGroup = false;
+              for (let k = start + 1; k < end; k++) {
+                const it = allItems[k];
+                if (!it || it.type !== 'line' || it.isSpacer) continue;
+                if (it.groupLetter) { segLetters.add(it.groupLetter); inNonGroup = false; }
+                else { if (!inNonGroup) nonGroupRuns++; inNonGroup = true; }
+              }
+              const independentBlocks = segLetters.size + nonGroupRuns;
               let numCols = Math.max(1, Math.ceil(colSize / MAX_PER_COL));
-              if (numCols === 1 && segGroupHdrs.length >= 1 && segReal >= 6) numCols = 2;
+              if (numCols === 1 && independentBlocks >= 2 && segReal >= 6) numCols = 2;
               const target = segReal / numCols; // real lines per column
               for (let s = 1; s < numCols; s++) {
                 const prevBreak = breaks[breaks.length - 1];
@@ -4733,6 +4775,12 @@
                   if (r < 0) continue;                       // don't start on a blank
                   if (realLines(prevBreak, i) < 1) continue; // no empty left column
                   if (realLines(i, end) < 1) continue;       // no empty right column
+                  // Group cohesion: never break INSIDE a group. Siblings A1|A2 and
+                  // their detail lines stay together; a column may only start at a
+                  // group boundary (new letter / independent block), never between
+                  // two members of the same letter-group.
+                  const gi = allItems[i].groupLetter, gp = allItems[i - 1] && allItems[i - 1].groupLetter;
+                  if (gi && gp && gi === gp) continue;
                   const score = Math.abs(realLines(start, i) - want) - r * 0.7;
                   if (score < bestScore) { bestScore = score; best = i; }
                 }
@@ -6002,7 +6050,7 @@
           if (!label && val.length <= LABEL_MAX_LEN && lineCount === 1 && !isNamedHeader) {
             label = val;
           } else {
-            const rawLines2 = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*/))
+            const rawLines2 = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*(?!\d|bw\b|rpe\b)/i))
               .flatMap(l => l.split(/(?<=[a-z\u0590-\u05FF])(?=\d+\s+[a-zA-Z\u0590-\u05FF])|(?<=\s)(?=[1-9]#)/))
               .map(l => l.trim());
             const lines = [];

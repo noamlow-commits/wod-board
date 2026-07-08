@@ -1,0 +1,54 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "warm up : 2 sets",
+              "30 sec work, 10 rest",
+              "1# pull apart",
+              "2# push up to down dog",
+              "3# מקל"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "A. Bench press",
+              "A1 - Teach Bar Movment",
+              "__SPACER__",
+              "A2 Benchpress -",
+              "4 sets",
+              "x 6 reps @75%",
+              "rest 1:30-2 min"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "1",
+      "timers": [
+        {
+          "label": "30″/10″ ×3",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": []
+    }
+  ]
+}

@@ -62,6 +62,9 @@ const FIXTURES = [
     rows: [["", "WOD"], ["חימום", "Warm up\n1. 10 Hip 90-90\n2. 10 Arm Circles\n3. 10 Air Squats\n4. 10 Inchworm\n5. 10 Scap Pull-ups\nA. 3 sets of:\n10 Goblet Squat\n10 Ring Row\n10 Push-up\nB. 3 sets of:\n8 Deadlift\n8 Strict Press\nAMRAP 15\n5 Pull-ups\n10 Push-ups\n15 Air Squats"]] },
   { name: "station_labels_with_keywords", note: "A. group + A1/A2. stations keep teal badge even when the line mentions Metcon/For Time",
     rows: [["", "WOD"], ["כוח", "A. Deadlift Prog-8 min\n2 sets of 4 reps\nA1 Lift Drop Reset (For Strength)\n80%\nA2. T&GO (For Metcon)\n85%\ntempo deadlift\n(31x1)\n2 sets of 5 reps\n70%"]] },
+  { name: "superset_group_cohesion", note: "A. group + A1/A2 superset + inline @load: '@75%' stays on its line (not split), and the group is not torn across columns (see LAYOUT pass)",
+    rows: [[" b", "", "1", "2", "3", "בטיחות/דגשים"],
+           ["", "WOD", "warm up : 2 sets\n30 sec work, 10 rest\n1# pull apart\n2# push up to down dog\n3# מקל", "A. Bench press\nA1 - Teach Bar Movment\n\nA2 Benchpress -\n4 sets\nx 6 reps @75%\nrest 1:30-2 min", "", ""]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -108,6 +111,50 @@ const badgeFails = [];
     }), BADGE_CHECKS);
   for (const g of got) if (g.actual !== g.expect) badgeFails.push(g);
   await page.close();
+}
+
+// ── Layout assertion pass (group cohesion — a TRUE correctness guard) ──
+// The parse/timer goldens don't see the newspaper-column split, so this pass
+// renders a fixture and inspects the actual columns. Guards the 2026-07-08 bug:
+// a single A. group (A1/A2 sub-stations + detail lines) must stay ONE atomic
+// column — never torn A1|A2 across two columns — and an inline `@75%` load must
+// stay on its line.
+const layoutFails = [];
+{
+  const benchRows = FIXTURES.find((f) => f.name === "superset_group_cohesion").rows;
+  const page = await context.newPage();
+  await page.goto(INDEX, { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(
+    () => typeof window.parseAppsScriptData === "function" && typeof window.renderWorkout === "function",
+    { timeout: 8000 }
+  );
+  const blocks = await page.evaluate((rows) => {
+    window.renderWorkout(window.parseAppsScriptData(rows));
+    const area = document.getElementById("wodArea");
+    const txt = (el) => (el.textContent || "").replace(/\s+/g, " ").trim();
+    const out = [];
+    area.querySelectorAll(".flow-span, .flow-col.part-block").forEach((block) => {
+      const hdr = block.querySelector(".flow-section-header");
+      const cols = block.querySelectorAll(".flow-col");
+      const rec = { header: hdr ? txt(hdr) : null, cols: [] };
+      if (cols.length) cols.forEach((c) => rec.cols.push([...c.querySelectorAll(".exercise-line")].map(txt)));
+      else rec.cols.push([...block.querySelectorAll(".exercise-line")].map(txt));
+      out.push(rec);
+    });
+    return out;
+  }, benchRows);
+  await page.close();
+
+  const p2 = blocks.find((b) => b.header === "2");
+  if (!p2) layoutFails.push("part '2' block not rendered");
+  else {
+    if (p2.cols.length !== 1) layoutFails.push(`part '2' split into ${p2.cols.length} columns — superset torn`);
+    const a1col = p2.cols.find((c) => c.some((l) => /A1\b/.test(l)));
+    if (a1col && !a1col.some((l) => /A2\b/.test(l))) layoutFails.push("A1 and A2 landed in different columns");
+    const flat = p2.cols.flat();
+    if (flat.some((l) => l.trim() === "75%")) layoutFails.push("'75%' split onto its own line — inline @load torn");
+    if (!flat.some((l) => /6 reps @?75%/.test(l))) layoutFails.push("'x 6 reps @75%' not kept as one line");
+  }
 }
 
 const results = [];
@@ -178,5 +225,12 @@ if (badgeFails.length === 0) {
     console.log(`❌ "${f.line}"  expected ${f.expect}, got ${f.actual}`);
 }
 
+console.log("\nLayout assertions (group cohesion)");
+if (layoutFails.length === 0) {
+  console.log("✅ superset stays one atomic column; inline @load intact");
+} else {
+  for (const f of layoutFails) console.log(`❌ ${f}`);
+}
+
 if (diff) console.log("\nReview each DIFF: if the change was intended, re-run with --update to accept it.");
-process.exit(diff > 0 || badgeFails.length > 0 || results.some((r) => r.status === "ERROR") ? 1 : 0);
+process.exit(diff > 0 || badgeFails.length > 0 || layoutFails.length > 0 || results.some((r) => r.status === "ERROR") ? 1 : 0);
