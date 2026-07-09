@@ -4337,6 +4337,24 @@
         rest = rest.replace(/^(\d+)\b/, '<span class="rep-number">$1</span>');
         return { type: 'sub-header', isGroupTitle: true, html: `<span class="group-badge">SET ${setMatch[1]}</span>${rest ? ' ' + rest : ''}` };
       }
+      // Team-WOD partner stations — "partner 2: max reps:", "partner 3: plank
+      // hold", AND the number-first form "1 partner: 12 cal". Each partner is a
+      // station/part (like a SET), so mark them ALL identically with the cyan
+      // PARTNER badge + group-line styling, whether the coach wrote the number
+      // before or after the word (Noam 2026-07-09: unify the mixed markings).
+      // The `\b` after "partner(s)" keeps prose like "partnership" from matching.
+      let pMatch = text.match(/^\s*(\d+)\s+partners?\b\s*[:\.\-\)]?\s*(.*)$/i);  // "1 partner: …"
+      let pNum = pMatch ? pMatch[1] : null;
+      if (!pMatch) {
+        pMatch = text.match(/^\s*partners?\b\s*(\d+)?\s*[:\.\-\)]?\s*(.*)$/i);   // "partner 2: …"
+        pNum = pMatch ? (pMatch[1] || '') : null;
+      }
+      if (pMatch) {
+        let rest = escapeHtml(pMatch[2]);
+        rest = rest.replace(/^(\d+)\b/, '<span class="rep-number">$1</span>');   // bold a leading rep count
+        const badge = pNum ? `PARTNER ${pNum}` : 'PARTNER';
+        return { type: 'sub-header', isGroupTitle: true, html: `<span class="group-badge">${badge}</span>${rest ? ' ' + rest : ''}` };
+      }
       // Detect exercise group headers: "A. Bench press", "B - Kipping > KTE",
       // "B.HSPU" (no space after the dot). Single letter (no digit) + separator
       // → new group = sub-header with badge. Allow zero space after the

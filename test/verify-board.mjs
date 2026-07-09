@@ -68,6 +68,9 @@ const FIXTURES = [
   { name: "set_wave_lift", note: "per-set lift wave ('Set 1: 5 Reps' + '70% 1RM' …) → each Set gets the cyan SET badge (see BADGE_CHECKS); the wave text must NOT trigger a false timer",
     rows: [["", "כוח", "CARDIO"],
            ["", "Back squat:\nSet 1: 5 Reps\n70% 1RM\nSet 2: 3 Reps\n80% 1RM\nSet 3: 1 Rep\n90%+ 1RM (Heavy single for the day)\nSet 4: 3 Reps\n75% 1RM (Back-off set)\nSet 5: 5 Reps\n85% 1RM (Back-off set)", "20 min easy row"]] },
+  { name: "partner_team_wod", note: "team-WOD partner stations written mixed ('1 partner: …' number-first + 'partner 2:/3:' word-first) → all get the cyan PARTNER badge (see BADGE_CHECKS); must NOT trigger a false timer",
+    rows: [["", "CARDIO", "כוח"],
+           ["", "Warm up- skill row:\nand then teams of 3:\n1 partner: 12 cal\npartner 2: max reps:\n10 push up\n20 air squat\n30 bicycel crunch\npartner 3: plank hold", "rest as needed"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -89,6 +92,10 @@ const BADGE_CHECKS = [
   { line: "Set 1: 5 Reps", expect: "group-badge" },               // per-set lift wave → SET badge
   { line: "Set 3: 1 Rep", expect: "group-badge" },                // singular "Rep" too
   { line: "Set up the platform", expect: "none" },                // prose, not a set (no digit after "set")
+  { line: "partner 2: max reps:", expect: "group-badge" },        // team-WOD partner → PARTNER badge
+  { line: "1 partner: 12 cal", expect: "group-badge" },           // number-first form, same badge
+  { line: "partner 3: plank hold", expect: "group-badge" },       // no colon, still a partner
+  { line: "partnership drill", expect: "none" },                  // prose, not a partner (\\b guard)
 ];
 
 const stable = (o) => JSON.stringify(o, null, 2);

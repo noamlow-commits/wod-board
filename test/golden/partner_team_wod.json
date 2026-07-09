@@ -1,0 +1,46 @@
+{
+  "data": {
+    "headers": [
+      "CARDIO",
+      "כוח"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "CARDIO",
+            "lines": [
+              "Warm up- skill row:",
+              "and then teams of 3:",
+              "1 partner: 12 cal",
+              "partner 2: max reps:",
+              "10 push up",
+              "20 air squat",
+              "30 bicycel crunch",
+              "partner 3: plank hold"
+            ]
+          },
+          {
+            "header": "כוח",
+            "lines": [
+              "rest as needed"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "CARDIO",
+      "timers": []
+    },
+    {
+      "section": "—",
+      "header": "כוח",
+      "timers": []
+    }
+  ]
+}
