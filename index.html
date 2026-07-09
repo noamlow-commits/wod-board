@@ -2196,32 +2196,11 @@
         }
       },
       countdown(num) {
-        // 3,2,1 ticks — longer/clearer than before (0.30s each); GO gets its own
-        // loud, sustained fanfare so the whole gym hears the start.
+        // 3,2,1 ticks — longer/clearer (0.30s each). GO = the original bright
+        // sine tone (990Hz), just lengthened to 1.3s so it carries across the
+        // gym (Noam 2026-07-09: keep the previous GO sound, only make it longer).
         if (num > 0) this.beep(660, 0.30, 1);
-        else this.goSound(); // GO!
-      },
-      // GO — the single most important cue; must carry across the whole gym.
-      // Two quick ascending notes into a long, sustained top note (sawtooth for
-      // cut-through), ~1.5s total at high gain — far longer/louder than the old
-      // 0.5s sine beep. Plays alongside the Harry "go" voice cue.
-      goSound() {
-        if (timerMuted || !this.ctx) return;
-        let start = this.ctx.currentTime;
-        [{ f: 880, d: 0.20 }, { f: 1175, d: 0.20 }, { f: 1568, d: 1.15 }].forEach(({ f, d }) => {
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.connect(gain); gain.connect(this.ctx.destination);
-          osc.frequency.value = f;
-          osc.type = 'sawtooth';
-          gain.gain.setValueAtTime(0, start);
-          gain.gain.linearRampToValueAtTime(0.9, start + 0.01);
-          gain.gain.setValueAtTime(0.9, start + d - 0.14);
-          gain.gain.linearRampToValueAtTime(0.001, start + d);
-          osc.start(start);
-          osc.stop(start + d + 0.02);
-          start += d; // sequential (no overlap → no clipping)
-        });
+        else this.beep(990, 1.3, 1); // GO!
       },
       // Loud, unmistakable interval transition — athletes must hear this to switch
       // exercises WITHOUT looking at the board. Louder (0.85) + longer (~0.95s) than

@@ -145,7 +145,7 @@ Flags `_tabataPhaseHalfwayDone` / `_tabataPhaseOneMinDone` / `_tabataPhaseTenSec
 - Phase transition: `tabataWork()` high beep + `say('work')` at WORK start, `tabataRest()` low beep + `say('rest')` at REST start
 - Round announcements: `round_two`..`round_eight` spoken 0.6s after WORK start (to avoid overlap)
 - 3-2-1 warning ticks (660Hz) before every phase transition
-- **Start countdown + GO (`TimerAudio.countdown`)** — 3/2/1 ticks lengthened to 0.30s (660Hz) each; **GO** is its own `goSound()` (added 2026-07-09): a loud, ~1.5s ascending sawtooth fanfare (880→1175→1568Hz, final note sustained, gain 0.9) so the start carries across the whole gym, plus the Harry `say('go')` voice. Replaced the old single 0.5s sine beep.
+- **Start countdown + GO (`TimerAudio.countdown`)** — 3/2/1 ticks lengthened to 0.30s (660Hz) each; **GO** is the original bright 990Hz sine `beep`, lengthened 0.5s → **1.3s** so it carries across the gym (plus the Harry `say('go')` voice). (A sawtooth-fanfare `goSound()` was tried 2026-07-09 and reverted — Noam preferred the original tone, just longer.)
 - EMOM interval warning ticks (added 2026-04-13)
 
 ### SW Cache Versioning
