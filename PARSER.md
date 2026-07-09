@@ -51,8 +51,11 @@ Full-screen overlay for focused part. Starts at `top: 80px` (top bar stays visib
 Font auto-fit: binary search (14 iterations), 8% safety margin.
 Close: press ⊙ again or 🏠.
 
+### Docked timer clock position (2026-07-09)
+The docked timer clock (`#floatingTimerBar.timer-dock`) is a **prominent fixed box in the top-right corner** (`position:fixed; top:92px; right:12px`, orange border, blurred dark bg) — coach request: clock at top + more visible. It floats over the board's top-right corner (may cover that corner's content; the QR is pushed to the bottom so they never collide). It no longer takes an in-flow side column, so docking/undocking doesn't reflow `#wodArea`. **Split mode is the exception:** an override restores the original in-flow column between `#wodArea` and `#scoreboardArea` (so the clock never covers the scoreboard). The center-focus `overlay-mode` (full right column) is unchanged.
+
 ### QR Code Positioning
-`repositionQR()` tries corners: bottom-right → bottom-left → top-right → top-left.
+`repositionQR()` picks a **bottom corner only** (bottom-right → bottom-left) via `_findBestCorner(w, h, null, /*onlyBottom*/ true)` — the top corners are reserved for the docked timer clock (2026-07-09). `_findBestCorner`'s 4-corner list (top-right → top-left → bottom-right → bottom-left) is still available when `onlyBottom` is falsy.
 Overlap detection uses **line-level elements only** (`.exercise-line`, `.flow-section-header`, `.scoreboard-table td`) — NOT large containers (false positives).
 Call `repositionQR()` 900ms after render and 350ms after mode switches.
 
