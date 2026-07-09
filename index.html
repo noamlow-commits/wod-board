@@ -4323,6 +4323,20 @@
           html: `<span class="${badgeClass}">${badgeText}</span>${restHtml}`
         };
       }
+      // "Set 1: 5 Reps", "Set 2: 3 Reps", "Set 3: 1 Rep" — the coach's per-set
+      // lift prescription (e.g. a Back squat wave). Each SET *is* a workout part
+      // (Noam 2026-07-09: "כל SET הוא בעצם חלק"), so render it in the cyan
+      // part-divider language used for A./B. group headers: a "SET N" badge +
+      // group-line styling, so every set reads as its own emphasized chunk with
+      // its reps/load flowing beneath it. Requires "set" + whitespace + a digit,
+      // so prose like "Set up the rig" / "Settle in" never matches.
+      const setMatch = text.match(/^\s*set\s+(\d+)\s*[:\.\-\)]?\s*(.*)$/i);
+      if (setMatch) {
+        let rest = escapeHtml(setMatch[2]);
+        // Bold a leading rep count in the remainder ("5 Reps" → bold 5).
+        rest = rest.replace(/^(\d+)\b/, '<span class="rep-number">$1</span>');
+        return { type: 'sub-header', isGroupTitle: true, html: `<span class="group-badge">SET ${setMatch[1]}</span>${rest ? ' ' + rest : ''}` };
+      }
       // Detect exercise group headers: "A. Bench press", "B - Kipping > KTE",
       // "B.HSPU" (no space after the dot). Single letter (no digit) + separator
       // → new group = sub-header with badge. Allow zero space after the

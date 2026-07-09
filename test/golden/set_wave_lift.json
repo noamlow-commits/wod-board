@@ -1,0 +1,49 @@
+{
+  "data": {
+    "headers": [
+      "כוח",
+      "CARDIO"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "כוח",
+            "lines": [
+              "Back squat:",
+              "Set 1: 5 Reps",
+              "70% 1RM",
+              "Set 2: 3 Reps",
+              "80% 1RM",
+              "Set 3: 1 Rep",
+              "90%+ 1RM (Heavy single for the day)",
+              "Set 4: 3 Reps",
+              "75% 1RM (Back-off set)",
+              "Set 5: 5 Reps",
+              "85% 1RM (Back-off set)"
+            ]
+          },
+          {
+            "header": "CARDIO",
+            "lines": [
+              "20 min easy row"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "כוח",
+      "timers": []
+    },
+    {
+      "section": "—",
+      "header": "CARDIO",
+      "timers": []
+    }
+  ]
+}

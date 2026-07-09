@@ -65,6 +65,9 @@ const FIXTURES = [
   { name: "superset_group_cohesion", note: "A. group + A1/A2 superset + inline @load: '@75%' stays on its line (not split), and the group is not torn across columns (see LAYOUT pass)",
     rows: [[" b", "", "1", "2", "3", "בטיחות/דגשים"],
            ["", "WOD", "warm up : 2 sets\n30 sec work, 10 rest\n1# pull apart\n2# push up to down dog\n3# מקל", "A. Bench press\nA1 - Teach Bar Movment\n\nA2 Benchpress -\n4 sets\nx 6 reps @75%\nrest 1:30-2 min", "", ""]] },
+  { name: "set_wave_lift", note: "per-set lift wave ('Set 1: 5 Reps' + '70% 1RM' …) → each Set gets the cyan SET badge (see BADGE_CHECKS); the wave text must NOT trigger a false timer",
+    rows: [["", "כוח", "CARDIO"],
+           ["", "Back squat:\nSet 1: 5 Reps\n70% 1RM\nSet 2: 3 Reps\n80% 1RM\nSet 3: 1 Rep\n90%+ 1RM (Heavy single for the day)\nSet 4: 3 Reps\n75% 1RM (Back-off set)\nSet 5: 5 Reps\n85% 1RM (Back-off set)", "20 min easy row"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -83,6 +86,9 @@ const BADGE_CHECKS = [
   { line: "B2. AMRAP style set", expect: "subgroup-badge" },      // station + keyword
   { line: "E2MOM x 6", expect: "none" },                          // instruction, NOT a station
   { line: "AMRAP 12", expect: "none" },                           // pure instruction
+  { line: "Set 1: 5 Reps", expect: "group-badge" },               // per-set lift wave → SET badge
+  { line: "Set 3: 1 Rep", expect: "group-badge" },                // singular "Rep" too
+  { line: "Set up the platform", expect: "none" },                // prose, not a set (no digit after "set")
 ];
 
 const stable = (o) => JSON.stringify(o, null, 2);
