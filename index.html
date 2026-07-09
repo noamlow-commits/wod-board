@@ -1755,6 +1755,18 @@
       transition: background 0.15s, outline 0.1s;
       white-space: nowrap;
     }
+    /* Option B (2026-07-09): the per-part timer buttons keep a FIXED-WIDTH box and
+       hide via visibility (not display:none), so toggling them as the coach moves
+       part→part never resizes the center-anchored nav — which used to slide ◄ ►
+       and force her to re-aim the remote each time. Fixed width + ellipsis means a
+       longer timer label doesn't change the width either. */
+    #tvTimerBtn {
+      width: 11rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: center;
+    }
+    #tvTimerCycleBtn { width: 3.4rem; padding-left: 0.5rem; padding-right: 0.5rem; }
     .tv-btn:hover,
     .tv-btn:focus {
       background: rgba(255,255,255,0.22);
@@ -1910,8 +1922,8 @@
     <span class="tv-part-label" id="tvPartLabel">כל החלקים</span>
     <button class="tv-btn" id="tvNext" onclick="navigatePart(1)" tabindex="0" title="חלק הבא">►</button>
     <button class="tv-btn" id="tvCenterBtn" onclick="toggleCenterFocus()" tabindex="0" title="מרכז את החלק במסך">⊙</button>
-    <button class="tv-btn" id="tvTimerBtn" onclick="startPartTimer()" tabindex="0" title="הפעל טיימר — לחיצה ארוכה לסייקול" style="display:none;">▶ <span id="tvTimerLabel"></span></button>
-    <button class="tv-btn" id="tvTimerCycleBtn" onclick="cyclePartTimer()" tabindex="0" title="החלף טיימר" style="display:none;">⏱↻</button>
+    <button class="tv-btn" id="tvTimerBtn" onclick="startPartTimer()" tabindex="0" title="הפעל טיימר — לחיצה ארוכה לסייקול" style="visibility:hidden;">▶ <span id="tvTimerLabel"></span></button>
+    <button class="tv-btn" id="tvTimerCycleBtn" onclick="cyclePartTimer()" tabindex="0" title="החלף טיימר" style="visibility:hidden;">⏱↻</button>
     <button class="tv-btn" id="tvTimerSetupBtn" onclick="TimerSetup.openFromDetected()" tabindex="0" title="הגדרת טיימר ידנית (שלט)">⚙</button>
     <div class="tv-timer-controls" id="tvTimerControls">
       <button onclick="pauseTimer();updateFloatingTimerBar();" title="השהה/המשך">⏸</button>
@@ -5265,19 +5277,21 @@
       const timerLabel = document.getElementById('tvTimerLabel');
       if (timerBtn) {
         const cfgs = getPartTimerConfigs();
+        // Toggle visibility (not display) so the button keeps its reserved box —
+        // the centered nav stays a constant width and ◄ ► don't shift (option B).
         if (cfgs.length > 0) {
-          timerBtn.style.display = '';
+          timerBtn.style.visibility = 'visible';
           const selected = cfgs[partTimerCycleIdx % cfgs.length];
           const countStr = cfgs.length > 1 ? ` (${(partTimerCycleIdx % cfgs.length) + 1}/${cfgs.length})` : '';
           timerLabel.textContent = (selected.label || selected.type) + countStr;
           timerBtn.classList.toggle('tv-active', timerState === 'running' || timerState === 'countdown321');
-          // Show cycle button only when multiple timers detected
+          // Reveal the cycle button only when multiple timers detected
           const cycleBtn = document.getElementById('tvTimerCycleBtn');
-          if (cycleBtn) cycleBtn.style.display = cfgs.length > 1 ? '' : 'none';
+          if (cycleBtn) cycleBtn.style.visibility = cfgs.length > 1 ? 'visible' : 'hidden';
         } else {
-          timerBtn.style.display = 'none';
+          timerBtn.style.visibility = 'hidden';
           const cycleBtn = document.getElementById('tvTimerCycleBtn');
-          if (cycleBtn) cycleBtn.style.display = 'none';
+          if (cycleBtn) cycleBtn.style.visibility = 'hidden';
         }
       }
     }

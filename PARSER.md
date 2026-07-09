@@ -42,6 +42,7 @@ Warm-up zone gets amber tint + side border (`.warmup-part`).
 Fixed bottom-center panel: ◄/► cycle parts, section filter (WOD/CARDIO/הכל), 🏠 reset.
 - Active section button: red highlight
 - Panel hidden in BOARD and PR modes
+- **Stable ◄ ► position (option B, 2026-07-09):** the nav is center-anchored (`left:50%; translateX(-50%)`), so anything that changed its width slid ◄ ► sideways. The per-part timer buttons (`#tvTimerBtn`, `#tvTimerCycleBtn`) toggle as the coach navigates parts (some parts have a timer, some don't), which used to resize the nav and force her to re-aim the remote each time. Fix: those buttons now hide via **`visibility:hidden` (reserved box), not `display:none`**, and `#tvTimerBtn` has a **fixed 11rem width + ellipsis** so a longer timer label can't change the width either. Result: nav width is constant → ◄ ► never move. Verified headless (nav width + ◄ x-pos identical across no-timer / short-label / long-label+cycle states). Trade-off: ~11rem of the nav is always reserved even when no timer is present.
 - `setTvSection()` triggers autoFit retries
 - **`setTvSection()` preserves `partFocusIndex`** across section switches (clamped to the new section's max part count). Re-runs `applyCenterFocus()` so the center overlay retargets the new section's part instead of staying frozen on the previous section. Drops out of focus entirely only if the new section has zero parts. Fixes the "stuck overlay when switching WOD ↔ CARDIO" bug (v24).
 
