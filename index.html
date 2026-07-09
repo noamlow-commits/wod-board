@@ -1572,6 +1572,15 @@
     .tsu-step:active { transform: translateY(1px); }
     .tsu-step.minus { color: #ff9a86; }
     .tsu-step.plus  { color: #9fe0b0; }
+    /* TYPE-row ‹ › arrows — bigger, brighter glyphs so switching timer type is
+       an obvious button on the TV (not just a Left/Right remote press). */
+    .tsu-step-type {
+      font-size: 1.7rem;
+      padding: 0.35rem 0.7rem;
+      color: #f59e0b;
+      border-color: #5a4a2a;
+    }
+    .tsu-step-type:hover { background: #2a2318; border-color: #f59e0b; }
     /* clickable toggle value (mouse can flip כן/לא, not only the remote) */
     .tsu-row .tsu-value.tsu-toggle { cursor: pointer; }
     .tsu-row.tsu-action {
@@ -2187,9 +2196,32 @@
         }
       },
       countdown(num) {
-        // Tick for 3,2,1 — bright tone for GO
-        if (num > 0) this.beep(660, 0.18, 1);
-        else this.beep(990, 0.5, 1); // GO!
+        // 3,2,1 ticks — longer/clearer than before (0.30s each); GO gets its own
+        // loud, sustained fanfare so the whole gym hears the start.
+        if (num > 0) this.beep(660, 0.30, 1);
+        else this.goSound(); // GO!
+      },
+      // GO — the single most important cue; must carry across the whole gym.
+      // Two quick ascending notes into a long, sustained top note (sawtooth for
+      // cut-through), ~1.5s total at high gain — far longer/louder than the old
+      // 0.5s sine beep. Plays alongside the Harry "go" voice cue.
+      goSound() {
+        if (timerMuted || !this.ctx) return;
+        let start = this.ctx.currentTime;
+        [{ f: 880, d: 0.20 }, { f: 1175, d: 0.20 }, { f: 1568, d: 1.15 }].forEach(({ f, d }) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.connect(gain); gain.connect(this.ctx.destination);
+          osc.frequency.value = f;
+          osc.type = 'sawtooth';
+          gain.gain.setValueAtTime(0, start);
+          gain.gain.linearRampToValueAtTime(0.9, start + 0.01);
+          gain.gain.setValueAtTime(0.9, start + d - 0.14);
+          gain.gain.linearRampToValueAtTime(0.001, start + d);
+          osc.start(start);
+          osc.stop(start + d + 0.02);
+          start += d; // sequential (no overlap → no clipping)
+        });
       },
       // Loud, unmistakable interval transition — athletes must hear this to switch
       // exercises WITHOUT looking at the board. Louder (0.85) + longer (~0.95s) than
@@ -5454,7 +5486,12 @@
         const rows = items.map((it, i) => {
           const focused = this.focusIdx === i;
           const click = `onclick="TimerSetup.clickItem(${i})"`;
-          if (it.kind === 'type') return `<div class="tsu-row ${focused ? 'tsu-focus' : ''}" ${click}><span class="tsu-label">סוג</span><span class="tsu-value">${TSU_TYPE_LABELS[this.type]}</span></div>`;
+          if (it.kind === 'type') {
+            // ‹ › arrows cycle the timer type on click (same as Left/Right on the
+            // remote) — a pointer/touch can switch AMRAP↔EMOM↔Tabata… without a D-pad.
+            const stop = 'event.stopPropagation();';
+            return `<div class="tsu-row ${focused ? 'tsu-focus' : ''}" ${click}><span class="tsu-label">סוג</span><div class="tsu-stepper"><button type="button" tabindex="-1" class="tsu-step tsu-step-type minus" onclick="${stop}TimerSetup.cycleType(-1)" title="סוג קודם">‹</button><span class="tsu-value">${TSU_TYPE_LABELS[this.type]}</span><button type="button" tabindex="-1" class="tsu-step tsu-step-type plus" onclick="${stop}TimerSetup.cycleType(1)" title="סוג הבא">›</button></div></div>`;
+          }
           if (it.kind === 'field') {
             const f = it.field;
             const editing = focused && !!this.buffer;
@@ -5491,6 +5528,13 @@
         else if (it.kind === 'action') this.doAction(it.action);
         else if (it.kind === 'field' && it.field.kind === 'toggle') { this.setFieldValue(it.field, !this.getFieldValue(it.field)); this.render(); }
         else this.render(); // type / numeric field — just focus it (use the +/- buttons to change)
+      },
+      // Pointer click on the ‹ › arrows of the TYPE row — cycle to the prev/next
+      // timer type (AMRAP → For Time → EMOM → Tabata → אינטרוולים → …), the same
+      // as pressing Left/Right on the remote. The TYPE row is always item 0.
+      cycleType(dir) {
+        this.focusIdx = 0;
+        this.nudge(dir);
       },
       // Pointer +/- stepper: focus the row and add `amount` to its value (clamped).
       // Reused for both step sizes; clicking a button never starts/cancels the timer.
