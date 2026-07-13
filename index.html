@@ -2243,7 +2243,11 @@
       // Interval / phase transition — simple non-rising double beep (the ORIGINAL
       // sound). Reverted 2026-07-09 from the ascending sawtooth "whoosh" per Noam:
       // "bring back the previous sound — the coach doesn't like the rising sound."
-      intervalBeep() { this.beep(700, 0.12, 2, 0.1); },
+      // 2026-07-13: was a 700Hz double-blip (0.12s ×2) — too weak to hear across
+      // the gym at an E2MOM station change ("שתי פעימות קצרות… חלש מדי"). Now ONE
+      // long flat tone: still deliberately non-rising (no sweep, no fanfare), just
+      // longer and pitched higher so it cuts through. Distinct from GO (990Hz/1.3s).
+      intervalBeep() { this.beep(880, 1.0, 1); },
       warningBeep()   { this.beep(660, 0.09, 3, 0.08); },           // short triple tick
       // Work/rest phase cues — simple beeps (ORIGINAL sound, reverted 2026-07-09
       // from the sawtooth fanfare): two high beeps for WORK start, one low beep
