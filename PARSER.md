@@ -80,8 +80,14 @@ Sanity limits for chains: total ≤ 90 min, work ≥ 30s, rest ≤ 10 min, unifo
 
 Chained timer button label: `${timerName} ×${rounds} · ${workMins}' work / ${restShort} rest` → e.g. `AMRAP ×3 · 10' work / 2' rest`.
 
-### E2MOM / E3MOM — rotation blocks (rewritten 2026-07-13)
-`EN MOM` = "every N minutes, on the minute". **One interval = one station**, and the block cycles through the stations for the written number of sets — so `e2momx / 3 sets (18 min total) / 1# … 2# … 3# …` is 9 intervals of 2 min, not 3.
+### Rotation blocks — `E2MOM` and `every X:XX` (rewritten 2026-07-13)
+**ONE INTERVAL = ONE STATION.** The block cycles through the `1#/2#/3#` stations for the written number of sets. This is the rule the parser kept getting wrong, in both of its rotation paths, and each time it put a wrong clock on the gym TV:
+- `e2momx / 3 sets (18 min total) / 1# 2# 3#` → **9** intervals of 2:00, not 3.
+- `EVERY 2:30 / 1#..4# / 3 sets - 30 min total` → **12** intervals of 2:30, not 3. (The old `every` path read `N sets` straight off as the interval count and otherwise fell back to a hard-coded 5 — it displayed `Every 2:30 ×3`, a 7:30 clock, on a 30-minute WOD.)
+
+Both paths now go through **one shared helper**, `rotationRounds(iv)` / `writtenTotalMin()` — the two ways the coach writes the same thing must not drift apart. Interval count, from written values only: written total (`(30 min total)`, `total: 30 min`) ÷ interval → `N sets` × stations → `N sets` → exercise-line count → **0 = no timer**. Labels carry the total: `Every 2:30 ×12 (30′)`.
+
+Fixtures: `e2mom_rotation`, `every_rotation_stations`.
 
 - The coach writes a **dangling `x`** (`e2momx`). That trailing letter kills the `\b` in `\bE\d*MOM\b`, so before this fix the line matched *nothing*: no timer, no time-badge, not a format header. All four sites now accept an optional `[x×]` tail (`E\d*MOM[x×]?`) — `extractTimerConfigs`, `parseLine.isInstruction`, the two time-badge replacements, and `isFormatHeader` (see the 3-parallel-places rule).
 - The **total is never guessed** (no-invented-timer-values). Resolution order, all from written values: explicit `×N` → same-line total minutes (`E2MOM 18`) → an explicit total anywhere in the block (`(18 min total)`) → `N sets` × the number of `1#/2#/3#` stations. Nothing written → **no timer** (the old code fell back to a 10-min default).
