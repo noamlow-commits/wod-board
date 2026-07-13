@@ -80,6 +80,14 @@ Sanity limits for chains: total ≤ 90 min, work ≥ 30s, rest ≤ 10 min, unifo
 
 Chained timer button label: `${timerName} ×${rounds} · ${workMins}' work / ${restShort} rest` → e.g. `AMRAP ×3 · 10' work / 2' rest`.
 
+### E2MOM / E3MOM — rotation blocks (rewritten 2026-07-13)
+`EN MOM` = "every N minutes, on the minute". **One interval = one station**, and the block cycles through the stations for the written number of sets — so `e2momx / 3 sets (18 min total) / 1# … 2# … 3# …` is 9 intervals of 2 min, not 3.
+
+- The coach writes a **dangling `x`** (`e2momx`). That trailing letter kills the `\b` in `\bE\d*MOM\b`, so before this fix the line matched *nothing*: no timer, no time-badge, not a format header. All four sites now accept an optional `[x×]` tail (`E\d*MOM[x×]?`) — `extractTimerConfigs`, `parseLine.isInstruction`, the two time-badge replacements, and `isFormatHeader` (see the 3-parallel-places rule).
+- The **total is never guessed** (no-invented-timer-values). Resolution order, all from written values: explicit `×N` → same-line total minutes (`E2MOM 18`) → an explicit total anywhere in the block (`(18 min total)`) → `N sets` × the number of `1#/2#/3#` stations. Nothing written → **no timer** (the old code fell back to a 10-min default).
+- Every optional tail in `eXmomRe` owns its own leading `[^\S\r\n]*`. A shared one right after `MOM` swallows the space and then silently skips the total-minutes group — an optional group never forces a backtrack. That bug ate `E2MOM 18`; `e2mom_rotation` + the existing goldens guard it.
+- Horizontal-whitespace classes keep every part on the header's own line, so `E2MOM\n3 sets` can't read the `3` as minutes.
+
 ### On-board timer setup + control — TV remote (added 2026-06-15)
 The board itself can configure/start/stop the timer via the TV remote (previously only `coach.html` could). All client-side, **local start only** (no backend POST).
 - **Setup overlay** `#timerSetupOverlay` (open: ⚙ `#tvTimerSetupBtn` in the nav / `g` / `↑` in timer mode). `TimerSetup` object (items-based focus model). Edits all 5 types (amrap/fortime/emom/tabata/mix); MIX builds arbitrary work/rest sequences via add/remove "מקטע" rows. Remote-operable with arrows+OK; digits type MM:SS (shift-in); a focusable `▶ התחל` row starts and a `✖ יציאה` row exits. **Every row is also pointer-clickable** (`clickItem`) so the form works the same with a D-pad remote or a pointer — not keyboard-only.

@@ -71,6 +71,9 @@ const FIXTURES = [
   { name: "partner_team_wod", note: "team-WOD partner stations written mixed ('1 partner: …' number-first + 'partner 2:/3:' word-first) → all get the cyan PARTNER badge (see BADGE_CHECKS); must NOT trigger a false timer",
     rows: [["", "CARDIO", "כוח"],
            ["", "Warm up- skill row:\nand then teams of 3:\n1 partner: 12 cal\npartner 2: max reps:\n10 push up\n20 air squat\n30 bicycel crunch\npartner 3: plank hold", "rest as needed"]] },
+  { name: "e2mom_rotation", note: "coach's 'e2momx' (dangling x) + '3 sets (18 min total)' over 3 stations → E2MOM ×9 (18′): 2-min interval, total from the written 18, NOT the 10-min default",
+    rows: [["", "WOD"],
+           ["", "e2momx\n3 sets (18 min total)\n1# 24 db's Alternating Lunges in Place\n2# 15 db's push press\n3# 18/14 Calorie Row"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -88,6 +91,7 @@ const BADGE_CHECKS = [
   { line: "A2. T&GO (For Metcon)", expect: "subgroup-badge" },   // the fixed case
   { line: "B2. AMRAP style set", expect: "subgroup-badge" },      // station + keyword
   { line: "E2MOM x 6", expect: "none" },                          // instruction, NOT a station
+  { line: "e2momx", expect: "none" },                             // dangling-x shorthand → still an instruction
   { line: "AMRAP 12", expect: "none" },                           // pure instruction
   { line: "Set 1: 5 Reps", expect: "group-badge" },               // per-set lift wave → SET badge
   { line: "Set 3: 1 Rep", expect: "group-badge" },                // singular "Rep" too

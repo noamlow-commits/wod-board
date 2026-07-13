@@ -2494,14 +2494,52 @@
         const isConsumed = (start, end) => consumedRanges.some(r => start < r.end && end > r.start);
         const consume = (mm) => consumedRanges.push({ start: mm.index, end: mm.index + mm[0].length });
 
-        // E2MOM / E3MOM (with optional total minutes)
-        const eXmomRe = /\bE(\d)MOM(?:\s+(\d+))?\b/gi;
+        // E2MOM / E3MOM — "every N minutes, on the minute". One interval = one
+        // station; the block cycles through the stations for the written number
+        // of sets. Coach shorthand tolerates a dangling "x" ("e2momx"), an
+        // explicit multiplier ("E2MOM x9") and/or total minutes ("E2MOM 18").
+        //
+        // The total is never guessed (feedback: no-invented-timer-values). It is
+        // taken, in this order, from values the coach actually wrote:
+        //   1. explicit interval count      "E2MOM ×9"
+        //   2. same-line total minutes      "E2MOM 18 min"
+        //   3. an explicit total anywhere   "3 sets (18 min total)"
+        //   4. "N sets" × the numbered stations in the block ("1#", "2#", "3#")
+        // If none of those is written, the block yields NO timer.
+        //
+        // Horizontal-whitespace classes ([^\S\r\n]) keep every optional part on
+        // the header's own line, so "E2MOM\n3 sets" can't read the 3 as minutes.
+        // (Each optional tail owns its leading spaces — a shared `[^\S\r\n]*`
+        // right after MOM would swallow the space and then silently skip the
+        // total-minutes group, since an optional group never forces a backtrack.)
+        const eXmomRe = /\bE(\d{1,2})MOM(?:[^\S\r\n]*[x×*][^\S\r\n]*(\d+)?)?(?:[^\S\r\n]+(\d+)[^\S\r\n]*(?:min(?:utes?)?|′)?(?=[^\S\r\n]*(?:[\r\n]|$)))?/gi;
         while ((m = eXmomRe.exec(text)) !== null) {
           consume(m);
-          const iv = parseInt(m[1]) * 60;
-          const total = m[2] ? parseInt(m[2]) * 60 : 600;
+          const ivMin = parseInt(m[1]);
+          if (ivMin < 1 || ivMin > 30) continue;
+          const iv = ivMin * 60;
+
+          let rounds   = m[2] ? parseInt(m[2]) : 0;   // "E2MOM ×9"
+          let totalMin = m[3] ? parseInt(m[3]) : 0;   // "E2MOM 18 min"
+
+          if (!rounds && !totalMin) {
+            // "(18 min total)" / "18 minutes total" / "total: 18 min"
+            const tm = text.match(/(\d+)[^\S\r\n]*min(?:utes?)?[^\S\r\n]*total\b/i)
+                    || text.match(/\btotal[^\S\r\n:\-]*[:\-]?[^\S\r\n]*(\d+)[^\S\r\n]*min(?:utes?)?\b/i);
+            if (tm) totalMin = parseInt(tm[1]);
+          }
+          if (!rounds && !totalMin) {
+            // "3 sets" over the "1# / 2# / 3#" stations → 3 × 3 = 9 intervals
+            const setsM = text.match(/(\d+)\s*(?:sets?|rounds?)\b/i);
+            const stations = lines.filter(l => /^\s*\d+\s*#/.test(l)).length;
+            if (setsM && stations >= 2) rounds = parseInt(setsM[1]) * stations;
+          }
+          if (!rounds && totalMin) rounds = Math.round((totalMin * 60) / iv);
+          if (rounds < 1 || rounds > 60) continue;   // nothing written → no timer
+
+          const total = totalMin ? totalMin * 60 : iv * rounds;
           results.push({ type: 'emom', totalSeconds: total, intervalSeconds: iv,
-                         label: m[2] ? `E${m[1]}MOM ${m[2]}′` : `E${m[1]}MOM` });
+                         label: `E${ivMin}MOM ×${rounds} (${Math.round(total / 60)}′)` });
         }
 
         // EMOM N — every occurrence becomes its own timer
@@ -4427,7 +4465,10 @@
       // Detect instruction lines: workout format acronyms + rep/time schemes
       // e.g. "E2MOM x 6", "18 min amrap", "2 rounds", "For Time", "Tabata 8 rounds"
       // Also accept "TBATA" — common coach typo for "TABATA".
-      const isInstruction = (!isDescriptiveList && /\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM|TABATA|TBATA|METCON|RFT|YGIG)\b/i.test(text))
+      // The optional [x×] tail is the coach's dangling multiplier ("e2momx") —
+      // without it the trailing letter kills the word boundary and the line is
+      // not recognised as a header at all.
+      const isInstruction = (!isDescriptiveList && /\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM[x×]?|TABATA|TBATA|METCON|RFT|YGIG)\b/i.test(text))
         || /\be\s*\d+:\d{2}\s*mom\b/i.test(text)
         || /^\d+\s*(rounds?|min|sec(onds?)?|sets?)\b/i.test(text)
         || /^(every|each)\s+\d/i.test(text)
@@ -4450,7 +4491,7 @@
         // so the EMOM badge below catches it instead of leaving stray "e"/"mom".
         html = html.replace(/\be\s*(\d{1,2}:\d{2})\s*mom\b/gi, 'EMOM $1');
         // Keep time-badge highlighting inside instruction lines
-        html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM|TABATA|TBATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
+        html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM[x×]?|TABATA|TBATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
         html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
         html = html.replace(/\b(\d+)\s*min\b/gi, '<span class="time-badge">$1 min</span>');
         html = html.replace(/\b(\d+)\s*sec(?:onds?)?\b/gi, '<span class="time-badge">$1 sec</span>');
@@ -4511,7 +4552,7 @@
 
       // Highlight time patterns
       html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
-      if (!isDescriptiveList) html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM|TABATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
+      if (!isDescriptiveList) html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM[x×]?|TABATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
       html = html.replace(/\b(\d+)\s*sec(?:onds?)?\b/gi, '<span class="time-badge">$1 sec</span>');
       // Highlight time cap numbers: "t.c 37", "tc 12:00", "t.c- 5", "t. c 42"
       html = html.replace(/\b(t\.?\s*c[\-\s:]*)\s*(\d+(?::\d{2})?)/gi, '$1<span class="time-badge">$2</span>');
@@ -4646,7 +4687,7 @@
               // header, a format header (AMRAP/EMOM/For Time/Tabata/EMOM…), a "1#"
               // station, or a warm-up line. The column splitter uses this to never
               // tear A1 from A2 (the 2026-07-08 superset-torn-across-columns bug).
-              const isFormatHeader = /\b(amrap|emom|for\s*time|tabata|every|e\d?mom|rft|rounds?\s+for\s+time)\b/i.test(line);
+              const isFormatHeader = /\b(amrap|emom|for\s*time|tabata|every|e\d*mom[x×]?|rft|rounds?\s+for\s+time)\b/i.test(line);
               let groupLetter = curGroupLetter;
               if (isGrpHdr) {
                 const m = line.match(/^\s*([A-Za-z])/);
