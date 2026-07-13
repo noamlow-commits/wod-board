@@ -1,0 +1,42 @@
+{
+  "data": {
+    "headers": [
+      "CARDIO"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "CARDIO",
+            "lines": [
+              "EVERY 2:30:",
+              "1# 400 run",
+              "2# amrap:",
+              "2-4-6-8-10.....",
+              "half burpee",
+              "push up",
+              "3# 400-500 row",
+              "4# 2-4-6-8-10.....",
+              "jumping lunge",
+              "burpee box jump",
+              "3 sets - 30 min total"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "CARDIO",
+      "timers": [
+        {
+          "label": "Every 2:30 ×12 (30′)",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

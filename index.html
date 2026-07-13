@@ -2528,6 +2528,36 @@
         const isConsumed = (start, end) => consumedRanges.some(r => start < r.end && end > r.start);
         const consume = (mm) => consumedRanges.push({ start: mm.index, end: mm.index + mm[0].length });
 
+        // ── Rotation blocks ("E2MOM", "every 2:30") ────────────────────────────
+        // ONE INTERVAL = ONE STATION. The block cycles through the stations for
+        // the written number of sets, so "every 2:30 / 3 sets / 1#..4#" is
+        // 3 × 4 = 12 intervals = 30 min — NOT 3 intervals. Getting this wrong is
+        // the single easiest way to put a wrong clock on the gym TV (it did:
+        // "Every 2:30 ×3" for a 30-minute block, 2026-07-13).
+        //
+        // Interval count, resolved ONLY from values the coach actually wrote
+        // (feedback: no-invented-timer-values) — an explicit total always wins,
+        // because it's the one number that can't be mis-derived:
+        //   1. "(30 min total)" / "total: 30 min"   → total ÷ interval
+        //   2. "N sets" × the "1#/2#/3#" stations   → the rotation
+        //   3. "N sets" alone (no stations)         → N
+        //   4. one interval per exercise line       → line count
+        // 0 (→ no timer) if none of those is written.
+        const writtenTotalMin = () => {
+          const tm = text.match(/(\d+)[^\S\r\n]*min(?:utes?)?[^\S\r\n]*total\b/i)
+                  || text.match(/\btotal[^\S\r\n:\-]*[:\-]?[^\S\r\n]*(\d+)[^\S\r\n]*min(?:utes?)?\b/i);
+          return tm ? parseInt(tm[1]) : 0;
+        };
+        const rotationRounds = (iv) => {
+          const totalMin = writtenTotalMin();
+          if (totalMin) return Math.round((totalMin * 60) / iv);
+          const setsM = text.match(/(\d+)\s*(?:sets?|rounds?)\b/i);
+          const stations = lines.filter(l => /^\s*\d+\s*#/.test(l)).length;
+          if (setsM) return parseInt(setsM[1]) * (stations >= 2 ? stations : 1);
+          const exerciseLines = lines.filter(l => /^\s*\d/.test(l) && !/^\s*\d+\s*(sec|on|off|work|rest|min|set|round)/i.test(l));
+          return exerciseLines.length >= 2 ? exerciseLines.length : 0;
+        };
+
         // E2MOM / E3MOM — "every N minutes, on the minute". One interval = one
         // station; the block cycles through the stations for the written number
         // of sets. Coach shorthand tolerates a dangling "x" ("e2momx"), an
@@ -2554,22 +2584,11 @@
           const iv = ivMin * 60;
 
           let rounds   = m[2] ? parseInt(m[2]) : 0;   // "E2MOM ×9"
-          let totalMin = m[3] ? parseInt(m[3]) : 0;   // "E2MOM 18 min"
+          const totalMin = m[3] ? parseInt(m[3]) : 0; // "E2MOM 18 min"
 
-          if (!rounds && !totalMin) {
-            // "(18 min total)" / "18 minutes total" / "total: 18 min"
-            const tm = text.match(/(\d+)[^\S\r\n]*min(?:utes?)?[^\S\r\n]*total\b/i)
-                    || text.match(/\btotal[^\S\r\n:\-]*[:\-]?[^\S\r\n]*(\d+)[^\S\r\n]*min(?:utes?)?\b/i);
-            if (tm) totalMin = parseInt(tm[1]);
-          }
-          if (!rounds && !totalMin) {
-            // "3 sets" over the "1# / 2# / 3#" stations → 3 × 3 = 9 intervals
-            const setsM = text.match(/(\d+)\s*(?:sets?|rounds?)\b/i);
-            const stations = lines.filter(l => /^\s*\d+\s*#/.test(l)).length;
-            if (setsM && stations >= 2) rounds = parseInt(setsM[1]) * stations;
-          }
           if (!rounds && totalMin) rounds = Math.round((totalMin * 60) / iv);
-          if (rounds < 1 || rounds > 60) continue;   // nothing written → no timer
+          if (!rounds) rounds = rotationRounds(iv);   // the shared rotation logic
+          if (rounds < 1 || rounds > 60) continue;    // nothing written → no timer
 
           const total = totalMin ? totalMin * 60 : iv * rounds;
           results.push({ type: 'emom', totalSeconds: total, intervalSeconds: iv,
@@ -2642,23 +2661,21 @@
                          label: `Every ${m[1]}:${m[2]} ×${rounds}` });
         }
 
-        // every X:XX without ×N — infer rounds from "N sets / rounds" or
-        // exercise count. Inference is text-global, so each uncaptured "every"
-        // gets the same inferred round count (best effort).
+        // every X:XX without ×N — a rotation block: interval count comes from
+        // rotationRounds(), so "3 sets" over 4 stations is 12 intervals, not 3.
+        // (It used to read "N sets" as the interval count and fall back to a
+        // hard-coded 5 — that put "Every 2:30 ×3" on a 30-minute WOD.)
         const everyImpRe = /\bevery\s+(\d+):(\d{2})/gi;
         while ((m = everyImpRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
           const iv = parseInt(m[1])*60 + parseInt(m[2]);
-          const setsMatch = text.match(/(\d+)\s*sets?\b/i);
-          const roundsMatch = text.match(/(\d+)\s*rounds?\b/i);
-          let rounds = setsMatch ? parseInt(setsMatch[1]) : roundsMatch ? parseInt(roundsMatch[1]) : 0;
-          if (rounds === 0) {
-            const exerciseLines = lines.filter(l => /^\s*\d/.test(l) && !/^\s*\d+\s*(sec|on|off|work|rest|min|set|round)/i.test(l));
-            rounds = exerciseLines.length || 5;
-          }
-          results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
-                         label: `Every ${m[1]}:${m[2]} ×${rounds}` });
+          const rounds = rotationRounds(iv);
+          if (rounds < 1 || rounds > 60) continue;   // nothing written → no timer
+          const totalMin = writtenTotalMin();
+          const total = totalMin ? totalMin * 60 : iv * rounds;
+          results.push({ type: 'emom', totalSeconds: total, intervalSeconds: iv,
+                         label: `Every ${m[1]}:${m[2]} ×${rounds} (${Math.round(total / 60)}′)` });
         }
       }
 

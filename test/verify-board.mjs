@@ -74,6 +74,9 @@ const FIXTURES = [
   { name: "e2mom_rotation", note: "coach's 'e2momx' (dangling x) + '3 sets (18 min total)' over 3 stations → E2MOM ×9 (18′): 2-min interval, total from the written 18, NOT the 10-min default",
     rows: [["", "WOD"],
            ["", "e2momx\n3 sets (18 min total)\n1# 24 db's Alternating Lunges in Place\n2# 15 db's push press\n3# 18/14 Calorie Row"]] },
+  { name: "every_rotation_stations", note: "'EVERY 2:30' + '3 sets - 30 min total' over 4 stations → Every 2:30 ×12 (30′). One interval = ONE STATION, so 3 sets × 4 stations = 12 intervals — NOT the 3 the old code read straight off '3 sets'",
+    rows: [["", "CARDIO"],
+           ["", "EVERY 2:30:\n1# 400 run\n2# amrap:\n2-4-6-8-10.....\nhalf burpee\npush up\n3# 400-500 row\n4# 2-4-6-8-10.....\njumping lunge\nburpee box jump\n3 sets - 30 min total"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
