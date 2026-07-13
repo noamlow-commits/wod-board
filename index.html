@@ -1804,6 +1804,19 @@
       color: #fff;
       border-color: #ef4444;
     }
+    /* Manual-timer button — the always-available escape hatch when the parser
+       finds no timer. Orange-outlined so it reads as an ACTION, not as the
+       second settings gear it used to look like. */
+    .tv-btn-timer-setup {
+      background: rgba(249, 115, 22, 0.16);
+      border-color: rgba(249, 115, 22, 0.55);
+      color: #fdba74;
+    }
+    .tv-btn-timer-setup:hover,
+    .tv-btn-timer-setup:focus {
+      background: rgba(249, 115, 22, 0.35);
+      color: #fff;
+    }
     .tv-part-label {
       color: #fbbf24;
       font-weight: 700;
@@ -1950,7 +1963,11 @@
     <button class="tv-btn" id="tvCenterBtn" onclick="toggleCenterFocus()" tabindex="0" title="מרכז את החלק במסך">⊙</button>
     <button class="tv-btn" id="tvTimerBtn" onclick="startPartTimer()" tabindex="0" title="הפעל טיימר — לחיצה ארוכה לסייקול" style="visibility:hidden;">▶ <span id="tvTimerLabel"></span></button>
     <button class="tv-btn" id="tvTimerCycleBtn" onclick="cyclePartTimer()" tabindex="0" title="החלף טיימר" style="visibility:hidden;">⏱↻</button>
-    <button class="tv-btn" id="tvTimerSetupBtn" onclick="TimerSetup.openFromDetected()" tabindex="0" title="הגדרת טיימר ידנית (שלט)">⚙</button>
+    <!-- Manual timer, ALWAYS available — this is the escape hatch for any block
+         the parser doesn't recognise. Was a bare "⚙", i.e. the same glyph as the
+         main settings gear, so the coach never found it and concluded a timer
+         simply couldn't be set (Noam 2026-07-13). Now it says what it does. -->
+    <button class="tv-btn tv-btn-timer-setup" id="tvTimerSetupBtn" onclick="TimerSetup.openFromDetected()" tabindex="0" title="הגדר טיימר ידנית — עובד גם כשלא זוהה טיימר (מקש G)">⏱＋ טיימר</button>
     <div class="tv-timer-controls" id="tvTimerControls">
       <button onclick="pauseTimer();updateFloatingTimerBar();" title="השהה/המשך">⏸</button>
       <button id="ftbVoiceBtn" onclick="toggleTimerVoice();" title="קול מאמן">🔊</button>
@@ -1968,6 +1985,11 @@
   <div class="modal-overlay" id="settingsModal">
     <div class="modal">
       <h2>⚙ הגדרות</h2>
+
+      <div class="form-group">
+        <button class="btn btn-secondary" style="width:100%;font-size:1.05rem;padding:0.7rem;" onclick="closeSettings();TimerSetup.openFromDetected();">⏱＋ הגדר טיימר ידנית</button>
+        <div class="hint">עובד תמיד — גם בתרגיל שהלוח לא זיהה ממנו טיימר. אפשר גם מהכפתור «⏱＋ טיימר» בסרגל התחתון, או במקש G בשלט.</div>
+      </div>
 
       <div class="form-group">
         <label>קישור לגוגל שיט</label>
