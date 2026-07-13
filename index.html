@@ -2212,8 +2212,13 @@
         src.start(when !== undefined ? when : this.ctx.currentTime);
       },
       // Sine wave with ADSR envelope — much nicer than the old square wave.
-      beep(freq = 880, duration = 0.15, count = 1, gap = 0.1, type = 'sine') {
+      // `vol` = sustain level (0-1). Default 0.28 is the long-standing level for
+      // every cue; loud cues pass a higher one. Peak is 1.4× the sustain and is
+      // clamped to 0.92 so a single oscillator can't clip the output.
+      beep(freq = 880, duration = 0.15, count = 1, gap = 0.1, type = 'sine', vol = 0.28) {
         if (timerMuted || !this.ctx) return;
+        const sustain = Math.min(0.92, vol);
+        const peak = Math.min(0.92, sustain * 1.4);
         for (let i = 0; i < count; i++) {
           const t = this.ctx.currentTime + i * (duration + gap);
           const osc = this.ctx.createOscillator();
@@ -2225,9 +2230,9 @@
           // ADSR: quick attack, brief decay to sustain, linear release
           const rel = Math.min(0.06, duration * 0.4);
           gain.gain.setValueAtTime(0, t);
-          gain.gain.linearRampToValueAtTime(0.40, t + 0.008);
-          gain.gain.linearRampToValueAtTime(0.28, t + 0.03);
-          gain.gain.setValueAtTime(0.28, t + duration - rel);
+          gain.gain.linearRampToValueAtTime(peak, t + 0.008);
+          gain.gain.linearRampToValueAtTime(sustain, t + 0.03);
+          gain.gain.setValueAtTime(sustain, t + duration - rel);
           gain.gain.linearRampToValueAtTime(0.001, t + duration);
           osc.start(t);
           osc.stop(t + duration + 0.02);
@@ -2247,7 +2252,10 @@
       // the gym at an E2MOM station change ("שתי פעימות קצרות… חלש מדי"). Now ONE
       // long flat tone: still deliberately non-rising (no sweep, no fanfare), just
       // longer and pitched higher so it cuts through. Distinct from GO (990Hz/1.3s).
-      intervalBeep() { this.beep(880, 1.0, 1); },
+      // Loudest cue on the board (vol 0.75 vs the 0.28 default) — it has to beat
+      // the gym music and the rowers. If it ever needs to come down, lower `vol`
+      // and the duration; do NOT make it rise.
+      intervalBeep() { this.beep(880, 1.0, 1, 0.1, 'sine', 0.75); },
       warningBeep()   { this.beep(660, 0.09, 3, 0.08); },           // short triple tick
       // Work/rest phase cues — simple beeps (ORIGINAL sound, reverted 2026-07-09
       // from the sawtooth fanfare): two high beeps for WORK start, one low beep
