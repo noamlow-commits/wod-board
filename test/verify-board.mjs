@@ -77,7 +77,7 @@ const FIXTURES = [
   { name: "every_rotation_stations", note: "'EVERY 2:30' + '3 sets - 30 min total' over 4 stations → Every 2:30 ×12 (30′). One interval = ONE STATION, so 3 sets × 4 stations = 12 intervals — NOT the 3 the old code read straight off '3 sets'",
     rows: [["", "CARDIO"],
            ["", "EVERY 2:30:\n1# 400 run\n2# amrap:\n2-4-6-8-10.....\nhalf burpee\npush up\n3# 400-500 row\n4# 2-4-6-8-10.....\njumping lunge\nburpee box jump\n3 sets - 30 min total"]] },
-  { name: "evey_typo_explicit_rounds", note: "the coach's real sheet (2026-07-14, verbatim): 'PART1: EVEY 2:00 X3' — 'EVEY' is a typo for EVERY (missing r) and used to match nothing at all → NO timer button on the TV. Also locks the ×N rotation rule on the explicit-multiplier path: X3 is 3 SETS over the 1#/2# stations = 6 intervals of 2:00 → Every 2:00 ×6 (12′), NOT the ×3 (6′) the old code took literally",
+  { name: "evey_typo_explicit_rounds", note: "the coach's real sheet (2026-07-14, verbatim): 'PART1: EVEY 2:00 X3' — 'EVEY' is a typo for EVERY (missing r) and used to match nothing at all → NO timer button on the TV. Also locks the deliberate asymmetry the coach confirmed: an explicit ×N in the header is the LITERAL interval count and is NOT multiplied by the 1#/2# stations → Every 2:00 ×3 (6′). (Only a separate 'N sets' line multiplies by stations — see every_rotation_stations.) Unifying the two paths made this a 12′ clock and was wrong.",
     rows: [["", "כוח", "WOD"],
            ["", "Strength:\nskill- 6-7 min", "PART1: EVEY 2:00 X3\n1# 10-8 strict pull up- Can Use band /Ring Rows\n2#. 10-8 St Dips / ring dips"]] },
 ];

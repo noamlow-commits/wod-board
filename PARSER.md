@@ -87,7 +87,16 @@ Chained timer button label: `${timerName} ×${rounds} · ${workMins}' work / ${r
 
 Both paths now go through **one shared helper**, `rotationRounds(iv)` / `writtenTotalMin()` — the two ways the coach writes the same thing must not drift apart. Interval count, from written values only: written total (`(30 min total)`, `total: 30 min`) ÷ interval → `N sets` × stations → `N sets` → exercise-line count → **0 = no timer**. Labels carry the total: `Every 2:30 ×12 (30′)`.
 
-**The rule now covers the explicit `×N` too (2026-07-14).** It previously did not, and the two ways of writing the same block disagreed: `every 2:00 ×3` took the 3 as an interval count while `every 2:00 / 3 sets` multiplied by the stations. The coach's `PART1: EVEY 2:00 X3 / 1# strict pull up / 2# st dips` therefore resolves to **6** intervals (12′), not 3 (6′). Written total still wins over both.
+**The rule does NOT extend to an explicit `×N` — and that asymmetry is deliberate (settled with the coach, 2026-07-14).** How she writes it *is* the distinction:
+
+| Written | Means | Example |
+|---|---|---|
+| `×N` **in the header itself** | N intervals, **literally**. Not multiplied by the stations — each interval covers the whole rotation. | `EVEY 2:00 X3` + `1#`/`2#` → `Every 2:00 ×3` = **6 min** |
+| `N sets` **on its own line** | N sets **of** the rotation → × the stations. | `EVERY 2:30` + `1#`..`4#` + `3 sets` → `×12` = **30 min** |
+
+A written total (`(30 min total)`) still overrides both.
+
+I unified the two paths first — making `×N` multiply by the stations as well — and it was **wrong**: it turned her 6-minute block into a 12-minute clock. The asymmetry looks like a bug and reads like a bug. It isn't. **Don't "fix" it again without asking her.**
 
 **`EVERY` is matched through one shared fragment, `EVERY_WORD` = `ev(?:er|re|e|r)y`** — `EVERY · EVEY · EVRY · EVREY`. The coach typed **`EVEY`** (dropped `r`) and `\bevery\b` matched nothing, so the block produced **no timer at all** on the gym TV. Same failure shape as the dangling-`x` `e2momx` bug: a one-character slip silently costs the whole clock.
 

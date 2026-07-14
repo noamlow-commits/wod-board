@@ -38,7 +38,7 @@
       "header": "WOD",
       "timers": [
         {
-          "label": "Every 2:00 ×6 (12′)",
+          "label": "Every 2:00 ×3 (6′)",
           "type": "emom"
         }
       ]

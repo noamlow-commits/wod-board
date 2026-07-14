@@ -2667,26 +2667,30 @@
           }
         }
 
-        // every X:XX ×N — explicit multiplier. The ×N is a count of SETS of the
-        // rotation, NOT of intervals: ONE INTERVAL = ONE STATION, exactly as in
-        // the no-×N path below. "every 2:00 ×3" over 1#/2# is 3 × 2 = 6
-        // intervals (12′), not 3 (6′).
+        // every X:XX ×N — explicit multiplier. The ×N is the LITERAL number of
+        // intervals: "every 2:00 ×3" is 3 × 2:00 = 6 min, full stop. It is NOT
+        // multiplied by the 1#/2# stations, even when stations are present —
+        // in that case each interval covers the whole rotation.
         //
-        // This path used to take the ×N literally while the no-×N path already
-        // multiplied by stations — so the two ways of writing the same block
-        // disagreed, and the coach's "EVEY 2:00 X3 / 1# strict pull up / 2# st
-        // dips" would have put a 6-minute clock on a 12-minute WOD (2026-07-14).
-        // A written total still wins over both (no-invented-timer-values).
+        // This is the one place where the "ONE INTERVAL = ONE STATION" rule of
+        // the no-×N path below does NOT apply, and the difference is in how the
+        // coach writes it, not in what the block does:
+        //   ×N in the header itself   → N intervals, literally  ("every 2:00 X3")
+        //   "N sets" on its own line  → N sets OF the rotation   ("every 2:30" +
+        //                               "3 sets" + 1#..4# = 12 intervals)
+        // Confirmed by the coach 2026-07-14: her "EVEY 2:00 X3" over 1#/2# is a
+        // 6-minute block. A brief attempt to unify the two paths (multiplying
+        // ×N by the stations too) made it a 12-minute clock and was wrong —
+        // don't "fix" the asymmetry again without asking her.
+        //
+        // A written total still wins (no-invented-timer-values).
         const everyExpRe = everyRe('\\s+(\\d+):(\\d{2})\\s*[x×*]\\s*(\\d+)', 'gi');
         while ((m = everyExpRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
           const iv = parseInt(m[1])*60 + parseInt(m[2]);
-          const sets = parseInt(m[3]);
-          const stations = stationCount();
           const totalMin = writtenTotalMin();
-          const rounds = totalMin ? Math.round((totalMin * 60) / iv)
-                                  : sets * (stations >= 2 ? stations : 1);
+          const rounds = totalMin ? Math.round((totalMin * 60) / iv) : parseInt(m[3]);
           if (rounds < 1 || rounds > 60) continue;
           const total = totalMin ? totalMin * 60 : iv * rounds;
           results.push({ type: 'emom', totalSeconds: total, intervalSeconds: iv,
