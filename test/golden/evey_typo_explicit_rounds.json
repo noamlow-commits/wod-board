@@ -1,0 +1,47 @@
+{
+  "data": {
+    "headers": [
+      "כוח",
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "כוח",
+            "lines": [
+              "Strength:",
+              "skill- 6-7 min"
+            ]
+          },
+          {
+            "header": "WOD",
+            "lines": [
+              "PART1: EVEY 2:00 X3",
+              "1# 10-8 strict pull up- Can Use band /Ring Rows",
+              "2#. 10-8 St Dips / ring dips"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "כוח",
+      "timers": []
+    },
+    {
+      "section": "—",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "Every 2:00 ×6 (12′)",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

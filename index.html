@@ -2319,6 +2319,22 @@
     // 3. Sanity gates — a phase with `seconds <= 0` is rejected with a
     //    console.warn (never silently accepted). 0 duration is never the
     //    coach's intent, so it's a flag that upstream parsing went wrong.
+    // "EVERY", as the coach actually types it. One shared source fragment —
+    // every site that recognises the keyword builds its regex from this, so the
+    // spellings can't drift apart (see the 3-parallel-places rule in PARSER.md).
+    // "EVEY 2:00 X3" reached the gym TV with no timer at all: the missing `r`
+    // killed `\bevery\b` and the block silently produced nothing (2026-07-14).
+    // Deliberately narrow — the known typos only, so no real word is swallowed.
+    // The middle group is MANDATORY: each spelling keeps exactly one of these
+    // between the "ev" and the "y", so there is nothing to make optional.
+    //   EVERY → er   ·   EVEY → e (dropped r)   ·   EVRY → r (dropped e)
+    //   EVREY → re (transposed).  An optional group instead matches "EVY" —
+    //   which nobody types — while still missing "EVEY", which is what the
+    //   coach actually typed. The golden fixture evey_typo_explicit_rounds
+    //   catches exactly that inversion.
+    const EVERY_WORD = 'ev(?:er|re|e|r)y';
+    const everyRe = (tail, flags) => new RegExp(`\\b${EVERY_WORD}${tail}`, flags);
+
     function buildWorkoutTimeline(lines) {
       // Helper: push only if seconds > 0, warn otherwise. Catches the class
       // of bugs where a regex matches but on a bogus substring (see invariant 3).
@@ -2347,7 +2363,7 @@
         wm = line.match(/\bEMOM\s+(\d+)/i);
         if (wm) { if (pushPhase(classified, { type:'work', seconds:parseInt(wm[1])*60, label:`EMOM ${wm[1]}′` })) continue; }
         // WORK: every X:XX ×N
-        wm = line.match(/\bevery\s+(\d+):(\d{2})\s*[x×*]\s*(\d+)/i);
+        wm = line.match(everyRe('\\s+(\\d+):(\\d{2})\\s*[x×*]\\s*(\\d+)', 'i'));
         if (wm) { const iv=parseInt(wm[1])*60+parseInt(wm[2]); if (pushPhase(classified, { type:'work', seconds:iv*parseInt(wm[3]), label:`Every ${wm[1]}:${wm[2]} ×${wm[3]}` })) continue; }
         // WORK: "N min work" / "N minute(s) work" — bare time block (no AMRAP/EMOM keyword)
         wm = line.match(/\b(\d+)\s*min(?:utes?)?\s+work\b/i);
@@ -2548,11 +2564,12 @@
                   || text.match(/\btotal[^\S\r\n:\-]*[:\-]?[^\S\r\n]*(\d+)[^\S\r\n]*min(?:utes?)?\b/i);
           return tm ? parseInt(tm[1]) : 0;
         };
+        const stationCount = () => lines.filter(l => /^\s*\d+\s*#/.test(l)).length;
         const rotationRounds = (iv) => {
           const totalMin = writtenTotalMin();
           if (totalMin) return Math.round((totalMin * 60) / iv);
           const setsM = text.match(/(\d+)\s*(?:sets?|rounds?)\b/i);
-          const stations = lines.filter(l => /^\s*\d+\s*#/.test(l)).length;
+          const stations = stationCount();
           if (setsM) return parseInt(setsM[1]) * (stations >= 2 ? stations : 1);
           const exerciseLines = lines.filter(l => /^\s*\d/.test(l) && !/^\s*\d+\s*(sec|on|off|work|rest|min|set|round)/i.test(l));
           return exerciseLines.length >= 2 ? exerciseLines.length : 0;
@@ -2650,22 +2667,37 @@
           }
         }
 
-        // every X:XX ×N — explicit multiplier
-        const everyExpRe = /\bevery\s+(\d+):(\d{2})\s*[x×*]\s*(\d+)/gi;
+        // every X:XX ×N — explicit multiplier. The ×N is a count of SETS of the
+        // rotation, NOT of intervals: ONE INTERVAL = ONE STATION, exactly as in
+        // the no-×N path below. "every 2:00 ×3" over 1#/2# is 3 × 2 = 6
+        // intervals (12′), not 3 (6′).
+        //
+        // This path used to take the ×N literally while the no-×N path already
+        // multiplied by stations — so the two ways of writing the same block
+        // disagreed, and the coach's "EVEY 2:00 X3 / 1# strict pull up / 2# st
+        // dips" would have put a 6-minute clock on a 12-minute WOD (2026-07-14).
+        // A written total still wins over both (no-invented-timer-values).
+        const everyExpRe = everyRe('\\s+(\\d+):(\\d{2})\\s*[x×*]\\s*(\\d+)', 'gi');
         while ((m = everyExpRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
           const iv = parseInt(m[1])*60 + parseInt(m[2]);
-          const rounds = parseInt(m[3]);
-          results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
-                         label: `Every ${m[1]}:${m[2]} ×${rounds}` });
+          const sets = parseInt(m[3]);
+          const stations = stationCount();
+          const totalMin = writtenTotalMin();
+          const rounds = totalMin ? Math.round((totalMin * 60) / iv)
+                                  : sets * (stations >= 2 ? stations : 1);
+          if (rounds < 1 || rounds > 60) continue;
+          const total = totalMin ? totalMin * 60 : iv * rounds;
+          results.push({ type: 'emom', totalSeconds: total, intervalSeconds: iv,
+                         label: `Every ${m[1]}:${m[2]} ×${rounds} (${Math.round(total / 60)}′)` });
         }
 
         // every X:XX without ×N — a rotation block: interval count comes from
         // rotationRounds(), so "3 sets" over 4 stations is 12 intervals, not 3.
         // (It used to read "N sets" as the interval count and fall back to a
         // hard-coded 5 — that put "Every 2:30 ×3" on a 30-minute WOD.)
-        const everyImpRe = /\bevery\s+(\d+):(\d{2})/gi;
+        const everyImpRe = everyRe('\\s+(\\d+):(\\d{2})', 'gi');
         while ((m = everyImpRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
@@ -4522,7 +4554,7 @@
       const isInstruction = (!isDescriptiveList && /\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM[x×]?|TABATA|TBATA|METCON|RFT|YGIG)\b/i.test(text))
         || /\be\s*\d+:\d{2}\s*mom\b/i.test(text)
         || /^\d+\s*(rounds?|min|sec(onds?)?|sets?)\b/i.test(text)
-        || /^(every|each)\s+\d/i.test(text)
+        || new RegExp(`^(?:${EVERY_WORD}|each)\\s+\\d`, 'i').test(text)
         || /\brounds?\s*(for time|x\s*\d)/i.test(text)
         || /^stay\s+\d/i.test(text)
         || /\bcomplete\s+\d+\s*rounds?\b/i.test(text)
@@ -4738,7 +4770,11 @@
               // header, a format header (AMRAP/EMOM/For Time/Tabata/EMOM…), a "1#"
               // station, or a warm-up line. The column splitter uses this to never
               // tear A1 from A2 (the 2026-07-08 superset-torn-across-columns bug).
-              const isFormatHeader = /\b(amrap|emom|for\s*time|tabata|every|e\d*mom[x×]?|rft|rounds?\s+for\s+time)\b/i.test(line);
+              // Built from EVERY_WORD so the coach's "EVEY" is a block boundary too;
+              // `tbata` was missing here while 2 of the other 3 sites had it — a
+              // TBATA line got a timer and a badge but could still be torn across
+              // columns away from its own exercises.
+              const isFormatHeader = new RegExp(`\\b(amrap|emom|for\\s*time|tabata|tbata|${EVERY_WORD}|e\\d*mom[x×]?|rft|rounds?\\s+for\\s+time)\\b`, 'i').test(line);
               let groupLetter = curGroupLetter;
               if (isGrpHdr) {
                 const m = line.match(/^\s*([A-Za-z])/);
