@@ -1,0 +1,36 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "E2MOM",
+              "3 sets",
+              "1# 24 db's Alternating Lunges in Place",
+              "2+3# 15 db's push press",
+              "4# 18/14 Calorie Row"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "E2MOM ×12 (24′)",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

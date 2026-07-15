@@ -80,6 +80,9 @@ const FIXTURES = [
   { name: "evey_typo_explicit_rounds", note: "the coach's real sheet (2026-07-14, verbatim): 'PART1: EVEY 2:00 X3' — 'EVEY' is a typo for EVERY (missing r) and used to match nothing at all → NO timer button on the TV. Also locks the deliberate asymmetry the coach confirmed: an explicit ×N in the header is the LITERAL interval count and is NOT multiplied by the 1#/2# stations → Every 2:00 ×3 (6′). (Only a separate 'N sets' line multiplies by stations — see every_rotation_stations.) Unifying the two paths made this a 12′ clock and was wrong.",
     rows: [["", "כוח", "WOD"],
            ["", "Strength:\nskill- 6-7 min", "PART1: EVEY 2:00 X3\n1# 10-8 strict pull up- Can Use band /Ring Rows\n2#. 10-8 St Dips / ring dips"]] },
+  { name: "emom_merged_station", note: "coach merges two stations into one line — 'E2MOM\\n3 sets' over stations 1#, 2+3#, 4#. A merged '2+3#' is TWO stations, so 3 sets × 4 stations = 12 intervals (E2MOM ×12, 24′), NOT the ×6 the old line-counting read (it missed '2+3#' entirely). Guards: stationCount() counts digit-groups not lines (~2567) + the merged label gets the orange rep highlight (~4628) + counts as a clean-break station (~4764). Bug from the 2026-07-15 EMOM 25 board where '2+3# 200-150 M RUN' stayed white.",
+    rows: [["", "WOD"],
+           ["", "E2MOM\n3 sets\n1# 24 db's Alternating Lunges in Place\n2+3# 15 db's push press\n4# 18/14 Calorie Row"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
