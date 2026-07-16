@@ -96,6 +96,13 @@ Both paths now go through **one shared helper**, `rotationRounds(iv)` / `written
 
 A written total (`(30 min total)`) still overrides both.
 
+**AMRAP `×N` (added 2026-07-16).** A trailing multiplier on an AMRAP header is a back-to-back rotation of AMRAP intervals — same literal-`×N` rule as above (N intervals, one per station, **not** × stations). Modeled as an EMOM-style timer (interval = the AMRAP length) so each station change beeps. Before this, the AMRAP regex captured only `AMRAP 10` and **silently dropped the `×3`**, putting a 10′ clock on a 30′ WOD.
+
+| Written | Means | Timer |
+|---|---|---|
+| `every 10 amrap ×3` (or `amrapx3`) + `1#`/`2#`/`3#` | 3 × 10′ AMRAPs, one per station | `AMRAP ×3 · 10′ (30′)`, EMOM 10′ interval |
+| `AMRAP 12` (no multiplier) | single AMRAP, unchanged | `AMRAP 12′` |
+
 I unified the two paths first — making `×N` multiply by the stations as well — and it was **wrong**: it turned her 6-minute block into a 12-minute clock. The asymmetry looks like a bug and reads like a bug. It isn't. **Don't "fix" it again without asking her.**
 
 **`EVERY` is matched through one shared fragment, `EVERY_WORD` = `ev(?:er|re|e|r)y`** — `EVERY · EVEY · EVRY · EVREY`. The coach typed **`EVEY`** (dropped `r`) and `\bevery\b` matched nothing, so the block produced **no timer at all** on the gym TV. Same failure shape as the dangling-`x` `e2momx` bug: a one-character slip silently costs the whole clock.
