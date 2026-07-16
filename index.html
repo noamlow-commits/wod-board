@@ -2523,13 +2523,24 @@
         }
       }
 
-      // Find ALL AMRAP patterns — only if not already chained above
+      // Find ALL AMRAP patterns — only if not already chained above.
+      // A trailing "×N" turns a single AMRAP into a back-to-back rotation:
+      // "every 10 amrap ×3" = 3 × 10′ AMRAPs (one per station) = 30′, modeled
+      // as an EMOM-style interval timer so each 10′ station change is beeped.
+      // (Without this the ×3 was silently dropped and the TV showed "AMRAP 10′".)
       let m;
       if (!chained) {
-        const amrapRe = /\b(?:([1-9]\d*)\s*(?:min(?:ute)?s?\s+)?AMRAP|AMRAP\s+([1-9]\d*))\s*:?/gi;
+        const amrapRe = /\b(?:([1-9]\d*)\s*(?:min(?:ute)?s?\s+)?AMRAP|AMRAP\s+([1-9]\d*))\s*(?:[x×*]\s*([1-9]\d*))?\s*:?/gi;
         while ((m = amrapRe.exec(text)) !== null) {
           const mins = parseInt(m[1] || m[2]);
-          results.push({ type: 'amrap', totalSeconds: mins * 60, label: `AMRAP ${mins}′` });
+          const rounds = m[3] ? parseInt(m[3]) : 1;
+          if (rounds >= 2 && rounds <= 60) {
+            const iv = mins * 60;
+            results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
+                           label: `AMRAP ×${rounds} · ${mins}′ (${mins * rounds}′)` });
+          } else {
+            results.push({ type: 'amrap', totalSeconds: mins * 60, label: `AMRAP ${mins}′` });
+          }
         }
       }
 
