@@ -2565,15 +2565,29 @@
         // Interval count, resolved ONLY from values the coach actually wrote
         // (feedback: no-invented-timer-values) — an explicit total always wins,
         // because it's the one number that can't be mis-derived:
-        //   1. "(30 min total)" / "total: 30 min"   → total ÷ interval
-        //   2. "N sets" × the "1#/2#/3#" stations   → the rotation
-        //   3. "N sets" alone (no stations)         → N
-        //   4. one interval per exercise line       → line count
+        //   1. "(30 min total)" / "total: 30 min"    → total ÷ interval
+        //   2. "(6 Rounds)" / "6 rounds total"       → the literal interval count
+        //   3. "N sets" × the "1#/2#/3#" stations    → the rotation
+        //   4. "N sets" alone (no stations)          → N
+        //   5. one interval per exercise line        → line count
         // 0 (→ no timer) if none of those is written.
         const writtenTotalMin = () => {
           const tm = text.match(/(\d+)[^\S\r\n]*min(?:utes?)?[^\S\r\n]*total\b/i)
                   || text.match(/\btotal[^\S\r\n:\-]*[:\-]?[^\S\r\n]*(\d+)[^\S\r\n]*min(?:utes?)?\b/i);
           return tm ? parseInt(tm[1]) : 0;
+        };
+        // An explicit round count the coach spells out — a PARENTHETICAL
+        // "(6 Rounds)" or "6 rounds total". Like writtenTotalMin, it's a written
+        // value that can't be mis-derived, so it is the LITERAL number of
+        // intervals and overrides both a header ×N and the sets×stations math.
+        // (Her "Every 1:30 x 3 sets (6 Rounds)" over #1/#2 is 6 intervals = 9′,
+        // not the literal ×3.) Deliberately NOT a bare "6 rounds" line — that
+        // form is "N sets OF the rotation" and is handled below by ×stations;
+        // only the parenthetical / "…total" form is read as the final count.
+        const writtenTotalRounds = () => {
+          const rm = text.match(/\((\d+)[^\S\r\n]*rounds?\)/i)
+                  || text.match(/\b(\d+)[^\S\r\n]*rounds?[^\S\r\n]*total\b/i);
+          return rm ? parseInt(rm[1]) : 0;
         };
         // Count stations for rotation math. A merged label "2+3#" is TWO
         // stations sharing one description line (coach shorthand), so count the
@@ -2581,12 +2595,16 @@
         // rotates one interval short. Kept in sync with the highlight (~4628)
         // and clean-break (~4764) regexes.
         const stationCount = () => lines.reduce((n, l) => {
-          const m = l.match(/^\s*(\d+(?:\s*[+\-,&]\s*\d+)*)\s*#/);
-          return n + (m ? m[1].split(/[+\-,&]/).length : 0);
+          // Accept BOTH orders the coach writes a station marker:
+          // number-first ("1#", "2+3#") and hash-first ("#1", "#2").
+          const m = l.match(/^\s*(?:#\s*(\d+)|(\d+(?:\s*[+\-,&]\s*\d+)*)\s*#)/);
+          return n + (m ? (m[2] ? m[2].split(/[+\-,&]/).length : 1) : 0);
         }, 0);
         const rotationRounds = (iv) => {
           const totalMin = writtenTotalMin();
           if (totalMin) return Math.round((totalMin * 60) / iv);
+          const totalRounds = writtenTotalRounds();
+          if (totalRounds) return totalRounds;   // explicit "(N rounds)" = literal count
           const setsM = text.match(/(\d+)\s*(?:sets?|rounds?)\b/i);
           const stations = stationCount();
           if (setsM) return parseInt(setsM[1]) * (stations >= 2 ? stations : 1);
@@ -2679,7 +2697,9 @@
           const iv = parseInt(m[1])*60 + parseInt(m[2]);
           const r1 = parseInt(m[3]);
           const r2 = m[4] ? parseInt(m[4]) : 0;
-          const rounds = Math.max(r1, r2);
+          // An explicit "(N Rounds)" the coach wrote is the literal interval
+          // count and overrides the header ×N ("1:30 x 3 sets (6 Rounds)" → ×6).
+          const rounds = writtenTotalRounds() || Math.max(r1, r2);
           if (iv >= 30 && iv <= 30*60 && rounds >= 2 && rounds <= 20) {
             results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
                            label: `${m[1]}:${m[2]} ×${rounds}` });
@@ -2709,7 +2729,8 @@
           consume(m);
           const iv = parseInt(m[1])*60 + parseInt(m[2]);
           const totalMin = writtenTotalMin();
-          const rounds = totalMin ? Math.round((totalMin * 60) / iv) : parseInt(m[3]);
+          // Written total wins; then an explicit "(N Rounds)"; then the header ×N.
+          const rounds = totalMin ? Math.round((totalMin * 60) / iv) : (writtenTotalRounds() || parseInt(m[3]));
           if (rounds < 1 || rounds > 60) continue;
           const total = totalMin ? totalMin * 60 : iv * rounds;
           results.push({ type: 'emom', totalSeconds: total, intervalSeconds: iv,
@@ -4363,7 +4384,7 @@
               //         e.g. "press4 clean" → ["press", "4 clean"]
               // Rule 2: space before N# exercise numbering (1#–9#)
               //         e.g. "air squat 4#rotata" → ["air squat", "4#rotata"]
-              .flatMap(l => l.split(/(?<=[a-z\u0590-\u05FF])(?=\d+\s+[a-zA-Z\u0590-\u05FF])|(?<=\s)(?=[1-9]#)/))
+              .flatMap(l => l.split(/(?<=[a-z\u0590-\u05FF])(?=\d+\s+[a-zA-Z\u0590-\u05FF])|(?<=\s)(?=[1-9]#|#[1-9])/))
               .map(l => l.trim());
             // Preserve empty lines as '__SPACER__', filter bare URLs
             const lines = [];
@@ -4647,7 +4668,8 @@
       // including compound station labels where the coach merges stations:
       // "2+3#", "2-3#", "2,3#", "2 & 3#". Without the group the "+3" broke the
       // match and the whole line stayed plain white (unlike the bare "1#").
-      html = html.replace(/^(\d+(?:\s*[+\-,&]\s*\d+)*#)/, '<span class="rep-number">$1</span>');
+      // Also the hash-first order the coach uses ("#1", "#2").
+      html = html.replace(/^(#\s*\d+|\d+(?:\s*[+\-,&]\s*\d+)*#)/, '<span class="rep-number">$1</span>');
 
       // Highlight rep schemes at start of line: "22-16-10", "10-9-8-7-6-5-4-3-2-1"
       // (3+ numbers separated by dashes or dots)
@@ -4780,7 +4802,7 @@
               const ec = parsed.extraClass ? ' ' + parsed.extraClass : '';
               const grpCls = parsed.isGroupTitle ? ' group-line' : '';
               const isGrpHdr = isGrpLine(line);
-              const isStation = /^\s*\d+(?:\s*[+\-,&]\s*\d+)*\s*#/.test(line); // "1#", "2#", merged "2+3#" station markers — clean break points
+              const isStation = /^\s*(?:#\s*\d+|\d+(?:\s*[+\-,&]\s*\d+)*\s*#)/.test(line); // "1#", "2#", "#1", "#2", merged "2+3#" station markers — clean break points
               // Sub-group headers ("B4. 4 sets of:", "A1.") and instruction
               // sub-headers introduce the lines below them — like a group header,
               // they must never be left stranded at the bottom of a column while
@@ -6255,7 +6277,7 @@
             label = val;
           } else {
             const rawLines2 = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*(?!\d|bw\b|rpe\b)/i))
-              .flatMap(l => l.split(/(?<=[a-z\u0590-\u05FF])(?=\d+\s+[a-zA-Z\u0590-\u05FF])|(?<=\s)(?=[1-9]#)/))
+              .flatMap(l => l.split(/(?<=[a-z\u0590-\u05FF])(?=\d+\s+[a-zA-Z\u0590-\u05FF])|(?<=\s)(?=[1-9]#|#[1-9])/))
               .map(l => l.trim());
             const lines = [];
             let lastWas2 = false;

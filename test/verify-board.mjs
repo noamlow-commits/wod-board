@@ -83,6 +83,9 @@ const FIXTURES = [
   { name: "emom_merged_station", note: "coach merges two stations into one line — 'E2MOM\\n3 sets' over stations 1#, 2+3#, 4#. A merged '2+3#' is TWO stations, so 3 sets × 4 stations = 12 intervals (E2MOM ×12, 24′), NOT the ×6 the old line-counting read (it missed '2+3#' entirely). Guards: stationCount() counts digit-groups not lines (~2567) + the merged label gets the orange rep highlight (~4628) + counts as a clean-break station (~4764). Bug from the 2026-07-15 EMOM 25 board where '2+3# 200-150 M RUN' stayed white.",
     rows: [["", "WOD"],
            ["", "E2MOM\n3 sets\n1# 24 db's Alternating Lunges in Place\n2+3# 15 db's push press\n4# 18/14 Calorie Row"]] },
+  { name: "hashfirst_stations_rounds", note: "coach's real sheet (2026-07-19, verbatim): 'Every 1:30 x 3 sets (6 Rounds)' over HASH-FIRST stations '#1'/'#2'. Two bugs: (1) '#1'/'#2' (hash-first) were invisible to every station regex — only number-first '1#'/'2#' matched — so they got no orange badge and weren't clean break points (see BADGE_CHECKS '#1'/'#2'). (2) The header ×3 is a literal EMOM count, but the coach also spelled out '(6 Rounds)' = 3 sets × 2 stations, so the clock must be 1:30 ×6 (9′), not the 4:30 the literal ×3 gave. Fix: an explicit parenthetical '(N Rounds)' is a written total that overrides the derived count (like '(N min total)' already did), WITHOUT touching the ×N/stations asymmetry the evey_typo fixture locks.",
+    rows: [["", "WOD"],
+           ["", "Every 1:30 x 3 sets (6 Rounds)\n#1\n5-7 Strict HSPU\nThen Max Handstand Hold in the remaining time\n#2\n12 Pike Leg Lifts\nThen Max Tuck Hold / L-Hold in the remaining time"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -109,6 +112,11 @@ const BADGE_CHECKS = [
   { line: "1 partner: 12 cal", expect: "group-badge" },           // number-first form, same badge
   { line: "partner 3: plank hold", expect: "group-badge" },       // no colon, still a partner
   { line: "partnership drill", expect: "none" },                  // prose, not a partner (\\b guard)
+  { line: "#1", expect: "station" },                              // hash-first station marker (coach's 2026-07-19 sheet)
+  { line: "#2", expect: "station" },                              // hash-first station marker
+  { line: "1#", expect: "station" },                              // number-first still works
+  { line: "2+3#", expect: "station" },                            // merged station still works
+  { line: "12 Pike Leg Lifts", expect: "none" },                  // a leading rep count is NOT a station (no #)
 ];
 
 const stable = (o) => JSON.stringify(o, null, 2);
@@ -132,6 +140,10 @@ const badgeFails = [];
   const got = await page.evaluate((checks) =>
     checks.map((c) => {
       const html = (window.parseLine(c.line) || {}).html || "";
+      // A station marker ("1#", "#1", "2+3#") gets the orange rep-number badge;
+      // it's distinguished from a plain leading rep count ("12 reps", also
+      // rep-number) by the "#" inside the span.
+      if (/rep-number">[^<]*#/.test(html)) return { line: c.line, expect: c.expect, actual: "station" };
       const m = html.match(/(group-badge|subgroup-badge)/);
       return { line: c.line, expect: c.expect, actual: m ? m[1] : "none" };
     }), BADGE_CHECKS);

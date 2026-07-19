@@ -1,0 +1,38 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "Every 1:30 x 3 sets (6 Rounds)",
+              "#1",
+              "5-7 Strict HSPU",
+              "Then Max Handstand Hold in the remaining time",
+              "#2",
+              "12 Pike Leg Lifts",
+              "Then Max Tuck Hold / L-Hold in the remaining time"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "1:30 ×6",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}
