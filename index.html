@@ -26,6 +26,15 @@
       --default-start: #8b5cf6;
       --default-end: #7c3aed;
       --font-scale: 1;
+      /* Docked-timer sizing knobs (global so the center-focus overlay, which
+         lives OUTSIDE .main-content, can read --timer-dock-w too). Calibrated
+         2026-07-26 to the coach's "≈ the X in 'complex'" reference — a MODERATE
+         clock that reads clearly without dominating, not the earlier giant.
+         --timer-dock-w   = width of the reserved right band (how much the workout
+                            gives up). Kept small so it barely shrinks the layout.
+         --timer-clock-size = clock digit size. Bump both together for a bigger clock. */
+      --timer-dock-w: 24vw;
+      --timer-clock-size: 7.5vw;
     }
 
     body {
@@ -165,16 +174,9 @@
       display: none;
     }
     /* When timer is active, main-content becomes a row layout.
-       --timer-dock-w  = width of the reserved clock band on the right. #wodArea
-                         gets this as padding-right, so the workout is PUSHED into
-                         the left column and autoFit shrinks it (never covered).
-       --timer-clock-size = the clock digit size. Both are tuning knobs (with
-                         hard fallbacks in each rule, so the layout is robust even
-                         if the variable doesn't inherit for any reason). */
+       Sizing knobs live in :root (see --timer-dock-w / --timer-clock-size). */
     .main-content.timer-docked {
       flex-direction: row !important;
-      --timer-dock-w: 44vw;
-      --timer-clock-size: 13.5vw;
     }
     .main-content.timer-docked #wodArea {
       flex: 1;
@@ -187,7 +189,7 @@
        vertical overflow) re-fits the workout into the remaining left column.
        Scoped away from split mode, which keeps its own in-flow dock column. */
     .main-content.timer-docked:not(.mode-split) #wodArea {
-      padding-right: var(--timer-dock-w, 44vw);
+      padding-right: var(--timer-dock-w, 24vw);
     }
     /* Docked timer clock — TOP-RIGHT of the board.
        2026-07-09: moved to top-right per coach ("clock at top + more visible").
@@ -205,8 +207,8 @@
       top: 2px;
       right: 6px;
       z-index: 9350;
-      width: var(--timer-dock-w, 44vw);
-      max-width: var(--timer-dock-w, 44vw);
+      width: var(--timer-dock-w, 24vw);
+      max-width: var(--timer-dock-w, 24vw);
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
@@ -228,24 +230,25 @@
       line-height: 0.85;
       text-align: center;
     }
-    /* Enlarged clock + labels for the pushing top-right dock ONLY. Scoped away
-       from split mode (narrow 20vw column) and center-focus overlay-mode (16vw
-       column) — both keep the smaller base sizes so they don't overflow. */
-    .main-content.timer-docked:not(.mode-split) .timer-dock:not(.overlay-mode) #ftbTime {
-      font-size: var(--timer-clock-size, 13.5vw);
+    /* Moderate clock + labels for the docked timer — applies to BOTH the spread
+       top-right dock AND the center-focus overlay-mode (2026-07-26: overlay-mode
+       is no longer a full-height column, so it uses the same tight corner box).
+       Only split mode keeps the small base sizes (its column is just 20vw wide). */
+    .main-content.timer-docked:not(.mode-split) .timer-dock #ftbTime {
+      font-size: var(--timer-clock-size, 7.5vw);
     }
-    .main-content.timer-docked:not(.mode-split) .timer-dock:not(.overlay-mode) #ftbType {
-      font-size: 2.4vw;
-    }
-    .main-content.timer-docked:not(.mode-split) .timer-dock:not(.overlay-mode) #ftbPhase {
-      font-size: 3vw;
-    }
-    .main-content.timer-docked:not(.mode-split) .timer-dock:not(.overlay-mode) #ftbRound {
-      font-size: 1.8vw;
-    }
-    .main-content.timer-docked:not(.mode-split) .timer-dock:not(.overlay-mode) #ftbStopBtn {
+    .main-content.timer-docked:not(.mode-split) .timer-dock #ftbType {
       font-size: 1.6vw;
-      padding: 0.35rem 1.6rem;
+    }
+    .main-content.timer-docked:not(.mode-split) .timer-dock #ftbPhase {
+      font-size: 2vw;
+    }
+    .main-content.timer-docked:not(.mode-split) .timer-dock #ftbRound {
+      font-size: 1.4vw;
+    }
+    .main-content.timer-docked:not(.mode-split) .timer-dock #ftbStopBtn {
+      font-size: 1.3vw;
+      padding: 0.3rem 1.4rem;
     }
     .timer-dock #ftbPhase {
       font-weight: 900;
@@ -306,21 +309,14 @@
       color: #fbbf24;
     }
     .tv-timer-controls .stop-btn { color: #ef4444; }
-    /* When center overlay is open, timer floats above it.
-       Must exactly match overlay.style.right (16vw) to avoid a gap between
-       overlay end and timer start where wodArea content would show through.
-       !important overrides the parent rule's width: auto / max-width: 20vw. */
+    /* Center-focus (מירכוז): the timer used to be a FULL-HEIGHT 16vw column here
+       (a big empty orange frame — the coach's complaint 2026-07-26). Now it's the
+       SAME tight top-right corner box as the spread dock (from the base rule
+       above) — height auto, so the frame ends right below the clock. The center
+       overlay reserves --timer-dock-w on its right (set in JS) so its content
+       clears the clock; overlay-mode only needs to sit above the overlay (z 9200). */
     .timer-dock.overlay-mode {
-      position: fixed !important;
-      right: 0;
-      top: 80px;
-      bottom: 0;
-      width: 16vw !important;
-      min-width: 16vw !important;
-      max-width: 16vw !important;
       z-index: 9400;
-      display: flex !important;
-      background: #1a1a1a;
     }
 
     #wodArea {
@@ -5907,7 +5903,7 @@
       const overlay = document.getElementById('tvCenterOverlay');
       if (overlay && overlay.classList.contains('open')) {
         bar.classList.add('overlay-mode');
-        overlay.style.right = '16vw';
+        overlay.style.right = 'var(--timer-dock-w, 24vw)';  // reserve just the clock band, not a wide column
         // Re-run overlay's font sizing for narrower width
         requestAnimationFrame(() => applyCenterFocus());
       } else {
@@ -6155,7 +6151,7 @@
         const _mc = document.getElementById('mainContent');
         if (_mc && _mc.classList.contains('timer-docked') && _td) {
           _td.classList.add('overlay-mode');
-          overlay.style.right = '16vw';
+          overlay.style.right = 'var(--timer-dock-w, 24vw)';  // reserve just the clock band
         } else {
           overlay.style.right = '0';
         }
