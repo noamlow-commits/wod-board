@@ -200,7 +200,8 @@
        edge to peek out as a duplicate). Space is reserved separately via #wodArea
        padding-right above, so the workout is pushed, not covered. Height is auto →
        the orange frame ends right below the clock, not down the whole column.
-       Split mode overrides back to its in-flow column; overlay-mode to a 16vw one. */
+       Split mode overrides back to its in-flow column; overlay-mode (center-focus)
+       reuses this same tight corner box, with the content flowing around it. */
     .main-content.timer-docked .timer-dock {
       display: flex !important;
       position: fixed;
@@ -1786,6 +1787,24 @@
       line-height: 1.3;
       text-align: center;
       width: 100%;
+    }
+    /* Center-focus with a docked timer (coach 2026-07-26: "it still pushes
+       everything"). The clock is a tight top-right CORNER box and the content
+       FLOWS AROUND it instead of the whole layout shifting left. The header
+       clears the clock band; the body switches to block flow with a right-floated
+       spacer (its height set by JS to the clock's height) that the top lines wrap
+       around — every line BELOW the clock reclaims the full width. */
+    #tvCenterOverlay.clock-reserve .tvo-header {
+      padding-right: calc(var(--timer-dock-w, 24vw) + 0.8rem);
+    }
+    #tvCenterOverlay.clock-reserve .tvo-body {
+      display: block;
+    }
+    #tvCenterOverlay .tvo-clock-spacer {
+      float: right;
+      width: var(--timer-dock-w, 24vw);
+      height: 0;            /* JS sets the real height = clock box height */
+      pointer-events: none;
     }
 
     /* ── TV Remote Navigation Panel ── */
@@ -5903,8 +5922,9 @@
       const overlay = document.getElementById('tvCenterOverlay');
       if (overlay && overlay.classList.contains('open')) {
         bar.classList.add('overlay-mode');
-        overlay.style.right = 'var(--timer-dock-w, 24vw)';  // reserve just the clock band, not a wide column
-        // Re-run overlay's font sizing for narrower width
+        overlay.style.right = '0';                 // full width — content flows around the corner clock
+        overlay.classList.add('clock-reserve');    // applyCenterFocus sizes the corner spacer
+        // Re-run overlay's font sizing (rebuilds body + corner reservation)
         requestAnimationFrame(() => applyCenterFocus());
       } else {
         // Re-fit content in the now-narrower wodArea
@@ -5932,7 +5952,7 @@
       // Remove overlay-mode if it was on
       if (bar) bar.classList.remove('overlay-mode');
       const overlay = document.getElementById('tvCenterOverlay');
-      if (overlay) overlay.style.right = '';
+      if (overlay) { overlay.style.right = ''; overlay.classList.remove('clock-reserve'); }
 
       // Re-fit content
       if (overlay && overlay.classList.contains('open')) {
@@ -6151,14 +6171,28 @@
         const _mc = document.getElementById('mainContent');
         if (_mc && _mc.classList.contains('timer-docked') && _td) {
           _td.classList.add('overlay-mode');
-          overlay.style.right = 'var(--timer-dock-w, 24vw)';  // reserve just the clock band
+          overlay.style.right = '0';                 // full width — content flows AROUND the corner clock
+          overlay.classList.add('clock-reserve');    // header clears the clock + body reserves the corner
         } else {
           overlay.style.right = '0';
+          overlay.classList.remove('clock-reserve');
+          const _sp = bodyDiv.querySelector('.tvo-clock-spacer'); if (_sp) _sp.remove();
         }
         requestAnimationFrame(() => repositionQR());
 
         // Binary-search the largest font size that fits without clipping
         requestAnimationFrame(() => {
+          // Reserve the top-right corner for a docked clock — a right-floated
+          // spacer sized to the clock box, so the top lines wrap around it and
+          // everything below reclaims the full width (no left-shift of content).
+          if (overlay.classList.contains('clock-reserve')) {
+            let sp = bodyDiv.querySelector('.tvo-clock-spacer');
+            if (!sp) { sp = document.createElement('div'); sp.className = 'tvo-clock-spacer'; }
+            if (bodyDiv.firstChild !== sp) bodyDiv.insertBefore(sp, bodyDiv.firstChild);
+            const _tdr = document.getElementById('floatingTimerBar').getBoundingClientRect();
+            const _br = bodyDiv.getBoundingClientRect();
+            sp.style.height = Math.max(0, _tdr.bottom - _br.top + 14) + 'px';
+          }
           const allLines = bodyDiv.querySelectorAll('.exercise-line');
           if (!allLines.length) return;
           // Separate content lines from spacers
@@ -6206,6 +6240,7 @@
 
       } else {
         overlay.classList.remove('open');
+        overlay.classList.remove('clock-reserve');
         overlay.style.right = '';
         const _td2 = document.getElementById('floatingTimerBar');
         if (_td2) _td2.classList.remove('overlay-mode');
