@@ -165,34 +165,48 @@
       display: none;
     }
     /* When timer is active, main-content becomes a row layout.
-       --timer-dock-w  = how much horizontal space the clock RESERVES (and pushes
-                         the workout leftward by, shrinking it via autoFit).
-       --timer-clock-size = the clock digit size. Both are tuning knobs — bump
-                         them for a bigger clock; the layout adapts automatically. */
+       --timer-dock-w  = width of the reserved clock band on the right. #wodArea
+                         gets this as padding-right, so the workout is PUSHED into
+                         the left column and autoFit shrinks it (never covered).
+       --timer-clock-size = the clock digit size. Both are tuning knobs (with
+                         hard fallbacks in each rule, so the layout is robust even
+                         if the variable doesn't inherit for any reason). */
     .main-content.timer-docked {
       flex-direction: row !important;
-      --timer-dock-w: 42vw;
-      --timer-clock-size: 13vw;
+      --timer-dock-w: 44vw;
+      --timer-clock-size: 13.5vw;
     }
     .main-content.timer-docked #wodArea {
       flex: 1;
       min-width: 0;
+      overflow: hidden;   /* belt-and-suspenders: never let workout bleed under the clock band */
+    }
+    /* Reserve the right band so the workout never sits under the clock. This is
+       what makes the clock "push & shrink" the text instead of covering it — the
+       padding narrows #wodArea, and autoFit (which shrinks on wrap-induced
+       vertical overflow) re-fits the workout into the remaining left column.
+       Scoped away from split mode, which keeps its own in-flow dock column. */
+    .main-content.timer-docked:not(.mode-split) #wodArea {
+      padding-right: var(--timer-dock-w, 44vw);
     }
     /* Docked timer clock — TOP-RIGHT of the board.
        2026-07-09: moved to top-right per coach ("clock at top + more visible").
-       2026-07-25 v2 (coach: "make it even bigger — it must be readable from
-       anywhere in the box"): the clock no longer FLOATS over the workout. It is an
-       in-flow flex child that RESERVES --timer-dock-w of width, so the workout is
-       PUSHED left and autoFit shrinks it (never covered). `align-self: flex-start`
-       keeps the framed box at CONTENT HEIGHT — the orange frame ends right below
-       the clock instead of running the whole column down. Split mode overrides
-       this back to its in-flow column; overlay-mode overrides to a fixed column. */
+       2026-07-25 v3 (coach: "even bigger, must override the corner, no layout
+       duplication"): the clock is a FIXED band pinned to the top-right (top:2px so
+       it overrides the technical corner — top-bar buttons — exactly as asked). It
+       does NOT reflow the flex row (v2's in-flow flex caused the workout's right
+       edge to peek out as a duplicate). Space is reserved separately via #wodArea
+       padding-right above, so the workout is pushed, not covered. Height is auto →
+       the orange frame ends right below the clock, not down the whole column.
+       Split mode overrides back to its in-flow column; overlay-mode to a 16vw one. */
     .main-content.timer-docked .timer-dock {
       display: flex !important;
-      position: static;               /* in-flow → pushes & shrinks the workout, not covers it */
+      position: fixed;
+      top: 2px;
+      right: 6px;
       z-index: 9350;
-      flex: 0 0 var(--timer-dock-w);  /* reserve the width the workout gives up */
-      align-self: flex-start;         /* frame hugs the clock — ends below it, not full column */
+      width: var(--timer-dock-w, 44vw);
+      max-width: var(--timer-dock-w, 44vw);
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
@@ -202,7 +216,7 @@
       border-radius: 1rem;
       gap: 0.15rem;
       font-variant-numeric: tabular-nums;
-      padding: 0.35rem 0.5rem 0.7rem;
+      padding: 0.35rem 0.6rem 0.7rem;
       white-space: nowrap;
       box-shadow: 0 6px 30px rgba(0,0,0,0.6);
     }
@@ -218,7 +232,7 @@
        from split mode (narrow 20vw column) and center-focus overlay-mode (16vw
        column) — both keep the smaller base sizes so they don't overflow. */
     .main-content.timer-docked:not(.mode-split) .timer-dock:not(.overlay-mode) #ftbTime {
-      font-size: var(--timer-clock-size);
+      font-size: var(--timer-clock-size, 13.5vw);
     }
     .main-content.timer-docked:not(.mode-split) .timer-dock:not(.overlay-mode) #ftbType {
       font-size: 2.4vw;
@@ -264,8 +278,8 @@
       top: auto;
       right: auto;
       z-index: auto;
-      flex: 0 1 auto;        /* undo the base rule's reserved 42vw basis */
-      align-self: stretch;   /* restore the full-height in-flow column */
+      width: auto;           /* undo the base rule's fixed 44vw band */
+      align-self: stretch;   /* full-height in-flow column between wod & scoreboard */
       max-width: 20vw;
       border: none;
       border-left: 3px solid #f97316;
