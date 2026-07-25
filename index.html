@@ -176,11 +176,18 @@
        there 2026-07-09 per coach request 1: clock at top + more visible). Being
        fixed, it floats over the board's top-right (may cover that corner — the QR
        is pushed to a bottom corner so they never collide, see repositionQR).
-       Split mode keeps the in-flow column instead (override below). */
+       Split mode keeps the in-flow column instead (override below).
+       2026-07-25 (coach: "clock too small"): the box now starts at top:2px so it
+       OVERRIDES the whole technical top-right corner — the top-bar buttons AND the
+       orange card-header bar — reclaiming that vertical band as clock space. The
+       WIDTH envelope (max-width:34vw) is deliberately UNCHANGED, so the box keeps
+       the exact horizontal footprint it already coexists with — the workout TEXT
+       (which sits left of / below this band) is never covered. Only the clock is
+       enlarged (see #ftbTime rule below), not the column beneath it. */
     .main-content.timer-docked .timer-dock {
       display: flex !important;
       position: fixed;
-      top: 80px;
+      top: 2px;
       right: 12px;
       z-index: 9350;
       flex-direction: column;
@@ -190,7 +197,7 @@
       min-width: 12vw;
       max-width: 34vw;
       flex-shrink: 0;
-      background: rgba(18,18,18,0.94);
+      background: rgba(18,18,18,0.97);
       backdrop-filter: blur(6px);
       border: 2px solid #f97316;
       border-radius: 1rem;
@@ -207,6 +214,15 @@
       letter-spacing: 0.03em;
       line-height: 0.85;
       text-align: center;
+    }
+    /* Enlarged clock for the top-right docked corner ONLY (coach: "clock too
+       small", 2026-07-25). Scoped away from split mode (in-flow 20vw column) and
+       from center-focus overlay-mode (16vw full-height column) — both keep the
+       base 5.5vw so they don't overflow their narrower boxes. Growth is vertical:
+       the box now starts at top:2px, so the bigger digits fill the reclaimed
+       technical band (top-bar + orange header) without widening past 34vw. */
+    .main-content.timer-docked:not(.mode-split) .timer-dock:not(.overlay-mode) #ftbTime {
+      font-size: 8.5vw;
     }
     .timer-dock #ftbPhase {
       font-weight: 900;
