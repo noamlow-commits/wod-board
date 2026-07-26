@@ -5593,9 +5593,13 @@
         }
         return [];
       }
-      // Whole part in view → every VISIBLE part-block's timers, deduped. Skips a
-      // column that a ◄► zoom collapsed to display:none, so the cycle matches
-      // exactly the clocks the coach can see.
+      // Whole part in view → EVERY part-block's timers in the visible rows,
+      // deduped. Do NOT skip display:none part-blocks: in the spread/merged
+      // layout a part-block can be display:none while its column's CONTENT is
+      // fully on screen (board console 2026-07-26: WOD part-idx 0 & 2 were
+      // display:none, yet their "Strength" + "10 min tc" columns were visible and
+      // idx 2 carried the TC clock the coach couldn't reach). A genuine
+      // single-part focus is already handled above by the center-overlay branch.
       const all = [];
       const seen = new Set();
       const pushCfg = (c) => {
@@ -5604,7 +5608,6 @@
       };
       for (const row of visibleRows) {
         for (const part of row.querySelectorAll('.part-block[data-timer-configs]')) {
-          if (part.style.display === 'none') continue; // hidden by a ◄► zoom
           try { for (const c of JSON.parse(part.dataset.timerConfigs)) pushCfg(c); } catch (e) {}
         }
       }
