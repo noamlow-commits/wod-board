@@ -5561,33 +5561,35 @@
       }
     }
 
-    // Get ALL timer configs from the currently focused part-block,
-    // or — if no part is focused — collect all unique timer configs
-    // across every visible part (so "all parts" mode still surfaces a
-    // single detected timer like a global time cap).
+    // Collect EVERY timer on the visible page so the ⏱↻ cycle can reach them
+    // all with one button. A single multi-block part (Strength / "16 min tc" /
+    // E2MOM) has THREE timers; the coach must cycle all three whether or not a
+    // sub-part is focused (2026-07-26 — the whole page reads as one block to
+    // her, so "focus one column → only its timer" was confusing when every
+    // column is on screen). When a part IS focused its timers come FIRST, so the
+    // default selection matches what's highlighted; the rest follow, deduped.
     let partTimerCycleIdx = 0; // which timer is selected in the cycle
 
     function getPartTimerConfigs() {
       const visibleRows = document.querySelectorAll('#wodArea .workout-row:not(.section-hidden)');
-      if (partFocusIndex !== null) {
-        for (const row of visibleRows) {
-          const part = row.querySelector(`.part-block[data-part-idx="${partFocusIndex}"]`);
-          if (part && part.dataset.timerConfigs) {
-            try { return JSON.parse(part.dataset.timerConfigs); } catch(e) {}
-          }
-        }
-        return [];
-      }
-      // No focused part — collect timer configs from all visible parts
       const all = [];
+      const seen = new Set();
+      const pushFrom = (part) => {
+        if (!part || !part.dataset.timerConfigs) return;
+        try {
+          for (const c of JSON.parse(part.dataset.timerConfigs)) {
+            const key = (c.type || '') + '|' + (c.label || '');
+            if (!seen.has(key)) { seen.add(key); all.push(c); }
+          }
+        } catch (e) {}
+      };
+      // 1) focused part's timers first (default selection = what's on screen)
+      if (partFocusIndex !== null) {
+        for (const row of visibleRows) pushFrom(row.querySelector(`.part-block[data-part-idx="${partFocusIndex}"]`));
+      }
+      // 2) then every other visible part's timers (deduped)
       for (const row of visibleRows) {
-        const parts = row.querySelectorAll('.part-block[data-timer-configs]');
-        for (const part of parts) {
-          try {
-            const cfgs = JSON.parse(part.dataset.timerConfigs);
-            for (const c of cfgs) all.push(c);
-          } catch(e) {}
-        }
+        for (const part of row.querySelectorAll('.part-block[data-timer-configs]')) pushFrom(part);
       }
       // FALLBACK: if nothing was attached at render time (header-lookup miss),
       // re-extract from the visible text directly. Covers time-cap patterns
@@ -5597,8 +5599,10 @@
           const lines = Array.from(row.querySelectorAll('.exercise-line, .flow-section-header'))
             .map(el => el.textContent.trim())
             .filter(Boolean);
-          const cfgs = extractTimerConfigs(lines);
-          for (const c of cfgs) all.push(c);
+          for (const c of extractTimerConfigs(lines)) {
+            const key = (c.type || '') + '|' + (c.label || '');
+            if (!seen.has(key)) { seen.add(key); all.push(c); }
+          }
         }
       }
       return all;
