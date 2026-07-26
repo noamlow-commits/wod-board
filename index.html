@@ -1793,23 +1793,13 @@
       text-align: center;
       width: 100%;
     }
-    /* Center-focus with a docked timer (coach 2026-07-26: "it still pushes
-       everything"). The clock is a tight top-right CORNER box and the content
-       FLOWS AROUND it instead of the whole layout shifting left. The header
-       clears the clock band; the body switches to block flow with a right-floated
-       spacer (its height set by JS to the clock's height) that the top lines wrap
-       around — every line BELOW the clock reclaims the full width. */
-    #tvCenterOverlay.clock-reserve .tvo-header {
-      padding-right: calc(var(--timer-dock-w, 24vw) + 0.8rem);
-    }
-    #tvCenterOverlay.clock-reserve .tvo-body {
-      display: block;
-    }
-    #tvCenterOverlay .tvo-clock-spacer {
-      float: right;
-      width: var(--timer-dock-w, 24vw);
-      height: 0;            /* JS sets the real height = clock box height */
-      pointer-events: none;
+    /* Center-focus with a docked TOP-CENTER clock (2026-07-26): reserve top space
+       inside the overlay so the focused part's content starts BELOW the clock,
+       fully visible — same idea as #wodArea's padding-top in the spread view. The
+       overlay sits at top:80px, so the content offset is the clock band minus that.
+       (Replaces the earlier top-right flow-around-corner spacer, now obsolete.) */
+    #tvCenterOverlay.clock-reserve {
+      padding-top: calc(var(--timer-dock-h, 30vh) - 80px);
     }
 
     /* ── TV Remote Navigation Panel ── */
@@ -6242,19 +6232,10 @@
         }
         requestAnimationFrame(() => repositionQR());
 
-        // Binary-search the largest font size that fits without clipping
+        // Binary-search the largest font size that fits without clipping. Top
+        // space for a docked top-center clock is reserved purely in CSS via the
+        // .clock-reserve padding-top (no per-line float spacer any more).
         requestAnimationFrame(() => {
-          // Reserve the top-right corner for a docked clock — a right-floated
-          // spacer sized to the clock box, so the top lines wrap around it and
-          // everything below reclaims the full width (no left-shift of content).
-          if (overlay.classList.contains('clock-reserve')) {
-            let sp = bodyDiv.querySelector('.tvo-clock-spacer');
-            if (!sp) { sp = document.createElement('div'); sp.className = 'tvo-clock-spacer'; }
-            if (bodyDiv.firstChild !== sp) bodyDiv.insertBefore(sp, bodyDiv.firstChild);
-            const _tdr = document.getElementById('floatingTimerBar').getBoundingClientRect();
-            const _br = bodyDiv.getBoundingClientRect();
-            sp.style.height = Math.max(0, _tdr.bottom - _br.top + 14) + 'px';
-          }
           const allLines = bodyDiv.querySelectorAll('.exercise-line');
           if (!allLines.length) return;
           // Separate content lines from spacers

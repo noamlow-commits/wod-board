@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cf-gush-v122';
+const CACHE_NAME = 'cf-gush-v123';
 const URLS_TO_CACHE = [
   './',
   './my.html',
