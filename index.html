@@ -2887,6 +2887,36 @@
             results.push({ type: 'amrap', totalSeconds: total, label: `${m[1]}:${m[2]} work` });
           }
         }
+
+        // Leading standalone block duration — "8 min leg and lat activation".
+        // A block whose FIRST content line LEADS with "N min <activity>" is a
+        // coach-defined timed block even without the word "work" → count-up
+        // (amrap-style) total of N minutes, so it gets its own cyclable timer.
+        // TIGHT guards (no-invented-timer-values + the Pass-3 warm-up note in
+        // buildWorkoutTimeline — "10 min easy" lines must not over-fire):
+        //   · first content line of the block ONLY (a leading duration names
+        //     the block; a mid-list "3 min bike" does not),
+        //   · explicit "min" unit required, duration at line start (so "20
+        //     ring rows" / "rest 3 min" / numbered items "1. 10 Hip 90-90"
+        //     can never match),
+        //   · never a cap ("16 min tc" — the cap branch above owns it), a
+        //     rest line, or a pace/warm-up descriptor ("20 min easy row" —
+        //     locked timer-less by the set_wave_lift golden).
+        // Runs only when nothing else was detected, so it can't double-count
+        // a duration another timer already consumed.
+        if (results.length === 0) {
+          const firstLn = lines.map(l => (l || '').trim()).find(l => l && l !== '__SPACER__');
+          const bm = firstLn ? firstLn.match(/^(\d+)\s*min(?:utes?)?\s+(.+)$/i) : null;
+          if (bm) {
+            const mins = parseInt(bm[1]);
+            const act = bm[2].trim();
+            if (mins >= 1 && mins <= 90
+                && !/^t\.?\s*c\b/i.test(act)
+                && !/\b(rest|easy|recovery|warm[\s-]?up|cool[\s-]?down)\b/i.test(act)) {
+              results.push({ type: 'amrap', totalSeconds: mins * 60, label: `${mins}′ ${act}` });
+            }
+          }
+        }
       }
 
       return results;
@@ -2956,30 +2986,55 @@
     // Extract ALL timer configs from workout text (returns array). When the
     // workout is split into "part N" blocks, each part is scanned on its own
     // so every part yields its own timer button — a series of timers.
-    function extractTimerConfigs(lines) {
+    // `header` (optional) is the cell's SECTION HEADER: the coach sometimes
+    // writes the block's time-cap as the header itself ("16 min tc" heading
+    // the front-squat column, 2026-07-26) — cell.lines never sees it, so the
+    // cap silently produced no timer. The header is scanned for the cap only
+    // (never for AMRAP/EMOM/etc.), with the SAME two patterns detectTimers
+    // uses on content lines — keep them in sync.
+    function extractTimerConfigs(lines, header) {
       if (!lines || lines.length === 0) return [];
       const partIdx = lines.map((l, i) => PART_HEADER_RE.test(l || '') ? i : -1).filter(i => i >= 0);
-      if (partIdx.length < 2) return detectTimers(lines);
+      let out;
+      if (partIdx.length < 2) {
+        out = detectTimers(lines);
+      } else {
+        const segments = [];
+        if (partIdx[0] > 0) segments.push({ num: 0, lines: lines.slice(0, partIdx[0]) });
+        for (let p = 0; p < partIdx.length; p++) {
+          const start = partIdx[p];
+          const end = p + 1 < partIdx.length ? partIdx[p + 1] : lines.length;
+          const numMatch = lines[start].match(/part\s*(\d+)/i);
+          segments.push({ num: numMatch ? parseInt(numMatch[1]) : p + 1,
+                          lines: lines.slice(start + 1, end) });
+        }
 
-      const segments = [];
-      if (partIdx[0] > 0) segments.push({ num: 0, lines: lines.slice(0, partIdx[0]) });
-      for (let p = 0; p < partIdx.length; p++) {
-        const start = partIdx[p];
-        const end = p + 1 < partIdx.length ? partIdx[p + 1] : lines.length;
-        const numMatch = lines[start].match(/part\s*(\d+)/i);
-        segments.push({ num: numMatch ? parseInt(numMatch[1]) : p + 1,
-                        lines: lines.slice(start + 1, end) });
+        out = [];
+        for (const seg of segments) {
+          let cfgs = detectTimers(seg.lines);
+          if (cfgs.length === 0) {
+            const ai = detectActivityInterval(seg.lines);
+            if (ai) cfgs = [ai];
+          }
+          const tag = seg.num ? `P${seg.num} · ` : '';
+          for (const c of cfgs) out.push({ ...c, label: tag + c.label });
+        }
       }
 
-      const out = [];
-      for (const seg of segments) {
-        let cfgs = detectTimers(seg.lines);
-        if (cfgs.length === 0) {
-          const ai = detectActivityInterval(seg.lines);
-          if (ai) cfgs = [ai];
+      // Header time-cap → its own fortime config, ALWAYS offered (even when
+      // other timers were found — the coach cycles to it with ⏱↻), deduped
+      // against a fortime that already carries the same capSeconds. The cap
+      // value is the coach's own written number — nothing is invented.
+      if (header) {
+        const hm = header.match(/\bt\.?[ \t]*c[\-: \t]*(\d+(?::\d{2})?)\b/i)
+                || header.match(/^\s*(\d+(?::\d{2})?)[ \t]*(?:min(?:utes?)?[ \t]+)?t\.?[ \t]*c\b/i);
+        if (hm) {
+          const tv = hm[1];
+          const cap = tv.includes(':') ? parseInt(tv.split(':')[0]) * 60 + parseInt(tv.split(':')[1]) : parseInt(tv) * 60;
+          if (cap > 0 && !out.some(c => c.type === 'fortime' && c.capSeconds === cap)) {
+            out.push({ type: 'fortime', capSeconds: cap, label: `TC ${Math.floor(cap / 60)}′` });
+          }
         }
-        const tag = seg.num ? `P${seg.num} · ` : '';
-        for (const c of cfgs) out.push({ ...c, label: tag + c.label });
       }
       return out;
     }
@@ -4819,8 +4874,10 @@
             const isUntitledWarmup = !cell.header;
             const isNumericHeader = /^\d+$/.test(cell.header);
 
-            // Extract ALL timer configs from cell content
-            const detectedTimers = extractTimerConfigs(cell.lines);
+            // Extract ALL timer configs from cell content + the cell's own
+            // header (the coach writes "16 min tc" as the column header —
+            // extractTimerConfigs scans the header for the time-cap only).
+            const detectedTimers = extractTimerConfigs(cell.lines, cell.header);
             if (detectedTimers.length > 0) cellTimerConfigs[cell.header] = detectedTimers;
 
             // Promote a leading section title (e.g. "C&J Prog") into the

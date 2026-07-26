@@ -1,0 +1,70 @@
+{
+  "data": {
+    "headers": [
+      "Strength:",
+      "16 min tc",
+      "B Accsesories:"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "Strength:",
+            "lines": [
+              "8 min leg and lat activation"
+            ]
+          },
+          {
+            "header": "16 min tc",
+            "lines": [
+              "5 sets of 4 reps of 1.5 front squat",
+              "65-70%"
+            ]
+          },
+          {
+            "header": "B Accsesories:",
+            "lines": [
+              "E2MOM X 9 (3 rounds from each)",
+              "1- 10-12 Weighted GHD Sit ups",
+              "2- 10-12 Back Extension",
+              "3- 40-60 sec Plank"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "Strength:",
+      "timers": [
+        {
+          "label": "8′ leg and lat activation",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "16 min tc",
+      "timers": [
+        {
+          "label": "TC 16′",
+          "type": "fortime"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "B Accsesories:",
+      "timers": [
+        {
+          "label": "E2MOM ×9 (18′)",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

@@ -86,6 +86,10 @@ const FIXTURES = [
   { name: "hashfirst_stations_rounds", note: "coach's real sheet (2026-07-19, verbatim): 'Every 1:30 x 3 sets (6 Rounds)' over HASH-FIRST stations '#1'/'#2'. Two bugs: (1) '#1'/'#2' (hash-first) were invisible to every station regex — only number-first '1#'/'2#' matched — so they got no orange badge and weren't clean break points (see BADGE_CHECKS '#1'/'#2'). (2) The header ×3 is a literal EMOM count, but the coach also spelled out '(6 Rounds)' = 3 sets × 2 stations, so the clock must be 1:30 ×6 (9′), not the 4:30 the literal ×3 gave. Fix: an explicit parenthetical '(N Rounds)' is a written total that overrides the derived count (like '(N min total)' already did), WITHOUT touching the ×N/stations asymmetry the evey_typo fixture locks.",
     rows: [["", "WOD"],
            ["", "Every 1:30 x 3 sets (6 Rounds)\n#1\n5-7 Strict HSPU\nThen Max Handstand Hold in the remaining time\n#2\n12 Pike Leg Lifts\nThen Max Tuck Hold / L-Hold in the remaining time"]] },
+  { name: "three_column_block_timers", note: "coach's real sheet (2026-07-26): a part with THREE columns, each its own time-defined block → THREE cyclable timers (⏱↻ runs them 8′ → TC 16′ → E2MOM 18′). (1) 'Strength:' column LEADS with a bare '8 min leg and lat activation' — no AMRAP/EMOM/'work' keyword → leading standalone block duration = 8′ count-up. (2) the middle column's time cap is its HEADER ('16 min tc'), which cell.lines never saw → extractTimerConfigs now scans the header for the cap → TC 16′ fortime. (3) 'B Accsesories:' E2MOM X 9 → E2MOM ×9 (18′) — already worked, must keep working ('(3 rounds from each)' must NOT be read as a written '(3 Rounds)' total — text after the number blocks that regex). The '40-60 sec Plank' RANGE deliberately yields no timer (picking 40 or 60 would be an invented value).",
+    expectTimers: ["8′ leg and lat activation", "TC 16′", "E2MOM ×9 (18′)"],
+    rows: [["", "Strength:", "16 min tc", "B Accsesories:"],
+           ["", "8 min leg and lat activation", "5 sets of 4 reps of 1.5 front squat\n65-70%", "E2MOM X 9 (3 rounds from each)\n1- 10-12 Weighted GHD Sit ups\n2- 10-12 Back Extension\n3- 40-60 sec Plank"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -213,10 +217,25 @@ for (const fx of FIXTURES) {
         for (const cell of row.cells)
           timers.push({
             section: row.label, header: cell.header,
-            timers: (window.extractTimerConfigs(cell.lines) || []).map((c) => ({ label: c.label, type: c.type })),
+            // header passed too — production (renderWorkout ~4823) scans the
+            // cell header for a time-cap the coach wrote as the header itself
+            timers: (window.extractTimerConfigs(cell.lines, cell.header) || []).map((c) => ({ label: c.label, type: c.type })),
           });
       return { data, timers };
     }, fx.rows);
+
+    // Optional TRUE correctness assertion (beyond golden change-detection):
+    // fixture.expectTimers = labels that MUST be among the detected timers.
+    // Guards against --update silently baking a wrong result into the golden.
+    if (fx.expectTimers) {
+      const allLabels = parsed.timers.flatMap((t) => t.timers.map((x) => x.label));
+      const missing = fx.expectTimers.filter((l) => !allLabels.includes(l));
+      if (missing.length) {
+        results.push({ name: fx.name, status: "ERROR",
+                       error: `expectTimers missing: ${missing.join(" | ")} — detected: [${allLabels.join(" | ")}]` });
+        continue; // finally still closes the page
+      }
+    }
 
     const goldenPath = path.join(GOLDEN_DIR, `${fx.name}.json`);
     const actual = stable(parsed);
