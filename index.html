@@ -5578,8 +5578,13 @@
 
     function getPartTimerConfigs() {
       const visibleRows = document.querySelectorAll('#wodArea .workout-row:not(.section-hidden)');
-      // Center-focused on ONE part → only its own timers (hierarchical, no leak).
-      if (centerFocus && partFocusIndex !== null) {
+      // Scope to ONE part only when the center overlay is ACTUALLY on screen — key
+      // on its `.open` class, NOT the `centerFocus` flag. The flag can linger true
+      // after the overlay closed (observed 2026-07-26: focus=1 / centerFocus=true
+      // while BOTH columns were visible in the normal spread → the whole-part view
+      // wrongly returned a single clock). The `.open` class is the real display.
+      const _overlayOpen = document.getElementById('tvCenterOverlay')?.classList.contains('open');
+      if (_overlayOpen && partFocusIndex !== null) {
         for (const row of visibleRows) {
           const part = row.querySelector(`.part-block[data-part-idx="${partFocusIndex}"]`);
           if (part && part.dataset.timerConfigs) {
