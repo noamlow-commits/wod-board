@@ -34,8 +34,8 @@
                             gives up). Kept small so it barely shrinks the layout.
          --timer-clock-size = clock digit size. Bump both together for a bigger clock. */
       --timer-dock-w: 27vw;
-      --timer-clock-size: 12vw;
-      --timer-dock-h: 30vh;   /* top space the top-center clock reserves so the workout sits below it, uncovered */
+      --timer-clock-size: 10vw;
+      --timer-dock-h: 30vh;   /* fallback; syncTimerTopReserve() overwrites this with the clock's MEASURED height so it never covers the workout */
     }
 
     body {
@@ -5953,6 +5953,38 @@
       // No-op: side panel uses CSS padding-right, no height hacks needed
     }
 
+    // The top-center clock reserves EXACTLY its own measured height at the top of
+    // the workout (and, for center-focus, of the overlay via the same var) so it
+    // can never cover the workout text — whatever the clock size or state (an
+    // INTERVALS block adds a WORK/REST line, PAUSED changes the label, etc.). The
+    // change-guard means the wodArea reflow only fires when the height truly
+    // changes, not every tick. `--timer-dock-h` fallback (30vh) covers the first
+    // paint before this runs. +12px is a small breathing gap under the clock.
+    let _timerReserveH = 0, _timerReserveT = 0, _timerReserveFit = 0;
+    function syncTimerTopReserve() {
+      // Throttle — updateFloatingTimerBar calls this at 60fps, but the box height
+      // only changes at state/phase transitions. ~4×/sec keeps the layout read cheap.
+      const now = performance.now();
+      if (now - _timerReserveT < 250) return;
+      _timerReserveT = now;
+      const bar = document.getElementById('floatingTimerBar');
+      const mc = document.getElementById('mainContent');
+      if (!bar || !mc || !mc.classList.contains('timer-docked') || bar.style.display === 'none') return;
+      const h = Math.ceil(bar.getBoundingClientRect().height);
+      if (h > 0 && Math.abs(h - _timerReserveH) > 4) {
+        _timerReserveH = h;
+        document.documentElement.style.setProperty('--timer-dock-h', (h + 12) + 'px');
+        // Reserve changed (e.g. countdown → running grows the box) → re-fit the
+        // workout to the new area once it settles. Rare, so the debounce is cheap.
+        clearTimeout(_timerReserveFit);
+        _timerReserveFit = setTimeout(() => {
+          const ov = document.getElementById('tvCenterOverlay');
+          if (ov && ov.classList.contains('open')) applyCenterFocus();
+          else autoFitFontSize();
+        }, 140);
+      }
+    }
+
     function showFloatingTimerBar() {
       _timerBarPartIdx = partFocusIndex;
 
@@ -5974,16 +6006,17 @@
       const overlay = document.getElementById('tvCenterOverlay');
       if (overlay && overlay.classList.contains('open')) {
         bar.classList.add('overlay-mode');
-        overlay.style.right = '0';                 // full width — content flows around the corner clock
-        overlay.classList.add('clock-reserve');    // applyCenterFocus sizes the corner spacer
-        // Re-run overlay's font sizing (rebuilds body + corner reservation)
-        requestAnimationFrame(() => applyCenterFocus());
+        overlay.style.right = '0';
+        overlay.classList.add('clock-reserve');    // reserves top space via --timer-dock-h
+        // Measure the clock's real height into --timer-dock-h BEFORE the overlay re-fits.
+        requestAnimationFrame(() => { syncTimerTopReserve(); applyCenterFocus(); });
       } else {
-        // Re-fit content in the now-narrower wodArea
+        // Re-fit content in the now-shorter wodArea (top space reserved for the clock)
         document.documentElement.style.setProperty('--font-scale', '0.4');
         requestAnimationFrame(() => {
+          syncTimerTopReserve();   // set the reserve to the clock's measured height first
           autoFitFontSize();
-          setTimeout(() => autoFitFontSize(), 300);
+          setTimeout(() => { syncTimerTopReserve(); autoFitFontSize(); }, 300);
         });
       }
     }
@@ -6045,6 +6078,9 @@
       // (its digits sink to the middle and its frame covers the workout text).
       const _ovOpen = document.getElementById('tvCenterOverlay')?.classList.contains('open');
       if (!_ovOpen && bar.classList.contains('overlay-mode')) bar.classList.remove('overlay-mode');
+
+      // Keep the top reserve matched to the clock's real height (throttled inside).
+      syncTimerTopReserve();
 
       const d = getTimerDisplayData();
 
