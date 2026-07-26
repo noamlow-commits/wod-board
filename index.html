@@ -34,7 +34,8 @@
                             gives up). Kept small so it barely shrinks the layout.
          --timer-clock-size = clock digit size. Bump both together for a bigger clock. */
       --timer-dock-w: 27vw;
-      --timer-clock-size: 9vw;
+      --timer-clock-size: 12vw;
+      --timer-dock-h: 30vh;   /* top space the top-center clock reserves so the workout sits below it, uncovered */
     }
 
     body {
@@ -183,13 +184,13 @@
       min-width: 0;
       overflow: hidden;   /* belt-and-suspenders: never let workout bleed under the clock band */
     }
-    /* Reserve the right band so the workout never sits under the clock. This is
-       what makes the clock "push & shrink" the text instead of covering it — the
-       padding narrows #wodArea, and autoFit (which shrinks on wrap-induced
-       vertical overflow) re-fits the workout into the remaining left column.
-       Scoped away from split mode, which keeps its own in-flow dock column. */
+    /* 2026-07-26: the clock moved to TOP-CENTER and got bigger (coach). #wodArea
+       reserves TOP space (was a right band) so the workout sits BELOW the clock,
+       fully visible — the big centered clock never covers a column header. Tune
+       the reserve with --timer-dock-h (keep it ≈ the clock box height). Scoped
+       away from split mode, which keeps its own in-flow dock column. */
     .main-content.timer-docked:not(.mode-split) #wodArea {
-      padding-right: var(--timer-dock-w, 24vw);
+      padding-top: var(--timer-dock-h, 30vh);
     }
     /* Docked timer clock — TOP-RIGHT of the board.
        2026-07-09: moved to top-right per coach ("clock at top + more visible").
@@ -206,10 +207,12 @@
       display: flex !important;
       position: fixed;
       top: 2px;
-      right: 6px;
+      left: 50%;                     /* 2026-07-26 coach: bigger + TOP-CENTER (was top-right) */
+      transform: translateX(-50%);
+      right: auto;
       z-index: 9350;
-      width: var(--timer-dock-w, 24vw);
-      max-width: var(--timer-dock-w, 24vw);
+      width: auto;                   /* hug the clock, centered */
+      max-width: 96vw;
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
@@ -281,6 +284,8 @@
       position: static;
       top: auto;
       right: auto;
+      left: auto;
+      transform: none;       /* undo the base rule's top-center centering */
       z-index: auto;
       width: auto;           /* undo the base rule's fixed 44vw band */
       align-self: stretch;   /* full-height in-flow column between wod & scoreboard */
