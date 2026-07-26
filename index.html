@@ -5561,45 +5561,24 @@
       }
     }
 
-    // Timer scope is HIERARCHICAL and follows what is actually FOCUSED on screen
-    // (coach 2026-07-26 — "the logic must be hierarchical: in center-focus don't
-    // show or switch to other parts' clocks; but one part can hold several clocks
-    // from several exercises → cycle those"):
-    //   · CENTER-FOCUS overlay open on one part → ONLY that part's timers. No
-    //     leaking into, or switching to, any other part's timer.
-    //   · whole part on screen (all its columns visible) → the ⏱↻ cycle spans
-    //     EVERY visible part-block's timers — the current part's several clocks.
-    //   · a ◄► zoom that hid the other columns (part.style.display:'none' via
-    //     applyPartFocus) naturally narrows the cycle to the one visible column.
-    // The scope key is `centerFocus` (true focus), NOT `partFocusIndex` alone —
-    // ◄► can set partFocusIndex while every column stays on screen, and there the
-    // coach still expects the whole part's clocks.
+    // The ⏱↻ cycle shows EVERY timer in the current workout view. It deliberately
+    // does NOT scope by centerFocus or the center-overlay `.open` flag: the gym-TV
+    // console proved BOTH linger true while the normal spread is on screen
+    // (2026-07-26 — {codeHasSkip:false, overlayOpen:true, centerFocus:true} yet
+    // both columns visible), so any scope keyed on them silently hid the coach's
+    // second clock. #wodArea's part-blocks are the ONE signal that always matches
+    // what she sees. (A genuine single-part scope for center-focus is deferred
+    // until that stuck focus-state bug is fixed on its own — see the note below.)
     let partTimerCycleIdx = 0; // which timer is selected in the cycle
 
     function getPartTimerConfigs() {
       const visibleRows = document.querySelectorAll('#wodArea .workout-row:not(.section-hidden)');
-      // Scope to ONE part only when the center overlay is ACTUALLY on screen — key
-      // on its `.open` class, NOT the `centerFocus` flag. The flag can linger true
-      // after the overlay closed (observed 2026-07-26: focus=1 / centerFocus=true
-      // while BOTH columns were visible in the normal spread → the whole-part view
-      // wrongly returned a single clock). The `.open` class is the real display.
-      const _overlayOpen = document.getElementById('tvCenterOverlay')?.classList.contains('open');
-      if (_overlayOpen && partFocusIndex !== null) {
-        for (const row of visibleRows) {
-          const part = row.querySelector(`.part-block[data-part-idx="${partFocusIndex}"]`);
-          if (part && part.dataset.timerConfigs) {
-            try { return JSON.parse(part.dataset.timerConfigs); } catch (e) {}
-          }
-        }
-        return [];
-      }
-      // Whole part in view → EVERY part-block's timers in the visible rows,
-      // deduped. Do NOT skip display:none part-blocks: in the spread/merged
-      // layout a part-block can be display:none while its column's CONTENT is
-      // fully on screen (board console 2026-07-26: WOD part-idx 0 & 2 were
-      // display:none, yet their "Strength" + "10 min tc" columns were visible and
-      // idx 2 carried the TC clock the coach couldn't reach). A genuine
-      // single-part focus is already handled above by the center-overlay branch.
+      // EVERY part-block's timers in the visible rows, deduped. Do NOT skip
+      // display:none part-blocks: in the spread/merged layout a part-block can be
+      // display:none while its column's CONTENT is fully on screen (board console
+      // 2026-07-26: WOD part-idx 0 & 2 were display:none, yet their "Strength" +
+      // "10 min tc" columns were visible and idx 2 carried the TC clock the coach
+      // couldn't reach).
       const all = [];
       const seen = new Set();
       const pushCfg = (c) => {
