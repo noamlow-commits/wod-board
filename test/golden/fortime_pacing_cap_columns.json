@@ -1,0 +1,55 @@
+{
+  "data": {
+    "headers": [
+      "for time:",
+      "C"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "for time:",
+            "lines": [
+              "3000 m run",
+              "every 4:00",
+              "5 burpee",
+              "8 push up",
+              "20 d.u"
+            ]
+          },
+          {
+            "header": "C",
+            "lines": [
+              "rx+ 4000 m run",
+              "*המטרה לסיים במינימום סטים",
+              "t.c 35"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "for time:",
+      "timers": [
+        {
+          "label": "Every 4:00 (TC 35′)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "C",
+      "timers": [
+        {
+          "label": "TC 35′",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}

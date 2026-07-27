@@ -90,6 +90,10 @@ const FIXTURES = [
     expectTimers: ["8′ leg and lat activation", "TC 16′", "E2MOM ×9 (18′)"],
     rows: [["", "Strength:", "16 min tc", "B Accsesories:"],
            ["", "8 min leg and lat activation", "5 sets of 4 reps of 1.5 front squat\n65-70%", "E2MOM X 9 (3 rounds from each)\n1- 10-12 Weighted GHD Sit ups\n2- 10-12 Back Extension\n3- 40-60 sec Plank"]] },
+  { name: "fortime_pacing_cap_columns", note: "coach's real sheet (2026-07-27): ONE part in TWO columns. Col 1 (header 'for time:') is the work — '3000 m run' + a bare 'every 4:00' pacing line + 3 exercises; col 2 is the scaling ('rx+ 4000 m run') and the cap ('t.c 35'). Locks two fixes: (1) the bare 'every 4:00' has NO written count/total/sets and NO 1#/#1 stations — the old exercise-line fallback invented 'Every 4:00 ×4 (16′)' by reading the for-time list (incl. the 3000m run) as 4 stations; now nothing-written + a part cap = pacing UNDER the cap → Every 4:00 (TC 35′): emom iv=240 with totalSeconds=2100 (the 35′ cap), final partial interval expected. (2) the 't.c 35' lives in the OTHER column — scanPartCapSeconds finds a cap in ANY cell of the part (lines or headers) and threads it into every cell's extraction. Col 2 still yields its own local TC 35′ fortime (same clock, still cycle-reachable). The ×N-vs-'N sets'×stations asymmetry (evey_typo_explicit_rounds / hashfirst_stations_rounds) is deliberately untouched by this: anything WRITTEN still resolves exactly as before.",
+    expectTimers: ["Every 4:00 (TC 35′)", "TC 35′"],
+    rows: [["", "for time:", ""],
+           ["", "3000 m run\nevery 4:00\n5 burpee\n8 push up\n20 d.u", "rx+ 4000 m run\n*המטרה לסיים במינימום סטים\nt.c 35"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -121,6 +125,9 @@ const BADGE_CHECKS = [
   { line: "1#", expect: "station" },                              // number-first still works
   { line: "2+3#", expect: "station" },                            // merged station still works
   { line: "12 Pike Leg Lifts", expect: "none" },                  // a leading rep count is NOT a station (no #)
+  { line: "rx+ 4000 m run", expect: "rx" },                       // inline RX+ scaling marker → blue rx-badge (coach's 2026-07-27 sheet)
+  { line: "800 m run rx", expect: "rx" },                         // bare "rx" as a standalone word, any position
+  { line: "prx machine work", expect: "none" },                   // "rx" inside a word must NOT badge (\brx\b guard)
 ];
 
 const stable = (o) => JSON.stringify(o, null, 2);
@@ -148,6 +155,8 @@ const badgeFails = [];
       // it's distinguished from a plain leading rep count ("12 reps", also
       // rep-number) by the "#" inside the span.
       if (/rep-number">[^<]*#/.test(html)) return { line: c.line, expect: c.expect, actual: "station" };
+      // The inline Rx/Rx+ scaling marker gets its own blue rx-badge span.
+      if (/rx-badge/.test(html)) return { line: c.line, expect: c.expect, actual: "rx" };
       const m = html.match(/(group-badge|subgroup-badge)/);
       return { line: c.line, expect: c.expect, actual: m ? m[1] : "none" };
     }), BADGE_CHECKS);
@@ -213,14 +222,19 @@ for (const fx of FIXTURES) {
     const parsed = await page.evaluate((rows) => {
       const data = window.parseAppsScriptData(rows);
       const timers = [];
-      for (const row of data.rows)
+      for (const row of data.rows) {
+        // Part-level cap — the SAME scan production does (renderWorkout): a
+        // "t.c N" in ANY cell of the row (lines or header) caps the part's
+        // timed work, so it is threaded into every cell's extraction.
+        const partCap = window.scanPartCapSeconds(row.cells);
         for (const cell of row.cells)
           timers.push({
             section: row.label, header: cell.header,
             // header passed too — production (renderWorkout ~4823) scans the
             // cell header for a time-cap the coach wrote as the header itself
-            timers: (window.extractTimerConfigs(cell.lines, cell.header) || []).map((c) => ({ label: c.label, type: c.type })),
+            timers: (window.extractTimerConfigs(cell.lines, cell.header, partCap) || []).map((c) => ({ label: c.label, type: c.type })),
           });
+      }
       return { data, timers };
     }, fx.rows);
 
