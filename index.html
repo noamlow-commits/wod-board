@@ -248,7 +248,8 @@
       font-size: 2vw;
     }
     .main-content.timer-docked:not(.mode-split) .timer-dock #ftbRound {
-      font-size: 1.4vw;
+      font-size: 2.3vw;   /* enlarged 2026-07-27 (coach) so the round # reads from across the room, "within" the stage */
+      font-weight: 700;
     }
     .main-content.timer-docked:not(.mode-split) .timer-dock #ftbStopBtn {
       font-size: 1.3vw;
@@ -5556,24 +5557,35 @@
       }
     }
 
-    // The ⏱↻ cycle shows EVERY timer in the current workout view. It deliberately
-    // does NOT scope by centerFocus or the center-overlay `.open` flag: the gym-TV
-    // console proved BOTH linger true while the normal spread is on screen
-    // (2026-07-26 — {codeHasSkip:false, overlayOpen:true, centerFocus:true} yet
-    // both columns visible), so any scope keyed on them silently hid the coach's
-    // second clock. #wodArea's part-blocks are the ONE signal that always matches
-    // what she sees. (A genuine single-part scope for center-focus is deferred
-    // until that stuck focus-state bug is fixed on its own — see the note below.)
+    // PER-STAGE timer scope (coach 2026-07-27): "identify the stage → its timers →
+    // a timer structure per stage." When a stage is focused (navigated via ◄► /
+    // center-focus), the ⏱↻ cycle is EXACTLY that stage's timer(s) — so moving to
+    // a stage auto-shows its clock with no manual cycling. `partFocusIndex` is the
+    // authoritative stage index: navigatePart sets it (0..max-1) and resets the
+    // cycle to 0. `partFocusIndex === null` = the all-parts view → aggregate every
+    // stage's timers (so the whole board still surfaces them all).
+    // (Scoping keys on partFocusIndex, NOT the centerFocus/overlay flags, which
+    // were proven to linger stuck — 2026-07-26.)
     let partTimerCycleIdx = 0; // which timer is selected in the cycle
 
     function getPartTimerConfigs() {
       const visibleRows = document.querySelectorAll('#wodArea .workout-row:not(.section-hidden)');
-      // EVERY part-block's timers in the visible rows, deduped. Do NOT skip
-      // display:none part-blocks: in the spread/merged layout a part-block can be
-      // display:none while its column's CONTENT is fully on screen (board console
-      // 2026-07-26: WOD part-idx 0 & 2 were display:none, yet their "Strength" +
-      // "10 min tc" columns were visible and idx 2 carried the TC clock the coach
-      // couldn't reach).
+      // Focused on ONE stage → just that stage's own timer configs.
+      if (partFocusIndex !== null) {
+        for (const row of visibleRows) {
+          const part = row.querySelector(`.part-block[data-part-idx="${partFocusIndex}"]`);
+          if (part && part.dataset.timerConfigs) {
+            try { return JSON.parse(part.dataset.timerConfigs); } catch (e) {}
+          }
+        }
+        return [];
+      }
+      // All-parts view → EVERY part-block's timers in the visible rows, deduped.
+      // Do NOT skip display:none part-blocks: in the spread/merged layout a
+      // part-block can be display:none while its column's CONTENT is fully on
+      // screen (board console 2026-07-26: WOD part-idx 0 & 2 were display:none,
+      // yet their "Strength" + "10 min tc" columns were visible and idx 2 carried
+      // the TC clock the coach couldn't reach).
       const all = [];
       const seen = new Set();
       const pushCfg = (c) => {
