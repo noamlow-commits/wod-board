@@ -2260,7 +2260,8 @@
           'three','two','one','go',
           'ten_seconds','one_minute_remaining','halfway','last_round','time',
           'work','rest',
-          'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight'
+          'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight',
+          'round_nine','round_ten','round_eleven','round_twelve','round_thirteen','round_fourteen','round_fifteen'
         ];
         this.voiceLoadPromise = Promise.all(keys.map(k =>
           fetch(`sounds/voice/${k}.mp3`)
@@ -3232,7 +3233,7 @@
             TimerAudio.say('last_round', _at);
             _lastRoundAnnounced = true;
           } else {
-            const roundKeys = ['', '', 'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight'];
+            const roundKeys = ['', '', 'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight','round_nine','round_ten','round_eleven','round_twelve','round_thirteen','round_fourteen','round_fifteen'];
             if (roundKeys[currentRound]) TimerAudio.say(roundKeys[currentRound], _at);
           }
         }
@@ -3272,8 +3273,8 @@
             // Round announcement for rounds 2+
             if (currentRound === totalRounds && !_lastRoundAnnounced) {
               _lastRoundAnnounced = true;
-            } else if (currentRound >= 2 && currentRound <= 8) {
-              const roundKeys = ['', '', 'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight'];
+            } else if (currentRound >= 2 && currentRound <= 15) {
+              const roundKeys = ['', '', 'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight','round_nine','round_ten','round_eleven','round_twelve','round_thirteen','round_fourteen','round_fifteen'];
               // Play round after a short delay so it doesn't overlap "WORK!"
               const at = TimerAudio.ctx ? TimerAudio.ctx.currentTime + 0.6 : undefined;
               TimerAudio.say(roundKeys[currentRound], at);

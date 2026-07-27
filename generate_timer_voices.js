@@ -52,7 +52,8 @@ const CUES = [
   { key: 'work',                 text: 'WORK!' },
   { key: 'rest',                 text: 'Rest.' },
 
-  // Round counter (Tabata 8 rounds, numbered 2-8 since round 1 starts with GO!)
+  // Round counter — round 1 starts with GO!, so calls run 2..15 (2026-07-27:
+  // extended 8→15 per coach so long EMOM/interval blocks call every round).
   { key: 'round_two',            text: 'Round two!' },
   { key: 'round_three',          text: 'Round three!' },
   { key: 'round_four',           text: 'Round four!' },
@@ -60,6 +61,13 @@ const CUES = [
   { key: 'round_six',            text: 'Round six!' },
   { key: 'round_seven',          text: 'Round seven!' },
   { key: 'round_eight',          text: 'Round eight!' },
+  { key: 'round_nine',           text: 'Round nine!' },
+  { key: 'round_ten',            text: 'Round ten!' },
+  { key: 'round_eleven',         text: 'Round eleven!' },
+  { key: 'round_twelve',         text: 'Round twelve!' },
+  { key: 'round_thirteen',       text: 'Round thirteen!' },
+  { key: 'round_fourteen',       text: 'Round fourteen!' },
+  { key: 'round_fifteen',        text: 'Round fifteen!' },
 ];
 
 async function generate(cue) {
@@ -98,11 +106,21 @@ async function checkQuota() {
   console.log('');
   console.log('Generating cues:');
 
-  let ok = 0;
+  // Idempotent by default: skip cues whose .mp3 already exists, so a re-run only
+  // fills in NEW files (and never re-rolls existing audio, which is non-deterministic
+  // at low stability). Pass --force to regenerate everything.
+  const FORCE = process.argv.includes('--force');
+  let ok = 0, skipped = 0;
   for (const cue of CUES) {
+    if (!FORCE && fs.existsSync(path.join(OUT_DIR, cue.key + '.mp3'))) {
+      console.log(`  · ${cue.key.padEnd(24)} (exists — skip)`);
+      skipped++;
+      continue;
+    }
     const success = await generate(cue);
     if (success) ok++;
   }
+  if (skipped) console.log(`  (${skipped} existing files skipped; use --force to regenerate)`);
 
   const after = await checkQuota();
   console.log('');
