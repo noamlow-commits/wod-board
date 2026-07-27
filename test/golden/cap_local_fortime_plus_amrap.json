@@ -1,0 +1,52 @@
+{
+  "data": {
+    "headers": [
+      "Metcon:",
+      "Finisher:"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "Metcon:",
+            "lines": [
+              "for time:",
+              "21-15-9 thrusters",
+              "t.c 8"
+            ]
+          },
+          {
+            "header": "Finisher:",
+            "lines": [
+              "amrap 5:",
+              "max cal bike"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "Metcon:",
+      "timers": [
+        {
+          "label": "For Time (TC 8′)",
+          "type": "fortime"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "Finisher:",
+      "timers": [
+        {
+          "label": "AMRAP 5′",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}

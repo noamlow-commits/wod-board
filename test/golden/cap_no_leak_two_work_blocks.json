@@ -1,0 +1,53 @@
+{
+  "data": {
+    "headers": [
+      "Strength:",
+      "B Accessories:"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "Strength:",
+            "lines": [
+              "front squat",
+              "10 min tc",
+              "4 sets of 4 reps of 1.5 front squat"
+            ]
+          },
+          {
+            "header": "B Accessories:",
+            "lines": [
+              "for time:",
+              "50 burpees",
+              "50 pull ups"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "Strength:",
+      "timers": [
+        {
+          "label": "TC 10′",
+          "type": "fortime"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "B Accessories:",
+      "timers": [
+        {
+          "label": "For Time",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}

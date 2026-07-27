@@ -2524,22 +2524,64 @@
       return tv.includes(':') ? parseInt(tv.split(':')[0]) * 60 + parseInt(tv.split(':')[1]) : parseInt(tv) * 60;
     }
 
-    // Part-level time cap (2026-07-27): the coach writes the "t.c N" of a
-    // workout unit at its END — sometimes in the SAME column as the work,
-    // sometimes in a SEPARATE column of the same part. So a cap found in ANY
-    // cell of the part's row (content lines OR the cell header) is the cap for
-    // the whole part's timed work. Used by renderWorkout AND the test harness
-    // (same scan → goldens match production).
-    function scanPartCapSeconds(cells) {
-      for (const cell of (cells || [])) {
-        let cap = capSecondsFromLine(cell.header);
+    // Part-level time cap (2026-07-27; refined SAME DAY after a coach flag):
+    // the coach writes the "t.c N" of a workout unit at its END — sometimes in
+    // the SAME column as the work, sometimes in a SEPARATE notes column of the
+    // same part. But a part can hold SEVERAL independent timed blocks and a cap
+    // belongs to ONE block — the first version blanket-passed the first cap
+    // found to every cell, leaking a Strength block's "10 min tc" onto a
+    // sibling Accessories For-Time. A cap propagates cross-cell ONLY when BOTH
+    // hold; otherwise it stays LOCAL to its own cell:
+    //   1. the cap's own cell is a pure NOTES/annotation cell — after dropping
+    //      the cap line and annotation lines (rx/rx+ scaling markers,
+    //      "*"-prefixed notes, goal lines EN/HE) NOTHING substantive remains,
+    //      so the cap cannot be capping work in its own cell;
+    //   2. exactly ONE capless work block (For-Time or bare "every X:XX") is in
+    //      the part to receive it — with 2+ candidates we don't guess.
+    // Returns a PER-CELL array of cap hints (seconds; 0 = none), so only the
+    // single recipient cell ever sees a cross-cell cap. Used by renderWorkout
+    // AND the test harness (same scan → goldens match production).
+    function partCapHints(cells) {
+      cells = cells || [];
+      const hints = cells.map(() => 0);
+      // A line that annotates rather than prescribes work: blank/spacer, the
+      // cap itself, an rx/rx+ scaling marker, a "*"-note, a goal line.
+      const isAnnotation = (l) => {
+        const t = (l || '').trim();
+        if (!t || t === '__SPACER__') return true;
+        if (capSecondsFromLine(t)) return true;
+        if (/\brx\b\+?/i.test(t)) return true;
+        if (/^\*/.test(t)) return true;
+        if (/\bgoal\b/i.test(t) || /מטרה/.test(t)) return true;
+        return false;
+      };
+      const cellCap = (c) => {
+        let cap = capSecondsFromLine(c.header);
         if (cap) return cap;
-        for (const l of (cell.lines || [])) {
-          cap = capSecondsFromLine(l);
-          if (cap) return cap;
-        }
+        for (const l of (c.lines || [])) { cap = capSecondsFromLine(l); if (cap) return cap; }
+        return 0;
+      };
+      // Rule 1 — the orphaned cap: a cap whose own cell is pure notes. A cap
+      // in a cell that has work content (exercises/reps — e.g. "4 sets of 4
+      // reps", "front squat") is that block's OWN cap and never propagates.
+      let orphanCap = 0;
+      for (const c of cells) {
+        const cap = cellCap(c);
+        if (!cap) continue;
+        if ((c.lines || []).every(isAnnotation)) { orphanCap = cap; break; }
       }
-      return 0;
+      if (!orphanCap) return hints;
+      // Rule 2 — exactly one capless work block (For-Time keyword or a bare
+      // "every X:XX", in lines or header) may receive the orphaned cap.
+      const everyBare = everyRe('\\s+\\d+:\\d{2}', 'i');
+      const recipients = [];
+      for (let i = 0; i < cells.length; i++) {
+        if (cellCap(cells[i])) continue; // has its own cap → not a recipient
+        const txt = [cells[i].header || ''].concat(cells[i].lines || []).join('\n');
+        if (/\bfor\s+time\b/i.test(txt) || everyBare.test(txt)) recipients.push(i);
+      }
+      if (recipients.length === 1) hints[recipients[0]] = orphanCap;
+      return hints;
     }
 
     // Detect timer configs from a flat list of workout lines (returns array).
@@ -4954,12 +4996,15 @@
           let currentSection = '';
           const cellTimerConfigs = {}; // map section → extracted timer config
           const isGrpLine = l => /^[A-Z]\s*[\.\-\)]/i.test(l) && !/^\s*t\.?\s*c[\-\s:]/i.test(l);
-          // Part-level cap (2026-07-27): a "t.c N" anywhere in this row's cells
-          // — any column, content OR header — is the cap for the part's timed
-          // work (the coach writes it at the END of the workout unit, sometimes
-          // in a separate column). Scanned over row.cells (same scan as the
-          // test harness, so goldens match production).
-          const partCap = scanPartCapSeconds(row.cells);
+          // Part-level cap (2026-07-27; refined SAME DAY after a coach flag):
+          // a "t.c N" the coach writes for ONE block must NOT leak onto a
+          // sibling block in the same part. partCapHints() returns a PER-CELL
+          // array (indexed by row.cells): a cap propagates to another cell ONLY
+          // when it sits alone in a pure-notes cell AND exactly one capless work
+          // block can receive it; otherwise its cell gets 0 (the cap stays local
+          // to its own block via that cell's own written cap). Scanned over
+          // row.cells (same scan as the test harness, so goldens match prod).
+          const capHints = partCapHints(row.cells);
           for (const cell of contentCells) {
             currentSection = cell.header;
             const isUntitledWarmup = !cell.header;
@@ -4968,8 +5013,9 @@
             // Extract ALL timer configs from cell content + the cell's own
             // header (the coach writes "16 min tc" as the column header —
             // extractTimerConfigs scans the header for the time-cap only)
-            // + the part-level cap hint from the row scan above.
-            const detectedTimers = extractTimerConfigs(cell.lines, cell.header, partCap);
+            // + THIS cell's own part-cap hint (0 unless it's the recipient).
+            const cellCapHint = capHints[row.cells.indexOf(cell)] || 0;
+            const detectedTimers = extractTimerConfigs(cell.lines, cell.header, cellCapHint);
             if (detectedTimers.length > 0) cellTimerConfigs[cell.header] = detectedTimers;
 
             // Promote a leading section title (e.g. "C&J Prog") into the

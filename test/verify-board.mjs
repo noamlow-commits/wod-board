@@ -90,10 +90,20 @@ const FIXTURES = [
     expectTimers: ["8′ leg and lat activation", "TC 16′", "E2MOM ×9 (18′)"],
     rows: [["", "Strength:", "16 min tc", "B Accsesories:"],
            ["", "8 min leg and lat activation", "5 sets of 4 reps of 1.5 front squat\n65-70%", "E2MOM X 9 (3 rounds from each)\n1- 10-12 Weighted GHD Sit ups\n2- 10-12 Back Extension\n3- 40-60 sec Plank"]] },
-  { name: "fortime_pacing_cap_columns", note: "coach's real sheet (2026-07-27): ONE part in TWO columns. Col 1 (header 'for time:') is the work — '3000 m run' + a bare 'every 4:00' pacing line + 3 exercises; col 2 is the scaling ('rx+ 4000 m run') and the cap ('t.c 35'). Locks two fixes: (1) the bare 'every 4:00' has NO written count/total/sets and NO 1#/#1 stations — the old exercise-line fallback invented 'Every 4:00 ×4 (16′)' by reading the for-time list (incl. the 3000m run) as 4 stations; now nothing-written + a part cap = pacing UNDER the cap → Every 4:00 (TC 35′): emom iv=240 with totalSeconds=2100 (the 35′ cap), final partial interval expected. (2) the 't.c 35' lives in the OTHER column — scanPartCapSeconds finds a cap in ANY cell of the part (lines or headers) and threads it into every cell's extraction. Col 2 still yields its own local TC 35′ fortime (same clock, still cycle-reachable). The ×N-vs-'N sets'×stations asymmetry (evey_typo_explicit_rounds / hashfirst_stations_rounds) is deliberately untouched by this: anything WRITTEN still resolves exactly as before.",
+  { name: "fortime_pacing_cap_columns", note: "coach's real sheet (2026-07-27): ONE part in TWO columns. Col 1 (header 'for time:') is the work — '3000 m run' + a bare 'every 4:00' pacing line + 3 exercises; col 2 is the scaling ('rx+ 4000 m run') and the cap ('t.c 35'). Locks two fixes: (1) the bare 'every 4:00' has NO written count/total/sets and NO 1#/#1 stations — the old exercise-line fallback invented 'Every 4:00 ×4 (16′)' by reading the for-time list (incl. the 3000m run) as 4 stations; now nothing-written + a part cap = pacing UNDER the cap → Every 4:00 (TC 35′): emom iv=240 with totalSeconds=2100 (the 35′ cap), final partial interval expected. (2) the 't.c 35' lives in the OTHER column, alone in a pure-notes cell (rx+ line, *goal line, cap) — partCapHints recognizes it as an ORPHAN cap and, since col 1 is the single capless work block, threads it into col 1 ONLY (not a blanket every-cell spray). Col 2 still yields its own local TC 35′ fortime from that same written cap (same clock, still cycle-reachable). The ×N-vs-'N sets'×stations asymmetry (evey_typo_explicit_rounds / hashfirst_stations_rounds) is deliberately untouched by this: anything WRITTEN still resolves exactly as before.",
     expectTimers: ["Every 4:00 (TC 35′)", "TC 35′"],
     rows: [["", "for time:", ""],
            ["", "3000 m run\nevery 4:00\n5 burpee\n8 push up\n20 d.u", "rx+ 4000 m run\n*המטרה לסיים במינימום סטים\nt.c 35"]] },
+  { name: "cap_no_leak_two_work_blocks", note: "cap-LEAK guard (2026-07-27, coach-flagged): a part with TWO independent work blocks, each with its OWN timing. 'Strength:' carries its own 'front squat / 10 min tc / 4 sets…' — the cap belongs to Strength ONLY. 'B Accessories: for time' is a SEPARATE block with NO cap. The old scan applied the first cap it found to EVERY cell → Accessories wrongly read 'For Time (TC 10′)'. partCapHints fixes this: the 10-min cap's own cell ('Strength') has real work content (not a pure-notes cell) → it is NOT an orphan cap → it never propagates. Strength keeps its local TC 10′; Accessories stays a bare 'For Time'. forbidTimers locks the leak shut.",
+    expectTimers: ["TC 10′", "For Time"],
+    forbidTimers: ["For Time (TC 10′)"],
+    rows: [["", "Strength:", "B Accessories:"],
+           ["", "front squat\n10 min tc\n4 sets of 4 reps of 1.5 front squat", "for time:\n50 burpees\n50 pull ups"]] },
+  { name: "cap_local_fortime_plus_amrap", note: "cap-LEAK guard, sibling case (2026-07-27): a For-Time block writes its OWN cap IN ITS OWN cell ('for time: / 21-15-9 thrusters / t.c 8') next to a separate 'amrap 5:' block. The t.c 8 sits in a cell with real work content → not an orphan → stays local (For Time (TC 8′)); it must NOT bleed onto the AMRAP. AMRAP keeps its own 5′. Confirms the fix leaves same-cell caps untouched while blocking cross-cell leaks.",
+    expectTimers: ["For Time (TC 8′)", "AMRAP 5′"],
+    forbidTimers: ["AMRAP 5′ (TC 8′)", "AMRAP (TC 8′)"],
+    rows: [["", "Metcon:", "Finisher:"],
+           ["", "for time:\n21-15-9 thrusters\nt.c 8", "amrap 5:\nmax cal bike"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -224,16 +234,21 @@ for (const fx of FIXTURES) {
       const timers = [];
       for (const row of data.rows) {
         // Part-level cap — the SAME scan production does (renderWorkout): a
-        // "t.c N" in ANY cell of the row (lines or header) caps the part's
-        // timed work, so it is threaded into every cell's extraction.
-        const partCap = window.scanPartCapSeconds(row.cells);
-        for (const cell of row.cells)
+        // "t.c N" the coach writes for one block. partCapHints returns a
+        // PER-CELL array — a cap propagates to a sibling cell ONLY when it sits
+        // alone in a pure-notes cell AND exactly one capless work block can
+        // receive it; otherwise it stays local to its own block. Indexed by
+        // row.cells, so cell i gets capHints[i].
+        const capHints = window.partCapHints(row.cells);
+        for (let i = 0; i < row.cells.length; i++) {
+          const cell = row.cells[i];
           timers.push({
             section: row.label, header: cell.header,
             // header passed too — production (renderWorkout ~4823) scans the
             // cell header for a time-cap the coach wrote as the header itself
-            timers: (window.extractTimerConfigs(cell.lines, cell.header, partCap) || []).map((c) => ({ label: c.label, type: c.type })),
+            timers: (window.extractTimerConfigs(cell.lines, cell.header, capHints[i]) || []).map((c) => ({ label: c.label, type: c.type })),
           });
+        }
       }
       return { data, timers };
     }, fx.rows);
@@ -241,12 +256,18 @@ for (const fx of FIXTURES) {
     // Optional TRUE correctness assertion (beyond golden change-detection):
     // fixture.expectTimers = labels that MUST be among the detected timers.
     // Guards against --update silently baking a wrong result into the golden.
-    if (fx.expectTimers) {
+    if (fx.expectTimers || fx.forbidTimers) {
       const allLabels = parsed.timers.flatMap((t) => t.timers.map((x) => x.label));
-      const missing = fx.expectTimers.filter((l) => !allLabels.includes(l));
-      if (missing.length) {
+      const missing = (fx.expectTimers || []).filter((l) => !allLabels.includes(l));
+      // forbidTimers = labels that MUST NOT appear (the cross-cell cap-LEAK
+      // guard: a cap written for one block must not spawn "(TC N′)" on a sibling).
+      const leaked = (fx.forbidTimers || []).filter((l) => allLabels.includes(l));
+      if (missing.length || leaked.length) {
+        const parts = [];
+        if (missing.length) parts.push(`missing: ${missing.join(" | ")}`);
+        if (leaked.length) parts.push(`FORBIDDEN present: ${leaked.join(" | ")}`);
         results.push({ name: fx.name, status: "ERROR",
-                       error: `expectTimers missing: ${missing.join(" | ")} — detected: [${allLabels.join(" | ")}]` });
+                       error: `${parts.join("; ")} — detected: [${allLabels.join(" | ")}]` });
         continue; // finally still closes the page
       }
     }
