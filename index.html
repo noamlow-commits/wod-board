@@ -3222,10 +3222,18 @@
         if (currentRound !== _lastIntervalRound && _lastIntervalRound > 0) {
           TimerAudio.intervalBeep();
           _emomTickedSec = 0; // reset tick tracker on round change
-          // Announce last round at the START of the final interval
+          // Voice the round change AFTER the interval beep (~1.2s) so they don't
+          // clash. Coach 2026-07-27: "the clock should talk more" — EMOM used to
+          // only beep + say 'last round'; now it CALLS THE ROUND every interval
+          // ("round two" … "round eight", files exist for 2-8), and 'last round'
+          // on the final one. Rounds past 8 (no voice file) just get the beep.
+          const _at = TimerAudio.ctx ? TimerAudio.ctx.currentTime + 1.2 : undefined;
           if (currentRound === totalRounds && !_lastRoundAnnounced) {
-            TimerAudio.say('last_round');
+            TimerAudio.say('last_round', _at);
             _lastRoundAnnounced = true;
+          } else {
+            const roundKeys = ['', '', 'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight'];
+            if (roundKeys[currentRound]) TimerAudio.say(roundKeys[currentRound], _at);
           }
         }
         _lastIntervalRound = currentRound;
@@ -3362,9 +3370,9 @@
         const remaining = totalMs - totalElapsed;
         const elapsedFraction = totalElapsed / totalMs;
 
-        // Halfway cue — only when timer hasn't already passed halfway before this tick
-        //   (i.e., fire once, right around 50%). Apply to AMRAP / For-Time-with-cap.
-        if (!_halfwayAnnounced && (timerType === 'amrap' || timerType === 'fortime')
+        // Halfway cue — once, right around 50%. AMRAP / For-Time-with-cap AND EMOM
+        // (coach 2026-07-27 wanted halfway called on interval workouts too).
+        if (!_halfwayAnnounced && (timerType === 'amrap' || timerType === 'fortime' || timerType === 'emom')
             && elapsedFraction >= 0.5 && remaining > 15000) {
           TimerAudio.say('halfway');
           _halfwayAnnounced = true;
