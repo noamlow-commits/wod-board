@@ -49,6 +49,10 @@
         {
           "label": "Tabata 30″/10″ ×3",
           "type": "tabata"
+        },
+        {
+          "label": "6′ leg mobility",
+          "type": "amrap"
         }
       ]
     },

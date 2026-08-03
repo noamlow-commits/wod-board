@@ -3056,6 +3056,10 @@
             results.push({ type: 'amrap', totalSeconds: total, label: `${m[1]}:${m[2]} work` });
           }
         }
+      }
+      // ↑ end of the `!chained && results.length === 0` last-resort block.
+      // The leading-duration rule below deliberately sits OUTSIDE it — a stage
+      // may legitimately hold this clock ALONGSIDE another one.
 
         // Leading standalone block duration — "8 min leg and lat activation".
         // A block whose FIRST content line LEADS with "N min <activity>" is a
@@ -3071,22 +3075,50 @@
         //   · never a cap ("16 min tc" — the cap branch above owns it), a
         //     rest line, or a pace/warm-up descriptor ("20 min easy row" —
         //     locked timer-less by the set_wave_lift golden).
-        // Runs only when nothing else was detected, so it can't double-count
-        // a duration another timer already consumed.
-        if (results.length === 0) {
-          const firstLn = lines.map(l => (l || '').trim()).find(l => l && l !== '__SPACER__');
+        // "FIRST content line" SKIPS pure label lines, and the rule no longer
+        // requires the cell to be otherwise timer-less (both relaxed 2026-08-03,
+        // fixture `leading_duration_behind_labels`). The coach wrote:
+        //     warm up tabata          ← zone label
+        //     warmup:                 ← label, ends with ':'
+        //     6 min leg mobility      ← the block duration
+        //     3 sets of 30 sec on 10 sec off pause squat
+        // and got NO 6′ clock, for two reasons that are both positional
+        // accidents rather than decisions: the literal first line was the zone
+        // label, and the pause-squat interval had already filled `results`.
+        // Yet "8 min leg and lat activation" — the identical shape, just written
+        // on line 1 of its cell — DOES get its clock (three_column_block_timers).
+        // Same intent, opposite outcome. A stage is allowed to carry several
+        // clocks (see the per-stage ⏱↻ array), so both belong here: 6′ → Tabata.
+        if (!chained) {
+          const isLabelOnly = l => /:\s*$/.test(l) || /^warm[\s-]?up\b/i.test(l);
+          const firstLn = lines.map(l => (l || '').trim())
+            .find(l => l && l !== '__SPACER__' && !isLabelOnly(l));
           const bm = firstLn ? firstLn.match(/^(\d+)\s*min(?:utes?)?\s+(.+)$/i) : null;
           if (bm) {
             const mins = parseInt(bm[1]);
             const act = bm[2].trim();
+            // Anti-double-count, replacing the old blanket `results.length === 0`.
+            // A block duration names the block and is followed by PROSE ("leg
+            // mobility", "leg and lat activation"). If the remainder instead
+            // reads like an interval SPEC — a format word, an on/off/work/rest
+            // keyword, a ×N multiplier, or a SECOND duration — then another
+            // detector already owns this line and a count-up here would be a
+            // ghost clock. Caught by the harness: without the second-duration
+            // test, "4 min on 1 min off x 4" produced a bogus 4′ count-up next
+            // to its correct 4′/1′ ×4 interval timer.
+            const actIsIntervalSpec =
+              /\b(on|off|work|rest|amrap|e\d*mom|emom|tabata|tbata|for\s*time|rft|rounds?|sets?)\b/i.test(act)
+              || /[x×*]\s*\d/i.test(act)
+              || /\d+\s*(?:min(?:ute)?s?|sec(?:ond)?s?)\b/i.test(act);
+            const alreadyHaveThisLong = results.some(r => r.totalSeconds === mins * 60);
             if (mins >= 1 && mins <= 90
+                && !actIsIntervalSpec && !alreadyHaveThisLong
                 && !/^t\.?\s*c\b/i.test(act)
                 && !/\b(rest|easy|recovery|warm[\s-]?up|cool[\s-]?down)\b/i.test(act)) {
               results.push({ type: 'amrap', totalSeconds: mins * 60, label: `${mins}′ ${act}` });
             }
           }
         }
-      }
 
       return results;
     }
