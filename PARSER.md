@@ -84,6 +84,25 @@ Sanity limits for chains: total ≤ 90 min, work ≥ 30s, rest ≤ 10 min, unifo
 
 Chained timer button label: `${timerName} ×${rounds} · ${workMins}' work / ${restShort} rest` → e.g. `AMRAP ×3 · 10' work / 2' rest`.
 
+**Custom work/rest units — `min` as well as `sec` on BOTH keyword pairs (fixed 2026-08-03, fixture `minutes_on_off_intervals`).** The coach wrote `4 min on 1 min off x 4` and the block produced **no timer at all** on the gym TV. Two work/rest patterns existed and she wrote the gap between them:
+
+| pattern | keywords | units |
+|---|---|---|
+| timeline single-line (~2620) | `work` / `rest` only | min **and** sec |
+| Layer-2 regex fallback (~2944) | `work`/`on` and `rest`/`off` | **sec only** |
+
+`min` + `on/off` matched neither. Nothing else caught it either — no AMRAP/EMOM/`every`/tabata/for-time keyword, no `t.c` cap, and the *leading standalone block duration* fallback requires the **first content line** to lead with `N min` (here it is `Metcon:`), so not even a wrong 4-minute count-up appeared. Same silent-total-loss shape as the `EVEY` typo: one unrecognised token costs the whole clock.
+
+Fix: the fallback's unit group is now `(min(?:ute)?s?|sec(?:ond)?s?)?`, read **independently on each side**, defaulting to **seconds** when omitted (so `30 on / 10 off` still means 30″/10″). The label goes through `fmtDur` → `4′/1′ ×4` instead of the old hardcoded `240″/60″`. A total-duration sanity check (`(work+rest)×rounds ≤ 90 min`) guards the newly-reachable large values; it is unreachable from a seconds-only interval, so no existing behaviour changed (all 19 prior goldens unchanged).
+
+⚠️ **Bare `m`/`s` aliases are deliberately NOT accepted here**, though the timeline pattern accepts them. That pattern is anchored by the literal words `work`/`rest`; with `on`/`off` a line like `400 m on the rower` would false-positive.
+
+**The bare `tabata` keyword is now a LAST resort, not a pre-emption (fixed 2026-08-03, same fixture).** The same sheet's warm-up cell reads `warm up tabata` + `3 sets of 30 seconds on 10 seconds off pause squat`. The keyword used to fire **first** with the classic 20/10 ×8, after which the custom-interval block was skipped by its own `!results.some(r => r.type === 'tabata')` guard — so a **guessed** 20/10 ×8 replaced her **written** 30/10 ×3. A live violation of the no-invented-timer-values rule, and the clock on the gym TV was simply wrong.
+
+The keyword push now sits **after** the custom block and fires only when nothing else produced a work/rest clock (custom interval, single-line interval, or a chained timeline) — i.e. only when she named the format but wrote no durations. When she *did* write values the keyword merely **names** them: `Tabata 30″/10″ ×3`. `forbidTimers: ["Tabata"]` in the fixture locks the bare default out.
+
+**Round count from `N sets OF <spec>` — same line only.** To get that ×3, a written count is read from `^\s*(\d+)\s*sets?\s+of\b` **on the line carrying the work/rest spec itself**. Deliberately narrow: a bare `N sets` on its **own** line above a station list stays ROTATION semantics (sets × stations — see the `EVERY`/`E2MOM` section and `feedback_rotation_interval_equals_station`), so `superset_group_cohesion` still resolves `warm up : 2 sets` + `30 sec work, 10 rest` + 3 stations to **×3 from the station count**, not ×2. Precedence: explicit `×N` / `N rounds` → same-line `N sets of` → exercise-line heuristic → 5.
+
 ### Rotation blocks — `E2MOM` and `every X:XX` (rewritten 2026-07-13)
 **ONE INTERVAL = ONE STATION.** The block cycles through the `1#/2#/3#` stations for the written number of sets. This is the rule the parser kept getting wrong, in both of its rotation paths, and each time it put a wrong clock on the gym TV:
 - `e2momx / 3 sets (18 min total) / 1# 2# 3#` → **9** intervals of 2:00, not 3.

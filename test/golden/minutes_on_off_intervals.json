@@ -1,0 +1,71 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "warm up tabata",
+              "warmup:",
+              "6 min leg mobility",
+              "3 sets of 30 seconds on 10 seconds off pause squat"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "Strength:",
+              "back squat",
+              "5 sets of 5 reps @75%"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "Metcon:",
+              "4 min on 1 min off x 4",
+              "1. 400 meter run +  max wallballs",
+              "2. 30 t2b+ max sit ups",
+              "3. 20 alternating dumbell snatch + max box jump in remaining time",
+              "4. 30.20 cal row - max burpees in remaining time"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "1",
+      "timers": [
+        {
+          "label": "Tabata 30″/10″ ×3",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": []
+    },
+    {
+      "section": "WOD",
+      "header": "3",
+      "timers": [
+        {
+          "label": "4′/1′ ×4",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

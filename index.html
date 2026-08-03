@@ -2927,44 +2927,99 @@
       // Tabata — either the word "tabata" (incl. coach's "TBATA" typo) or
       // custom work/rest patterns. Default 20/10×8; the custom-interval
       // detection below overrides with explicit timings if found.
-      if (/\b(?:tabata|tbata)\b/i.test(text)) {
-        results.push({ type: 'tabata', workSeconds: 20, restSeconds: 10, rounds: 8, label: 'Tabata' });
-      }
+      // ⚠️ The bare "tabata" keyword pushes the CLASSIC 20/10 ×8 default — but
+      // only as a LAST resort, after the custom-interval block below has had its
+      // chance. Until 2026-08-03 it fired FIRST and the custom block was skipped
+      // by the `!results.some(type === 'tabata')` guard, so a cell reading
+      // "warm up tabata … 3 sets of 30 seconds on 10 seconds off" showed the
+      // GUESSED 20/10 ×8 and silently discarded the coach's WRITTEN 30/10 ×3.
+      // Written values must always beat a default (see the no-invented-timer-
+      // values rule) — the keyword now only names a block she left unspecified.
+      const hasTabataWord = /\b(?:tabata|tbata)\b/i.test(text);
 
       // Custom work/rest intervals (uses the tabata timer with custom values).
       // Patterns detected:
       //   "30 sec work 10 sec rest"  "30 sec on 10 sec off"
       //   "30 seconds work, 10 seconds rest"
+      //   "4 min on 1 min off"       "2 minutes work / 1 minute rest"
       //   "0:30 work / 0:10 rest"    "30 on / 10 off"
       //   "work 30 sec rest 10 sec"
       //   Optional: "x5", "x 8", "× 6" at the end for round count
+      //
+      // ⚠️ The UNIT is read INDEPENDENTLY on each side and defaults to SECONDS
+      // when omitted (so the classic "30 on / 10 off" keeps meaning 30″/10″).
+      // Before 2026-08-03 this pattern hardcoded seconds while the *timeline*
+      // pattern (buildWorkoutTimeline, "N min work / M min rest") accepted
+      // minutes but only the literal words work/rest. The coach wrote the gap
+      // between them — "4 min on 1 min off x 4" — and the block produced NO
+      // clock at all on the gym TV. Same silent-total-loss shape as the EVEY
+      // typo: one unrecognised token costs the whole timer.
+      //
+      // Deliberately NOT accepting bare "m"/"s" aliases here (the timeline
+      // pattern does, but it is anchored by the literal words work/rest).
+      // With on/off, "400 m on the rower" would false-positive.
       if (!results.some(r => r.type === 'tabata')) {
-        // Pattern A: "N sec work ... M sec rest" — "sec" optional on each side
-        //   matches "30 sec work, 10 sec rest", "30 sec work, 10 rest", "30 work 10 sec rest"
-        let wr = text.match(/(\d+)\s*(?:sec(?:onds?)?)?\s*(?:work|on)\s*[,/\-]?\s*(\d+)\s*(?:sec(?:onds?)?)?\s*(?:rest|off)/i);
-        // Pattern C: "0:30 work / 0:10 rest"
-        if (!wr) {
-          const mm = text.match(/(\d+):(\d{2})\s*(?:work|on)\s*[,/\-]?\s*(\d+):(\d{2})\s*(?:rest|off)/i);
-          if (mm) wr = [null, String(parseInt(mm[1])*60 + parseInt(mm[2])), String(parseInt(mm[3])*60 + parseInt(mm[4]))];
-        }
+        const ONOFF_UNIT = '(min(?:ute)?s?|sec(?:ond)?s?)?';
+        const unitSecs = (n, u) => parseInt(n) * (/^min/i.test(u || '') ? 60 : 1);
+        // Pattern A: "N <unit> work ... M <unit> rest" — unit optional on each side
+        //   matches "30 sec work, 10 sec rest", "30 work 10 sec rest", "4 min on 1 min off"
+        let workSec = null, restSec = null;
+        const wr = text.match(new RegExp(
+          `(\\d+)\\s*${ONOFF_UNIT}\\s*(?:of\\s+)?(?:work|on)\\b\\s*[,/\\-]?\\s*(\\d+)\\s*${ONOFF_UNIT}\\s*(?:of\\s+)?(?:rest|off)\\b`, 'i'));
         if (wr) {
-          const workSec = parseInt(wr[1]);
-          const restSec = parseInt(wr[2]);
+          workSec = unitSecs(wr[1], wr[2]);
+          restSec = unitSecs(wr[3], wr[4]);
+        } else {
+          // Pattern C: "0:30 work / 0:10 rest"
+          const mm = text.match(/(\d+):(\d{2})\s*(?:work|on)\s*[,/\-]?\s*(\d+):(\d{2})\s*(?:rest|off)/i);
+          if (mm) {
+            workSec = parseInt(mm[1]) * 60 + parseInt(mm[2]);
+            restSec = parseInt(mm[3]) * 60 + parseInt(mm[4]);
+          }
+        }
+        if (workSec !== null) {
           // Try to find round count: "x5", "x 8", "× 6", "* 2", "5 rounds"
           // ("*" is coach shorthand — "30 work, 10 rest * 2")
           const roundsMatch = text.match(/[x×*]\s*(\d+)/i) || text.match(/(\d+)\s*rounds?/i);
-          // If no explicit rounds, count exercise-like lines in the same cell
-          // (lines starting with a number or bullet — rough heuristic, fallback to 5)
           let rounds = roundsMatch ? parseInt(roundsMatch[1]) : 0;
+          // "N sets OF <the work/rest spec>" — a WRITTEN count, but only when it
+          // sits on the SAME LINE as the interval it multiplies ("3 sets of 30
+          // seconds on 10 seconds off"). Deliberately narrow: a bare "N sets" on
+          // its OWN line above a station list is the ROTATION semantics the coach
+          // confirmed (sets × stations — see feedback_rotation_interval_equals_
+          // station), which this path must not touch.
+          if (rounds === 0) {
+            const ivLine = lines.find(l => new RegExp(
+              `\\d+\\s*${ONOFF_UNIT}\\s*(?:of\\s+)?(?:work|on)\\b`, 'i').test(l)) || '';
+            const setsOf = ivLine.match(/^\s*(\d+)\s*sets?\s+of\b/i);
+            if (setsOf) rounds = parseInt(setsOf[1]);
+          }
+          // If still nothing written, count exercise-like lines in the same cell
+          // (lines starting with a number or bullet — rough heuristic, fallback to 5)
           if (rounds === 0) {
             const exerciseLines = lines.filter(l => /^\s*\d/.test(l) && !/^\s*\d+\s*(sec|on|off|work|rest|min)/i.test(l));
             rounds = exerciseLines.length || 5;
           }
-          results.push({
-            type: 'tabata', workSeconds: workSec, restSeconds: restSec,
-            rounds, label: `${workSec}″/${restSec}″ ×${rounds}`
-          });
+          // Sanity window — in practice only reachable now that minutes parse
+          // (a seconds-only interval could never total 90 min). Blocks an
+          // absurd clock from a mis-read line rather than showing a wrong one.
+          if ((workSec + restSec) * rounds <= 90 * 60) {
+            const ivLabel = `${fmtDur(workSec)}/${fmtDur(restSec)} ×${rounds}`;
+            results.push({
+              type: 'tabata', workSeconds: workSec, restSeconds: restSec,
+              rounds, label: hasTabataWord ? `Tabata ${ivLabel}` : ivLabel
+            });
+          }
         }
+      }
+
+      // Bare "tabata" keyword → the classic 20/10 ×8, LAST resort only. Fires
+      // solely when nothing above produced a work/rest clock (custom interval,
+      // single-line interval, or a chained timeline) — i.e. the coach named the
+      // format but wrote no durations of her own. Moved below the custom block
+      // on 2026-08-03; before that it pre-empted her written values.
+      if (hasTabataWord && !results.some(r => r.type === 'tabata')) {
+        results.push({ type: 'tabata', workSeconds: 20, restSeconds: 10, rounds: 8, label: 'Tabata' });
       }
 
       // FOR TIME — also matches RFT ("Rounds For Time", e.g. "5 RFT") and

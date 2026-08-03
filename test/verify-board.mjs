@@ -104,6 +104,19 @@ const FIXTURES = [
     forbidTimers: ["AMRAP 5′ (TC 8′)", "AMRAP (TC 8′)"],
     rows: [["", "Metcon:", "Finisher:"],
            ["", "for time:\n21-15-9 thrusters\nt.c 8", "amrap 5:\nmax cal bike"]] },
+  { name: "minutes_on_off_intervals", note: "coach's real sheet (2026-08-03, VERBATIM from getWorkoutSheet — 3 columns, headers '1'/'2'/'3'): the Metcon cell leads with 'Metcon:' and then '4 min on 1 min off x 4' over 4 numbered stations → NO timer at all on the gym TV. Two work/rest patterns already existed and the coach wrote the gap between them: the timeline pattern (~2620) accepts MINUTE units but only the literal words work/rest; the regex fallback (~2944) accepts on/off but only SECONDS ('30 sec on 10 sec off'). 'min' + 'on/off' matched neither. Nor did anything else fire: no AMRAP/EMOM/every/tabata/for-time keyword, no t.c cap, and the 'leading standalone block duration' fallback needs the FIRST content line to lead with 'N min' — here it is 'Metcon:', so even the (wrong) 4-minute count-up never appeared. Total silent loss of the clock, same shape as the EVEY typo. Fix: the fallback's unit group now accepts min/minutes/m as well as sec/seconds/s INDEPENDENTLY on each side, converts to seconds, and labels via fmtDur → '4′/1′ ×4'. The written 'x 4' is the round count: 4×(4+1) = 20′. Col 1 locks the SECOND bug on the same board: it reads 'warm up tabata' + '3 sets of 30 seconds on 10 seconds off pause squat'. The bare 'tabata' keyword used to fire FIRST with the classic 20/10 ×8 default, and the custom-interval block was then skipped by the `!results.some(type==='tabata')` guard — so the GUESSED 20/10 ×8 replaced her WRITTEN 30/10 ×3 (a live no-invented-timer-values violation). The keyword default is now a LAST resort, after the custom/single-line/chained paths; when she did write values the keyword only NAMES the block → 'Tabata 30″/10″ ×3'. `forbidTimers: ['Tabata']` locks the bare default out of this sheet. The ×3 comes from a narrow 'N sets OF <the work/rest spec>' rule that only fires when the count sits on the SAME LINE as the interval — a bare 'N sets' on its own line above a station list stays ROTATION semantics (sets × stations), untouched: superset_group_cohesion still yields 30″/10″ ×3 from its station count, not ×2 from its 'warm up : 2 sets' line.",
+    expectTimers: ["4′/1′ ×4", "Tabata 30″/10″ ×3"],
+    forbidTimers: ["Tabata"],
+    rows: [[" b", "", "1", "2", "3", "בטיחות/דגשים"],
+           ["", "WOD",
+            "warm up tabata\nwarmup:\n6 min leg mobility \n3 sets of 30 seconds on 10 seconds off pause squat\n\n",
+            "Strength: \nback squat \n5 sets of 5 reps @75%\n\n         \n",
+            "Metcon:\n4 min on 1 min off x 4\n1. 400 meter run +  max wallballs\n2. 30 t2b+ max sit ups\n3. 20 alternating dumbell snatch + max box jump in remaining time \n4. 30.20 cal row - max burpees in remaining time \n",
+            ""]] },
+  { name: "seconds_on_off_unchanged", note: "regression guard for the minutes_on_off fix: the classic seconds form '30 sec on 10 sec off x 8' must keep parsing exactly as before (30″/10″ ×8). Locks that widening the unit group to minutes did not change the seconds path — the old label hardcoded ″, the new one goes through fmtDur, which must still render ″ for sub-minute values.",
+    expectTimers: ["30″/10″ ×8"],
+    rows: [["", "WOD"],
+           ["", "30 sec on 10 sec off x 8\nmax cal bike"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,33 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "30 sec on 10 sec off x 8",
+              "max cal bike"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "30″/10″ ×8",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}
