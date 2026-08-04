@@ -1,0 +1,35 @@
+{
+  "data": {
+    "headers": [
+      "CARDIO"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "CARDIO",
+            "lines": [
+              "4 min on 1 min off x",
+              "2 sets of all (40 min)",
+              "1. 600 m row+",
+              "2. 600 run+"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "CARDIO",
+      "timers": [
+        {
+          "label": "4′/1′ ×8",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

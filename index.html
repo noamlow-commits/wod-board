@@ -2607,6 +2607,69 @@
       // capless sibling cell — that push stays local-cap-only.
       const effCapSeconds = capSeconds || partCapSeconds || 0;
 
+      // ── Shared "what did the coach actually WRITE?" helpers ───────────────
+      // Defined here (function scope) because BOTH the single-line interval
+      // block below AND the rotation paths further down must resolve a round
+      // count the same way — the several ways she writes the same workout must
+      // not drift apart. See the rotation-block comment below for the full
+      // resolution order.
+      //
+      // A written TOTAL — "(40 min)", "(30 min total)", "total: 30 min". It is
+      // the one number that can't be mis-derived, so it beats every derived or
+      // written ×N count (no-invented-timer-values).
+      // ⚠️ The bare parenthetical form REQUIRES the closing ")" right after the
+      // unit, so the "4 min"/"1 min" of a work/rest pair can never be swallowed
+      // ("4 min work, 1 min rest x2 sets of all (40 min)" → 40, not 4).
+      const writtenTotalMin = () => {
+        const tm = text.match(/(\d+)[^\S\r\n]*min(?:utes?)?[^\S\r\n]*total\b/i)
+                || text.match(/\btotal[^\S\r\n:\-]*[:\-]?[^\S\r\n]*(\d+)[^\S\r\n]*min(?:utes?)?\b/i)
+                || text.match(/\((\d+)[^\S\r\n]*min(?:utes?)?[^\S\r\n]*\)/i);
+        return tm ? parseInt(tm[1]) : 0;
+      };
+      // An explicit round count the coach spells out — a PARENTHETICAL
+      // "(6 Rounds)" or "6 rounds total". Like writtenTotalMin, it's a written
+      // value that can't be mis-derived, so it is the LITERAL number of
+      // intervals and overrides both a header ×N and the sets×stations math.
+      // (Her "Every 1:30 x 3 sets (6 Rounds)" over #1/#2 is 6 intervals = 9′,
+      // not the literal ×3.) Deliberately NOT a bare "6 rounds" line — that
+      // form is "N sets OF the rotation" and is handled below by ×stations;
+      // only the parenthetical / "…total" form is read as the final count.
+      const writtenTotalRounds = () => {
+        const rm = text.match(/\((\d+)[^\S\r\n]*rounds?\)/i)
+                || text.match(/\b(\d+)[^\S\r\n]*rounds?[^\S\r\n]*total\b/i);
+        return rm ? parseInt(rm[1]) : 0;
+      };
+      // Count stations for rotation math. A merged label "2+3#" is TWO
+      // stations sharing one description line (coach shorthand), so count the
+      // digit-groups, not the lines — otherwise a merged-station EMOM/E#MOM
+      // rotates one interval short. Kept in sync with the highlight (~4628)
+      // and clean-break (~4764) regexes.
+      const stationCount = () => lines.reduce((n, l) => {
+        // Accept BOTH orders the coach writes a station marker:
+        // number-first ("1#", "2+3#") and hash-first ("#1", "#2").
+        const m = l.match(/^\s*(?:#\s*(\d+)|(\d+(?:\s*[+\-,&]\s*\d+)*)\s*#)/);
+        return n + (m ? (m[2] ? m[2].split(/[+\-,&]/).length : 1) : 0);
+      }, 0);
+      const rotationRounds = (iv, writtenOnly) => {
+        const totalMin = writtenTotalMin();
+        if (totalMin) return Math.round((totalMin * 60) / iv);
+        const totalRounds = writtenTotalRounds();
+        if (totalRounds) return totalRounds;   // explicit "(N rounds)" = literal count
+        const setsM = text.match(/(\d+)\s*(?:sets?|rounds?)\b/i);
+        const stations = stationCount();
+        if (setsM) return parseInt(setsM[1]) * (stations >= 2 ? stations : 1);
+        // writtenOnly (bare "every X:XX", 2026-07-27): when the coach wrote NO
+        // count, NO total, NO sets and NO station markers, counting exercise
+        // lines INVENTS a round count — a for-time list under an "every X:XX"
+        // pacing line ("3000 m run / 5 burpee / 8 push up / 20 d.u") read as
+        // a 4-station rotation and put "Every 4:00 ×4 (16′)" on the TV for a
+        // 35-minute For Time. Only the bare-every caller opts in; the E#MOM
+        // path (and stations-present blocks) keep the historical line fallback.
+        if (writtenOnly && stations === 0) return 0;
+        const exerciseLines = lines.filter(l => /^\s*\d/.test(l) && !/^\s*\d+\s*(sec|on|off|work|rest|min|set|round)/i.test(l));
+        return exerciseLines.length >= 2 ? exerciseLines.length : 0;
+      };
+
       // ── Single-line interval: "N min work, M min rest ×K sets" ──
       // Work duration, rest duration AND the round count all on ONE line. The
       // sequential timeline parser below only captures the first phase per line
@@ -2621,14 +2684,38 @@
         if (!wr) continue;
         const mult = ln.match(/[x×*]\s*(\d+)(?:\s*[\-–]\s*(\d+))?\s*(?:sets?|rounds?)?\b/i)
                   || ln.match(/\b(\d+)(?:\s*[\-–]\s*(\d+))?\s*(?:sets?|rounds?)\b/i);
-        if (!mult) continue;
         const unit = u => /^m/i.test(u) ? 60 : 1;
         const workSec = parseInt(wr[1]) * unit(wr[2]);
         const restSec = parseInt(wr[3]) * unit(wr[4]);
-        // round count: take the higher end of a range ("5-4 sets" → 5)
-        const rounds = Math.max(parseInt(mult[1]), mult[2] ? parseInt(mult[2]) : 0);
-        if (workSec >= 5 && restSec >= 1 && rounds >= 2 && rounds <= 30
-            && (workSec + restSec) * rounds <= 90 * 60) {
+        const cycleSec = workSec + restSec;
+        // Written ×N off this line: higher end of a range ("5-4 sets" → 5).
+        const writtenRounds = mult ? Math.max(parseInt(mult[1]), mult[2] ? parseInt(mult[2]) : 0) : 0;
+        // ⚠️ A WRITTEN TOTAL OVERRIDES A WRITTEN ×N — the same rule the rotation
+        // paths use, through the SAME shared helper (writtenTotalMin, hoisted to
+        // the top of detectTimers). Do NOT re-derive the total inline: the point
+        // of the helper is that the several shapes the coach writes the same
+        // workout in can't drift apart.
+        // Her CARDIO cell "4 min work, 1 min rest x2 sets of all (40 min)" over
+        // 4 stations is 40 ÷ (4+1) = 8 rounds; the ×2 put a 10-minute clock on a
+        // 40-minute block (gym TV, 2026-08-04).
+        // ⚠️ writtenTotalMin() scans the WHOLE cell, and it must: the sheet line
+        // is split by parseAppsScriptData into "…rest x" | "2 sets of all (40
+        // min)" (the (?<=letter)(?=\d+\s+letter) rule ~4746), so neither the ×N
+        // nor the total is reliably on the same line as the work/rest pair.
+        // ("x2 sets of ALL" = 2 sets of the whole 4-station rotation = 8 too, so
+        // both readings agree; the written total is the one that can't be
+        // mis-derived, so it leads.)
+        const totalMin = writtenTotalMin();
+        const derivedRounds = (totalMin && cycleSec > 0) ? Math.round((totalMin * 60) / cycleSec) : 0;
+        // The SAME sanity guards apply to either source — a derived count that
+        // lands outside them falls back to the written ×N rather than emitting
+        // garbage; neither surviving ⇒ no timer (never a guessed default).
+        const sane = (r) => workSec >= 5 && restSec >= 1 && r >= 2 && r <= 30
+                            && cycleSec * r <= 90 * 60;
+        // Priority: written total ÷ (work+rest) → written ×N → nothing.
+        const rounds = sane(derivedRounds) ? derivedRounds
+                     : sane(writtenRounds) ? writtenRounds : 0;
+        if (rounds) {
           results.push({
             type: 'tabata', workSeconds: workSec, restSeconds: restSec,
             rounds, skipLastRest: false,
@@ -2718,54 +2805,10 @@
         //   5. one interval per exercise line        → line count (NOT for a
         //      bare "every X:XX" with no stations — see writtenOnly below)
         // 0 (→ no timer) if none of those is written.
-        const writtenTotalMin = () => {
-          const tm = text.match(/(\d+)[^\S\r\n]*min(?:utes?)?[^\S\r\n]*total\b/i)
-                  || text.match(/\btotal[^\S\r\n:\-]*[:\-]?[^\S\r\n]*(\d+)[^\S\r\n]*min(?:utes?)?\b/i);
-          return tm ? parseInt(tm[1]) : 0;
-        };
-        // An explicit round count the coach spells out — a PARENTHETICAL
-        // "(6 Rounds)" or "6 rounds total". Like writtenTotalMin, it's a written
-        // value that can't be mis-derived, so it is the LITERAL number of
-        // intervals and overrides both a header ×N and the sets×stations math.
-        // (Her "Every 1:30 x 3 sets (6 Rounds)" over #1/#2 is 6 intervals = 9′,
-        // not the literal ×3.) Deliberately NOT a bare "6 rounds" line — that
-        // form is "N sets OF the rotation" and is handled below by ×stations;
-        // only the parenthetical / "…total" form is read as the final count.
-        const writtenTotalRounds = () => {
-          const rm = text.match(/\((\d+)[^\S\r\n]*rounds?\)/i)
-                  || text.match(/\b(\d+)[^\S\r\n]*rounds?[^\S\r\n]*total\b/i);
-          return rm ? parseInt(rm[1]) : 0;
-        };
-        // Count stations for rotation math. A merged label "2+3#" is TWO
-        // stations sharing one description line (coach shorthand), so count the
-        // digit-groups, not the lines — otherwise a merged-station EMOM/E#MOM
-        // rotates one interval short. Kept in sync with the highlight (~4628)
-        // and clean-break (~4764) regexes.
-        const stationCount = () => lines.reduce((n, l) => {
-          // Accept BOTH orders the coach writes a station marker:
-          // number-first ("1#", "2+3#") and hash-first ("#1", "#2").
-          const m = l.match(/^\s*(?:#\s*(\d+)|(\d+(?:\s*[+\-,&]\s*\d+)*)\s*#)/);
-          return n + (m ? (m[2] ? m[2].split(/[+\-,&]/).length : 1) : 0);
-        }, 0);
-        const rotationRounds = (iv, writtenOnly) => {
-          const totalMin = writtenTotalMin();
-          if (totalMin) return Math.round((totalMin * 60) / iv);
-          const totalRounds = writtenTotalRounds();
-          if (totalRounds) return totalRounds;   // explicit "(N rounds)" = literal count
-          const setsM = text.match(/(\d+)\s*(?:sets?|rounds?)\b/i);
-          const stations = stationCount();
-          if (setsM) return parseInt(setsM[1]) * (stations >= 2 ? stations : 1);
-          // writtenOnly (bare "every X:XX", 2026-07-27): when the coach wrote NO
-          // count, NO total, NO sets and NO station markers, counting exercise
-          // lines INVENTS a round count — a for-time list under an "every X:XX"
-          // pacing line ("3000 m run / 5 burpee / 8 push up / 20 d.u") read as
-          // a 4-station rotation and put "Every 4:00 ×4 (16′)" on the TV for a
-          // 35-minute For Time. Only the bare-every caller opts in; the E#MOM
-          // path (and stations-present blocks) keep the historical line fallback.
-          if (writtenOnly && stations === 0) return 0;
-          const exerciseLines = lines.filter(l => /^\s*\d/.test(l) && !/^\s*\d+\s*(sec|on|off|work|rest|min|set|round)/i.test(l));
-          return exerciseLines.length >= 2 ? exerciseLines.length : 0;
-        };
+        // (writtenTotalMin / writtenTotalRounds / stationCount / rotationRounds
+        //  are defined ONCE at the top of detectTimers — the single-line
+        //  interval block above shares them, so "×N vs written total" resolves
+        //  identically no matter which shape the coach wrote.)
 
         // E2MOM / E3MOM — "every N minutes, on the minute". One interval = one
         // station; the block cycles through the stations for the written number
@@ -2978,6 +3021,28 @@
           }
         }
         if (workSec !== null) {
+          const cycleSec = workSec + restSec;
+          // ⚠️ A WRITTEN TOTAL OVERRIDES A WRITTEN ×N — the same rule, through
+          // the SAME shared helper (writtenTotalMin, hoisted to the top of
+          // detectTimers) as the single-line interval path and the rotation
+          // paths. Do NOT re-derive the total inline: the coach writes ONE
+          // workout in several shapes ("4 min work, 1 min rest …" here reads
+          // "4 min on 1 min off …") and those shapes must not drift apart.
+          // This block owns the on/off wording; until 2026-08-04 only the
+          // work/rest wording had learned the rule, so her
+          // "4 min on 1 min off x2 sets of all (40 min)" still resolved to ×2
+          // — a 10-minute clock on a 40-minute block, the very defect the
+          // sibling path had just closed (PARSER.md carried it as a known gap).
+          // 40 ÷ (4+1) = 8 rounds.
+          const totalMin = writtenTotalMin();
+          const derivedRounds = (totalMin && cycleSec > 0) ? Math.round((totalMin * 60) / cycleSec) : 0;
+          // The SAME sanity window the single-line path applies. A derived count
+          // that lands outside it is discarded and the written ×N below stands —
+          // never emit garbage, and never invent a count (no total written ⇒
+          // derivedRounds is 0 ⇒ this contributes nothing at all).
+          const saneDerived = workSec >= 5 && restSec >= 1
+                              && derivedRounds >= 2 && derivedRounds <= 30
+                              && cycleSec * derivedRounds <= 90 * 60;
           // Try to find round count: "x5", "x 8", "× 6", "* 2", "5 rounds"
           // ("*" is coach shorthand — "30 work, 10 rest * 2")
           const roundsMatch = text.match(/[x×*]\s*(\d+)/i) || text.match(/(\d+)\s*rounds?/i);
@@ -3000,10 +3065,15 @@
             const exerciseLines = lines.filter(l => /^\s*\d/.test(l) && !/^\s*\d+\s*(sec|on|off|work|rest|min)/i.test(l));
             rounds = exerciseLines.length || 5;
           }
+          // Priority: written total ÷ (work+rest) → written ×N → nothing.
+          // Applied AFTER the ×N chain so that when the total is absent or
+          // insane, every ×N form above resolves byte-for-byte as it did before
+          // (locked by on_off_no_total_unchanged + seconds_on_off_unchanged).
+          if (saneDerived) rounds = derivedRounds;
           // Sanity window — in practice only reachable now that minutes parse
           // (a seconds-only interval could never total 90 min). Blocks an
           // absurd clock from a mis-read line rather than showing a wrong one.
-          if ((workSec + restSec) * rounds <= 90 * 60) {
+          if (cycleSec * rounds <= 90 * 60) {
             const ivLabel = `${fmtDur(workSec)}/${fmtDur(restSec)} ×${rounds}`;
             results.push({
               type: 'tabata', workSeconds: workSec, restSeconds: restSec,
@@ -4860,13 +4930,28 @@
         partHtml = partHtml.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
         return { type: 'sub-header', isPartHeader: true, html: partHtml };
       }
+      // A leading STATION NUMBER — "1. 600 m row", "2. amrap :", "3) 20 v-ups".
+      // Exactly the pattern that gets the red "N." badge in the generic renderer
+      // below. Like the "A1."/"A2." station-label guard, this classification
+      // WINS over the colon-sub-header rule and over the instruction rule, so
+      // four sibling stations always render in the SAME category — red "N."
+      // badge on a white exercise line — even when one of them happens to end
+      // in ":" or to name a format ("2. amrap :"). Without it that one line
+      // turned into an all-orange sub-header while its siblings stayed white
+      // (gym TV, 2026-08-04) — the same within-category inconsistency as the
+      // "A1. 4 Sets Of:" bug (commit d656ec4).
+      // Requires digits + "."/")" + whitespace, so genuine instruction lines
+      // like "3 sets", "2 rounds", "18 min amrap" are untouched.
+      const isNumberedStation = /^\s*\d+\s*[\.\)]\s+/.test(text);
+
       // Detect sub-headers (lines ending with : or all-caps). EXCEPT lines that
-      // start with a letter+digit label ("A1. 4 Sets Of:") — those keep their red
-      // label badge for visual consistency with A2./A3., so let them fall through
-      // to the generic renderer (which badges the leading label) instead of
-      // rendering as a plain colon sub-header.
+      // start with a letter+digit label ("A1. 4 Sets Of:") or a station number
+      // ("2. amrap :") — those keep their red label badge for visual consistency
+      // with A2./A3. (resp. 1./3./4.), so let them fall through to the generic
+      // renderer (which badges the leading label) instead of rendering as a
+      // plain colon sub-header.
       if ((/^[A-Z\s]{4,}:?$/.test(text) || /^.{2,}:$/.test(text))
-          && !/^[A-Z]\d+\s*[\.\-\)]/i.test(text)) {
+          && !/^[A-Z]\d+\s*[\.\-\)]/i.test(text) && !isNumberedStation) {
         return { type: 'sub-header', html: escapeHtml(text) };
       }
 
@@ -4928,11 +5013,12 @@
         || /\b\d+\s*min(?:utes?)?\s*[x×*]\s*\d+\b/i.test(text)
         || /\b(min|sec) rest\b/i.test(text);
 
-      // A line that opens with a station label ("A1.", "A2.", "B2 -") keeps its
-      // subgroup badge even when it mentions a format keyword (Metcon / For Time /
-      // AMRAP). Station-label classification wins over instruction classification.
+      // A line that opens with a station label ("A1.", "A2.", "B2 -") or a
+      // station NUMBER ("2. amrap :") keeps its badge even when it mentions a
+      // format keyword (Metcon / For Time / AMRAP). Station-label classification
+      // wins over instruction classification.
       // Mirrors the same guard on the colon/all-caps sub-header rule above.
-      if (isInstruction && !/^[A-Z]\d+\s*[\.\-\)]/i.test(text)) {
+      if (isInstruction && !/^[A-Z]\d+\s*[\.\-\)]/i.test(text) && !isNumberedStation) {
         let html = escapeHtml(text);
         // Coach shorthand "e 1:30 mom" / "e1:30mom" → normalize to "EMOM 1:30"
         // so the EMOM badge below catches it instead of leaving stray "e"/"mom".

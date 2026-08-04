@@ -113,6 +113,26 @@ const FIXTURES = [
             "Strength: \nback squat \n5 sets of 5 reps @75%\n\n         \n",
             "Metcon:\n4 min on 1 min off x 4\n1. 400 meter run +  max wallballs\n2. 30 t2b+ max sit ups\n3. 20 alternating dumbell snatch + max box jump in remaining time \n4. 30.20 cal row - max burpees in remaining time \n",
             ""]] },
+  { name: "cardio_written_total_beats_xN", note: "coach's real CARDIO cell (2026-08-04, VERBATIM from the sheet's column '2'): '4 min work, 1 min rest x2 sets of all (40 min)' over 4 numbered stations. The TV showed '4′/1′ ×2' = a TEN-minute clock on a FORTY-minute block. (Mechanically: parseAppsScriptData splits the coach's line into '…rest x' | '2 sets of all (40 min)', so the single-line-interval block found no ×N on its own line and bailed; the custom work/rest fallback then scanned the whole cell text, found the 'x2' and stopped there — neither path ever looked at the written total.) Her written total is the authority: 40 ÷ (4+1) = 8 rounds (and 'x2 sets of ALL' × 4 stations = 8 too — both readings agree). The rotation paths already implemented 'a written total overrides a written ×N' via the shared writtenTotalMin()/rotationRounds() helpers; those helpers are now hoisted to the top of detectTimers and the single-line block calls the SAME writtenTotalMin() instead of re-deriving the total inline (the two shapes of the same workout must not drift apart). writtenTotalMin() also had to learn the BARE parenthetical '(40 min)' — it previously required the word 'total'. The closing ')' is required immediately after the unit, so the '4 min'/'1 min' of the work/rest pair itself can never be swallowed. forbidTimers locks the old ×2 out. If NO total is written the behaviour is unchanged (×2) — see single_line_interval_no_total.",
+    expectTimers: ["×8 · 4′ work / 1′ rest"],
+    forbidTimers: ["×2 · 4′ work / 1′ rest"],
+    rows: [["", "CARDIO"],
+           ["", "4 min work, 1 min rest x2 sets of all (40 min)\n1. 600 m row+\nmax burpee over row machine\n\n2. amrap :\n5 pull up/ring row\n10 push up\n15 air squat\n\n3. 600 run+\nburpee board jump\n\n4. 20 v-ups\n20 alt lunge jump\nmax plank hold"]] },
+  { name: "single_line_interval_no_total", note: "the OTHER half of the written-total rule (no-invented-timer-values): the SAME interval line with the '(40 min)' REMOVED must resolve to exactly the written ×2, byte-for-byte as before the fix — a missing value means 'no change', never a guessed default. Locks that widening writtenTotalMin() to the bare '(N min)' form did not turn the absence of a total into an invented one. ⚠️ The label here is the custom work/rest fallback's '4′/1′ ×2', NOT the single-line block's '×2 · …' — because parseAppsScriptData SPLITS the coach's line ('…rest x' | '2 sets of all', via the (?<=letter)(?=\\d+\\s+letter) rule at ~4746), so the single-line block sees no ×N on its own line and bails; the fallback, which scans the whole cell text, is what produced the ×2 on the gym TV. That is precisely why the written-total lookup must ALSO scan the whole cell (writtenTotalMin does) rather than the interval line alone.",
+    expectTimers: ["4′/1′ ×2"],
+    forbidTimers: ["×2 · 4′ work / 1′ rest", "×8 · 4′ work / 1′ rest"],
+    rows: [["", "CARDIO"],
+           ["", "4 min work, 1 min rest x2 sets of all\n1. 600 m row+\n2. 600 run+"]] },
+  { name: "on_off_written_total_beats_xN", note: "the SIBLING path of cardio_written_total_beats_xN (2026-08-04). The coach writes the identical workout either way — 'work'/'rest' or 'on'/'off' — and the two wordings are parsed by two DIFFERENT blocks: the single-line interval loop (~2680, literal work/rest only) and the custom work/rest fallback (~3007, on/off + work/rest, whole-text scan). The 2026-08-04 fix taught only the single-line block that a WRITTEN TOTAL overrides a written ×N, so '4 min on 1 min off x2 sets of all (40 min)' still resolved to ×2 — a TEN-minute clock on a FORTY-minute block, the exact defect that was just closed for the other wording. PARSER.md carried it as a known sibling gap; this fixture closes it. The fallback now calls the SAME hoisted writtenTotalMin() helper (it does NOT re-derive the total inline — that is the whole point of hoisting it): 40 ÷ (4+1) = 8 → '4′/1′ ×8'. The derived count is subject to the same sanity guards as the single-line path (work ≥5″, rest ≥1″, 2 ≤ rounds ≤ 30, total ≤ 90′); if it fails them the written ×N stands, unchanged. forbidTimers locks the old ×2 out.",
+    expectTimers: ["4′/1′ ×8"],
+    forbidTimers: ["4′/1′ ×2"],
+    rows: [["", "CARDIO"],
+           ["", "4 min on 1 min off x2 sets of all (40 min)\n1. 600 m row+\n2. 600 run+"]] },
+  { name: "on_off_no_total_unchanged", note: "the no-invented-timer-values half of on_off_written_total_beats_xN: the SAME on/off line with '(40 min)' REMOVED must resolve to exactly the written ×2, byte-for-byte as before the fix. Mirrors single_line_interval_no_total for the on/off wording. This is what locks that consulting writtenTotalMin() in the custom work/rest fallback cannot INVENT a total where the coach wrote none — with no total the derived count is 0, fails the sanity window, and the existing ×N chain (explicit ×N → same-line 'N sets of' → exercise-line heuristic) runs untouched. forbidTimers keeps the ×8 of the positive fixture out.",
+    expectTimers: ["4′/1′ ×2"],
+    forbidTimers: ["4′/1′ ×8"],
+    rows: [["", "CARDIO"],
+           ["", "4 min on 1 min off x2 sets of all\n1. 600 m row+\n2. 600 run+"]] },
   { name: "seconds_on_off_unchanged", note: "regression guard for the minutes_on_off fix: the classic seconds form '30 sec on 10 sec off x 8' must keep parsing exactly as before (30″/10″ ×8). Locks that widening the unit group to minutes did not change the seconds path — the old label hardcoded ″, the new one goes through fmtDur, which must still render ″ for sub-minute values.",
     expectTimers: ["30″/10″ ×8"],
     rows: [["", "WOD"],
@@ -153,6 +173,25 @@ const BADGE_CHECKS = [
   { line: "prx machine work", expect: "none" },                   // "rx" inside a word must NOT badge (\brx\b guard)
 ];
 
+// ─────────────────────────────────────────────────────────────────────────
+// Station-number category consistency — a WITHIN-category correctness guard.
+// The red/orange/cyan badge split is intentional and must never be flattened
+// (see memory: badge colours are semantic). What IS a bug is four SIBLING
+// station markers rendering in different categories. On the coach's 2026-08-04
+// CARDIO cell, "1.", "3.", "4." were red time-badges on white exercise lines
+// while "2. amrap :" became an all-orange sub-header — the trailing ":" (and
+// the AMRAP keyword) hijacked the line before it got its number badge, exactly
+// like the "A1. 4 Sets Of:" bug fixed in d656ec4.
+// Every line in a group must resolve to the SAME parseLine type AND carry the
+// leading red "N." badge.
+// ─────────────────────────────────────────────────────────────────────────
+const STATION_CATEGORY_GROUPS = [
+  { name: "cardio 1./2./3./4. (coach 2026-08-04)",
+    lines: ["1. 600 m row+", "2. amrap :", "3. 600 run+", "4. 20 v-ups"] },
+  { name: "numbered station + trailing colon / format keyword",
+    lines: ["1. 400 meter run", "2. for time:", "3) tabata", "4. 30 cal row"] },
+];
+
 const stable = (o) => JSON.stringify(o, null, 2);
 function firstDiff(a, b) {
   const la = a.split("\n"), lb = b.split("\n");
@@ -167,6 +206,7 @@ await context.route("**/*", (r) => (r.request().url().startsWith("file:") ? r.co
 
 // ── Badge assertion pass (correctness guard) ──
 const badgeFails = [];
+const stationCatFails = [];
 {
   const page = await context.newPage();
   await page.goto(INDEX, { waitUntil: "domcontentloaded" });
@@ -184,6 +224,30 @@ const badgeFails = [];
       return { line: c.line, expect: c.expect, actual: m ? m[1] : "none" };
     }), BADGE_CHECKS);
   for (const g of got) if (g.actual !== g.expect) badgeFails.push(g);
+
+  // ── Station-number category consistency (within-category guard) ──
+  const catGot = await page.evaluate((groups) =>
+    groups.map((g) => ({
+      name: g.name,
+      rows: g.lines.map((line) => {
+        const p = window.parseLine(line) || {};
+        return {
+          line,
+          type: p.type,
+          // the leading red "N." badge every sibling must carry
+          numBadge: /^<span class="time-badge">\d+\.<\/span>/.test(p.html || ""),
+        };
+      }),
+    })), STATION_CATEGORY_GROUPS);
+  for (const g of catGot) {
+    const types = [...new Set(g.rows.map((r) => r.type))];
+    if (types.length > 1)
+      stationCatFails.push(`${g.name}: siblings landed in different categories → ` +
+        g.rows.map((r) => `"${r.line}"=${r.type}`).join(", "));
+    const noBadge = g.rows.filter((r) => !r.numBadge).map((r) => `"${r.line}"`);
+    if (noBadge.length)
+      stationCatFails.push(`${g.name}: missing the leading red "N." badge → ${noBadge.join(", ")}`);
+  }
   await page.close();
 }
 
@@ -330,6 +394,13 @@ if (badgeFails.length === 0) {
     console.log(`❌ "${f.line}"  expected ${f.expect}, got ${f.actual}`);
 }
 
+console.log("\nStation-number category consistency");
+if (stationCatFails.length === 0) {
+  console.log(`✅ all ${STATION_CATEGORY_GROUPS.length} sibling groups render in one category with the red "N." badge`);
+} else {
+  for (const f of stationCatFails) console.log(`❌ ${f}`);
+}
+
 console.log("\nLayout assertions (group cohesion)");
 if (layoutFails.length === 0) {
   console.log("✅ superset stays one atomic column; inline @load intact");
@@ -338,4 +409,4 @@ if (layoutFails.length === 0) {
 }
 
 if (diff) console.log("\nReview each DIFF: if the change was intended, re-run with --update to accept it.");
-process.exit(diff > 0 || badgeFails.length > 0 || layoutFails.length > 0 || results.some((r) => r.status === "ERROR") ? 1 : 0);
+process.exit(diff > 0 || badgeFails.length > 0 || stationCatFails.length > 0 || layoutFails.length > 0 || results.some((r) => r.status === "ERROR") ? 1 : 0);

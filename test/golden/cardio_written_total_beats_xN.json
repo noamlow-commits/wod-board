@@ -1,0 +1,47 @@
+{
+  "data": {
+    "headers": [
+      "CARDIO"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "CARDIO",
+            "lines": [
+              "4 min work, 1 min rest x",
+              "2 sets of all (40 min)",
+              "1. 600 m row+",
+              "max burpee over row machine",
+              "__SPACER__",
+              "2. amrap :",
+              "5 pull up/ring row",
+              "10 push up",
+              "15 air squat",
+              "__SPACER__",
+              "3. 600 run+",
+              "burpee board jump",
+              "__SPACER__",
+              "4. 20 v-ups",
+              "20 alt lunge jump",
+              "max plank hold"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "CARDIO",
+      "timers": [
+        {
+          "label": "×8 · 4′ work / 1′ rest",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

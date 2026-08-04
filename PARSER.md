@@ -29,6 +29,42 @@ Regression-guarded by the `superset_group_cohesion` fixture **and the LAYOUT ass
 ### Per-set lift wave — "Set N" headers (added 2026-07-09)
 A coach's strength wave written one set per line — `Set 1: 5 Reps` / `70% 1RM` / `Set 2: 3 Reps` / `80% 1RM` … — now renders each `Set N` line as a **workout part divider**, since each set *is* a part. `parseLine` detects `^\s*set\s+(\d+)\s*[:.\-)]?\s*(.*)$` and returns a `sub-header` with `isGroupTitle:true`, emitting the cyan **`SET N` group-badge** + `group-line` styling (the same "this is a PART" language as `A.`/`B.` group headers — see Section Colors). The remainder's leading rep count (`5 Reps`) is bolded via `rep-number`; the `%/1RM` line beneath flows under the header as its content. Because the header is a `sub-header`, the lead-in anti-widow guard keeps `SET N` glued to its load line, and balanced column breaks prefer landing *before* a `SET` header (so a wave splits cleanly, e.g. Sets 1–2 | Sets 3–5). **Prose safety:** the rule requires `set` + whitespace + a digit, so `Set up the rig` / `Settle in` never match. Guarded by the `set_wave_lift` fixture (no false timer on the wave) + three `BADGE_CHECKS` in `verify-board.mjs`.
 
+### A leading station NUMBER keeps its badge and its category (added 2026-08-04)
+The coach's CARDIO rotation numbers its stations `1.` `2.` `3.` `4.`. Three of
+them rendered as red `time-badge` markers on white exercise lines; **`2. amrap :`
+rendered as an all-orange sub-header** — the number never got its badge and the
+whole line changed category. Four siblings, three looking one way and one
+another: a **within-category** inconsistency, which is the only kind of badge
+inconsistency that is ever a bug (the red/orange/cyan split itself is semantic
+and must never be flattened — 🔴 times + generic labels, 🟡 rep counts, 🟦 A/B/C
+part structure).
+
+Two rules were hijacking the line before it reached the numbered-list badge
+(`html.replace(/^(\d+)\s*[\.\)]\s+/, …)`, ~4979): the generic **colon/all-caps
+sub-header** rule (`/^.{2,}:$/` — the line ends in `:`) and the **instruction**
+rule (it names `AMRAP`). Exactly the shape of the `A1. 4 Sets Of:` bug fixed in
+`d656ec4`, and of `feedback_station_label_beats_instruction` — station label
+beats instruction keyword.
+
+Fix: one shared predicate in `parseLine`, `isNumberedStation` =
+`/^\s*\d+\s*[\.\)]\s+/` — **the same pattern that earns the badge** — now guards
+**both** rules, alongside the existing `A1.`/`A2.` guard `^[A-Z]\d+\s*[\.\-\)]`.
+Digits + `.`/`)` + whitespace is required, so genuine instruction lines (`3 sets`,
+`2 rounds`, `18 min amrap`) are untouched, and `1-`/`2-` dash separators (which
+never got the badge either) stay as they were.
+
+Guarded by the **station-number category consistency pass** in
+`verify-board.mjs` — it asserts every line of a sibling group resolves to the
+same `parseLine` type **and** carries the leading red `N.` badge. A golden
+snapshot could not catch this (the goldens hold the parse tree, not the badge
+HTML).
+
+⚠️ **Deliberately NOT changed:** a numbered station is still **not** an
+`isStation` clean-break point in the item-build loop (~5145) — that predicate
+stays `#`-marker-only. Adding numbered lines there would re-rank column breaks
+across every numbered warm-up list in the repo, which is a layout change, not a
+colour one.
+
 ### Section Colors
 - WOD sections: orange gradient `#ea580c → #f97316`
 - CARDIO sections: purple gradient (default theme)
@@ -94,6 +130,23 @@ Chained timer button label: `${timerName} ×${rounds} · ${workMins}' work / ${r
 `min` + `on/off` matched neither. Nothing else caught it either — no AMRAP/EMOM/`every`/tabata/for-time keyword, no `t.c` cap, and the *leading standalone block duration* fallback requires the **first content line** to lead with `N min` (here it is `Metcon:`), so not even a wrong 4-minute count-up appeared. Same silent-total-loss shape as the `EVEY` typo: one unrecognised token costs the whole clock.
 
 Fix: the fallback's unit group is now `(min(?:ute)?s?|sec(?:ond)?s?)?`, read **independently on each side**, defaulting to **seconds** when omitted (so `30 on / 10 off` still means 30″/10″). The label goes through `fmtDur` → `4′/1′ ×4` instead of the old hardcoded `240″/60″`. A total-duration sanity check (`(work+rest)×rounds ≤ 90 min`) guards the newly-reachable large values; it is unreachable from a seconds-only interval, so no existing behaviour changed (all 19 prior goldens unchanged).
+
+**A written TOTAL overrides a written `×N` — in the single-line interval path too (fixed 2026-08-04, fixtures `cardio_written_total_beats_xN`, `single_line_interval_no_total`).** The coach's CARDIO cell reads `4 min work, 1 min rest x2 sets of all (40 min)` over 4 numbered stations. The board showed `4′/1′ ×2` — a **10-minute clock on a 40-minute block**. 40 ÷ (4+1) = **8** rounds; `x2 sets of ALL` × 4 stations = 8 as well, so both readings agree and the ×2 was simply wrong.
+
+The rotation paths had implemented "written total beats written ×N" since 2026-07-13, but the **single-line interval block owned its own inline round-count math** and never consulted a total. Fix: `writtenTotalMin()` / `writtenTotalRounds()` / `stationCount()` / `rotationRounds()` are **hoisted to the top of `detectTimers`** (they were declared inside the `if (!chained)` rotation block) and the single-line block calls the **same** `writtenTotalMin()`. The whole point of the helper is that the several shapes the coach writes one workout in can't drift apart — **do not re-derive a total inline.**
+
+- Priority in the single-line path: **written total ÷ (work+rest) → written `×N` → nothing.** Nothing written ⇒ no timer, never a guessed default.
+- The **same** sanity guards (`workSec ≥ 5`, `restSec ≥ 1`, `2 ≤ rounds ≤ 30`, total ≤ 90 min) apply to whichever source supplies the count; a derived count outside them **falls back to the written ×N** instead of emitting garbage.
+- `writtenTotalMin()` learned the **bare parenthetical `(40 min)`** (it previously required the literal word `total`). The closing `)` is **required immediately after the unit**, so the `4 min` / `1 min` of the work/rest pair itself can never be swallowed. Because the helper is shared, the rotation paths gained the same form — consistent with the already-documented "a written total still wins".
+- ⚠️ **`writtenTotalMin()` scans the whole cell, and it must.** `parseAppsScriptData` **splits that very line** into `…rest x` | `2 sets of all (40 min)` (the `(?<=letter)(?=\d+\s+letter)` rule, ~4746), so neither the `×N` nor the total is reliably on the same line as the work/rest pair. That split is also why the wrong `×2` actually came from the *custom work/rest fallback* (~3007, whole-text scan) rather than from the single-line block, which had bailed for want of a `×N`. Reading the interval line alone would have fixed nothing.
+- The no-total case is **byte-for-byte unchanged** (`4′/1′ ×2` from the fallback) and locked by `single_line_interval_no_total` + `forbidTimers`.
+
+✅ **Sibling gap CLOSED — the `on`/`off` wording obeys the same rule (2026-08-04, fixtures `on_off_written_total_beats_xN`, `on_off_no_total_unchanged`).** The custom work/rest fallback (~3007) used to read its `×N` inline without ever consulting `writtenTotalMin()`, so the identical workout written `4 min on 1 min off x2 sets of all (40 min)` still resolved to **×2** (a 10-minute clock on a 40-minute block) while the `work`/`rest` wording of the same cell resolved to ×8. **The coach writes one workout in several shapes; the shapes must not drift apart** — that is the whole reason `writtenTotalMin()` is hoisted to the top of `detectTimers`, and it is why the fallback now **calls the shared helper instead of re-deriving a total inline.**
+
+- **The rule, now uniform across all three paths (rotation / single-line interval / on-off fallback):** priority is **written total ÷ (work+rest) → written `×N` → nothing.** A written total is the one number that cannot be mis-derived, so it beats every `×N` form.
+- In this path "written `×N`" means the whole existing chain — explicit `×N`/`N rounds` → same-line `N sets of` → exercise-line heuristic → 5 — and that chain is **untouched**. The total override is applied *after* it, so with no total (or an insane one) every existing form resolves **byte-for-byte** as before: `4′/1′ ×2` stays ×2, the coach's real Metcon `4 min on 1 min off x 4` stays ×4 (1200 s), `30 sec on 10 sec off x 8` stays 30″/10″ ×8.
+- The **same sanity window** as the single-line path guards the derived count (`work ≥ 5″`, `rest ≥ 1″`, `2 ≤ rounds ≤ 30`, `(work+rest)×rounds ≤ 90 min`). A derived count outside it is discarded and the written `×N` stands — never garbage, and **never an invented value**: no total written ⇒ the derived count is 0 ⇒ it contributes nothing.
+- Verified on the resolved config, not on a green suite: `240″ work / 60″ rest × 8 = 2400 s`. `forbidTimers: ["4′/1′ ×2"]` on the positive fixture and `forbidTimers: ["4′/1′ ×8"]` on the negative one lock both directions — the second is what proves the change cannot invent a total where none is written (its golden was captured **before** the code change and still passes after).
 
 ⚠️ **Bare `m`/`s` aliases are deliberately NOT accepted here**, though the timeline pattern accepts them. That pattern is anchored by the literal words `work`/`rest`; with `on`/`off` a line like `400 m on the rower` would false-positive.
 
