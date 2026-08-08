@@ -33,6 +33,9 @@ When a mistake recurs — a parser edge case that broke twice, a timer format th
 coach used that wasn't handled, a deploy step that was forgotten — **write it
 down as a rule** instead of just fixing it again:
 - **Parser / layout / timer** rules → [`PARSER.md`](PARSER.md) (the deep spec).
+- **Open questions for the coach, known-but-unfixed timer defects, and the
+  detection roadmap** → [`TIMER_ROADMAP.md`](TIMER_ROADMAP.md). Read its §1
+  before changing timer semantics — those answers are hers, not ours.
 - **Architecture / workflow / deploy** rules → this file, below.
 - **A parser regression a test would have caught** → also add a fixture to
   `test/verify-board.mjs` and `--update` the golden, so it can't silently return.
