@@ -102,6 +102,7 @@ Fix: define data client-side in a JS map (e.g., `BADGE_DATA`) keyed by ID, not r
 | t | Timer mode |
 | Space | Start/pause/resume timer (timer mode only) |
 | Backspace | Reset timer (timer mode only) |
+| n | Skip to next phase (chained/EMOM clocks) — same as the ⏭ הבא button |
 
 ## Security
 - Two-layer auth: Gym PIN (all members) + Coach Password (admin)

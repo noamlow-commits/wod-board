@@ -8,6 +8,23 @@ code extraction, so the test can never drift from production. It snapshots the
 parsed structure + detected timers as **golden baselines**; any later change
 that alters them is flagged as a `DIFF`.
 
+### Beyond goldens — two assertions that catch what a snapshot can't
+
+A golden captures whatever the code **does**, not what the fixture **means**. On
+2026-08-08 that gap was live: `activity_interval`'s golden was an *empty timer
+list*, quietly asserting that the detector it is named after does nothing.
+
+- **`expectTimers` / `forbidTimers`** — labels that MUST / MUST NOT appear.
+  Give every new fixture one; without it `--update` can bake a wrong result in.
+- **Unexplained-facts property test** — every duration/cap the coach *wrote*
+  must reach some clock, or be listed in the fixture's **`ignoreFacts`** as a
+  deliberate miss. This is what makes a silent parse failure impossible to ship:
+  `[]` is still correct when she wrote nothing, but it is an ERROR when she
+  wrote a number nothing consumed. See PARSER.md "Making SILENCE measurable".
+- **Detection-branch coverage** — every structural branch of
+  `extractTimerConfigs` must be exercised by ≥1 fixture; a branch at 0 hits
+  fails the run. Write a fixture for it, or delete the dead branch.
+
 Golden files are the *current-behaviour baseline*, not hand-written "right
 answers". The value is catching **silent regressions** in the fragile logic
 documented in [`../PARSER.md`](../PARSER.md): widow guards, part detection,

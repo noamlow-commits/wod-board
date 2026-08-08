@@ -56,11 +56,19 @@ const FIXTURES = [
     rows: [["", "part 1", "part 2", "part 3"], ["סבב", "3 sets\n10 Deadlift\n10 Box Jump", "AMRAP 8\n5 Pull-ups\n10 Push-ups", "Tabata\n20/10 ×8\nHollow Hold"]] },
   { name: "chained_amrap", note: "chained AMRAPs+rest → interval/tabata chained timer",
     rows: [["", "WOD"], ["מטקון", "AMRAP 10\n10 Wall Balls\n10 T2B\nrest 2:00\nAMRAP 10\n10 Wall Balls\n10 T2B\nrest 2:00\nAMRAP 10\n10 Wall Balls\n10 T2B"]] },
-  { name: "activity_interval", note: "coach interval style '3 min run / 1 min rest ×5'",
+  { name: "activity_interval", note: "coach interval style '3 min run / 1 min rest ×5'. ⚠️ Until 2026-08-08 this fixture's golden was an EMPTY timer list — detectActivityInterval was reachable only from inside extractTimerConfigs' part-split loop, so a plain cell with no 'part N' headers never reached it. The fixture named after the detector was silently asserting that the detector does nothing, because a golden captures whatever the code does, not what the fixture MEANS. The unexplained-facts property test flagged it on its first run ('3 min, 1 min written, no timer'). expectTimers now states the intent directly so a golden can never quietly re-empty it.",
+    expectTimers: ["3′/1′ ×5"],
     rows: [["", "CARDIO"], ["ריצה", "5 sets\n3 min run\n1 min rest"]] },
   { name: "long_section_widows", note: "long single section → newspaper column split + widow guards",
     rows: [["", "WOD"], ["חימום", "Warm up\n1. 10 Hip 90-90\n2. 10 Arm Circles\n3. 10 Air Squats\n4. 10 Inchworm\n5. 10 Scap Pull-ups\nA. 3 sets of:\n10 Goblet Squat\n10 Ring Row\n10 Push-up\nB. 3 sets of:\n8 Deadlift\n8 Strict Press\nAMRAP 15\n5 Pull-ups\n10 Push-ups\n15 Air Squats"]] },
   { name: "station_labels_with_keywords", note: "A. group + A1/A2. stations keep teal badge even when the line mentions Metcon/For Time",
+    // "A. Deadlift Prog-8 min" names a strength PROGRESSION, not a timed block:
+    // the 8 min is how long the coach expects the progression to take, not a
+    // clock she wants on the TV (the leading-standalone-duration rule requires
+    // the line to LEAD with "N min" precisely to stay out of cases like this).
+    // Declared intentionally-unconsumed so the property test stays quiet here
+    // without going quiet everywhere.
+    ignoreFacts: ["8 min"],
     rows: [["", "WOD"], ["כוח", "A. Deadlift Prog-8 min\n2 sets of 4 reps\nA1 Lift Drop Reset (For Strength)\n80%\nA2. T&GO (For Metcon)\n85%\ntempo deadlift\n(31x1)\n2 sets of 5 reps\n70%"]] },
   { name: "superset_group_cohesion", note: "A. group + A1/A2 superset + inline @load: '@75%' stays on its line (not split), and the group is not torn across columns (see LAYOUT pass)",
     rows: [[" b", "", "1", "2", "3", "בטיחות/דגשים"],
@@ -137,6 +145,12 @@ const FIXTURES = [
     expectTimers: ["30″/10″ ×8"],
     rows: [["", "WOD"],
            ["", "30 sec on 10 sec off x 8\nmax cal bike"]] },
+  { name: "inline_part_header_timing", note: "coach's real CARDIO cell (2026-08-08, VERBATIM from getWorkoutSheet, column '2'): TWO 'part N' blocks inside ONE cell, each with its timing written INLINE on the part header line — 'part 1: t.c 14' and 'part 2: amrap 14'. The TV showed a bare 'For Time' and 'P1 · 12 RFT': BOTH written 14s were gone, and part 2 had no clock at all. Cause: extractTimerConfigs splits the cell on part headers and built each segment as lines.slice(start + 1, end) (~3283) — the part-header LINE ITSELF was excluded, so its inline spec never reached detectTimers. capSecondsFromLine('part 1: t.c 14') returns 840 perfectly well; nothing ever asked it. This is the no-invented-timer-values rule in its mirror form — a value the coach DID write must reach the clock. No fixture covered the in-cell part-split path at all (multipart_parts uses part-named COLUMNS; evey_typo_explicit_rounds has a single 'PART1:' line and takes the partIdx.length < 2 whole-cell branch), which is why it survived. Fix: the remainder after the 'part N:' prefix is prepended to its own segment. The literal 'part N' words are STRIPPED, not passed through, so no regex can read the part NUMBER as minutes/rounds — 'part 2: amrap 14' resolves to AMRAP 14′, never AMRAP 2′. forbidTimers locks both wrong outputs out.",
+    expectTimers: ["TC 14′ → AMRAP 14′ · 2′ rest", "P1 · 12 RFT (TC 14′)", "P2 · AMRAP 14′"],
+    forbidTimers: ["P1 · 12 RFT", "AMRAP 2′", "TC 2′", "TC 1′", "For Time"],
+    rows: [["", "1", "2"],
+           ["CARDIO", "Warm up: \nskill: d.u\n tabata- coach choice",
+            "for time:\npart 1: t.c 14\n12 rft:\n6 box jump over\n9 ring row\n12/10 cal row\n\n2:00 rest\n\npart 2: amrap 14\n1000 m run\nand then: amrap:\n20 squat jump\n40 d.u\n20 burpee"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -295,6 +309,10 @@ const layoutFails = [];
   }
 }
 
+// Detection-branch coverage, accumulated across every fixture.
+const PATH_IDS = new Set();
+const PATH_HITS = {};
+
 const results = [];
 for (const fx of FIXTURES) {
   const page = await context.newPage();
@@ -327,8 +345,75 @@ for (const fx of FIXTURES) {
           });
         }
       }
-      return { data, timers };
+      // ── Parse report (shadow channel) ──
+      // Built from the RAW cell text, BEFORE parseAppsScriptData's splits, so
+      // it audits preprocessing too — today's bug destroyed the information in
+      // the part-splitter, downstream of any line-level check.
+      // Map parsed-cell index → RAW spreadsheet column. The fixture rows carry
+      // label/notes columns that parseAppsScriptData drops, so cell i is NOT
+      // raw column i+1 — walk the header row and match data.headers in order.
+      const colOf = [];
+      {
+        let hi = 0;
+        for (let c = 0; c < (rows[0] || []).length && hi < data.headers.length; c++) {
+          if (String(rows[0][c] ?? "").trim() === String(data.headers[hi] ?? "").trim()) { colOf[hi] = c; hi++; }
+        }
+      }
+      const reports = [];
+      for (let ri = 0; ri < data.rows.length; ri++) {
+        const row = data.rows[ri];
+        const capHints = window.partCapHints(row.cells);
+        for (let i = 0; i < row.cells.length; i++) {
+          const col = colOf[i];
+          const raw = col === undefined ? null : (rows[ri + 1] || [])[col];
+          if (!raw || !String(raw).trim()) continue;
+          const cfgs = window.extractTimerConfigs(row.cells[i].lines, row.cells[i].header, capHints[i]) || [];
+          const rep = window.timerParseReport(raw, cfgs);
+          if (rep.unexplained.length || rep.dark) {
+            reports.push({ cell: `row${ri + 1}/${row.cells[i].header}`, dark: rep.dark,
+                           got: cfgs.map((c) => c.label),
+                           unexplained: rep.unexplained.map((f) => f.token.trim()) });
+          }
+        }
+      }
+      return { data, timers, reports,
+               pathHits: window.timerPathHits ? window.timerPathHits() : null,
+               pathIds:  window.timerPathIds  ? window.timerPathIds()  : null };
     }, fx.rows);
+
+    // Accumulate detection-branch coverage across fixtures (each fixture runs
+    // in a fresh page, so the counters reset per fixture).
+    if (parsed.pathIds) {
+      for (const id of parsed.pathIds) PATH_IDS.add(id);
+      for (const [id, n] of Object.entries(parsed.pathHits || {})) {
+        PATH_HITS[id] = (PATH_HITS[id] || 0) + n;
+      }
+    }
+
+    // ── Unexplained-facts assertion ──
+    // Every duration/cap the coach WROTE must reach some clock, or be listed in
+    // the fixture's `ignoreFacts` as a deliberate non-detection. This is the
+    // property that makes a silent parse failure impossible to ship: `[]` is
+    // still the right output when she wrote nothing, but it is now an ERROR
+    // when she wrote a number nothing consumed.
+    {
+      const allow = new Set(fx.ignoreFacts || []);
+      // `dark` is an ANNOTATION on the failure, not a trigger of its own: with
+      // no configs every fact is unexplained, so a genuinely dark cell always
+      // has entries left after the allow-list. Triggering on `dark` separately
+      // would make ignoreFacts unable to silence the very case it describes.
+      const bad = (parsed.reports || [])
+        .map((r) => ({ ...r, unexplained: r.unexplained.filter((t) => !allow.has(t)) }))
+        .filter((r) => r.unexplained.length);
+      if (bad.length) {
+        results.push({ name: fx.name, status: "ERROR",
+          error: `unexplained written timing — ${bad.map((r) =>
+            `${r.cell}${r.dark ? " [DARK: duration written, NO timer]" : ""}: ${r.unexplained.join(", ")}`
+            + ` {got: ${r.got.join(" | ") || "—"}}`).join(" ; ")}`
+            + ` (add to fixture.ignoreFacts only if the miss is INTENDED)` });
+        continue;
+      }
+    }
 
     // Optional TRUE correctness assertion (beyond golden change-detection):
     // fixture.expectTimers = labels that MUST be among the detected timers.
@@ -350,7 +435,11 @@ for (const fx of FIXTURES) {
     }
 
     const goldenPath = path.join(GOLDEN_DIR, `${fx.name}.json`);
-    const actual = stable(parsed);
+    // `reports` is the shadow audit channel, NOT part of the parsed contract —
+    // keep it out of the golden so it can never be silently `--update`d into a
+    // baseline (its whole job is to be asserted on, above).
+    const { reports: _rep, pathHits: _ph, pathIds: _pi, ...snapshot } = parsed;
+    const actual = stable(snapshot);
     if (UPDATE || !fs.existsSync(goldenPath)) {
       fs.writeFileSync(goldenPath, actual, "utf8");
       results.push({ name: fx.name, status: UPDATE ? "UPDATED" : "NEW" });
@@ -408,5 +497,18 @@ if (layoutFails.length === 0) {
   for (const f of layoutFails) console.log(`❌ ${f}`);
 }
 
+// ── Detection-branch coverage ──
+// An unexercised branch is indistinguishable from a working one; the in-cell
+// part split was dark for months and cost the coach two clocks. A branch with
+// 0 hits is a FAILURE, not a note: either write a fixture for it or delete it.
+console.log("\nDetection-branch coverage");
+const darkPaths = [...PATH_IDS].filter((id) => !PATH_HITS[id]);
+if (darkPaths.length === 0) {
+  console.log(`✅ all ${PATH_IDS.size} branches exercised — ` +
+    [...PATH_IDS].map((id) => `${id}:${PATH_HITS[id]}`).join("  "));
+} else {
+  console.log(`❌ NO fixture exercises: ${darkPaths.join(", ")} — add one, or remove the dead branch`);
+}
+
 if (diff) console.log("\nReview each DIFF: if the change was intended, re-run with --update to accept it.");
-process.exit(diff > 0 || badgeFails.length > 0 || stationCatFails.length > 0 || layoutFails.length > 0 || results.some((r) => r.status === "ERROR") ? 1 : 0);
+process.exit(diff > 0 || badgeFails.length > 0 || stationCatFails.length > 0 || layoutFails.length > 0 || darkPaths.length > 0 || results.some((r) => r.status === "ERROR") ? 1 : 0);

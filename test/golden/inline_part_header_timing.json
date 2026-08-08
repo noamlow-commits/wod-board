@@ -1,0 +1,73 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "Warm up:",
+              "skill: d.u",
+              "tabata- coach choice"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "for time:",
+              "part 1: t.c 14",
+              "12 rft:",
+              "6 box jump over",
+              "9 ring row",
+              "12/10 cal row",
+              "__SPACER__",
+              "2:00 rest",
+              "__SPACER__",
+              "part 2: amrap 14",
+              "1000 m run",
+              "and then: amrap:",
+              "20 squat jump",
+              "40 d.u",
+              "20 burpee"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "CARDIO",
+      "header": "1",
+      "timers": [
+        {
+          "label": "Tabata",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "CARDIO",
+      "header": "2",
+      "timers": [
+        {
+          "label": "TC 14′ → AMRAP 14′ · 2′ rest",
+          "type": "tabata"
+        },
+        {
+          "label": "P1 · 12 RFT (TC 14′)",
+          "type": "fortime"
+        },
+        {
+          "label": "P2 · AMRAP 14′",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}

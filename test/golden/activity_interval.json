@@ -23,7 +23,12 @@
     {
       "section": "ריצה",
       "header": "CARDIO",
-      "timers": []
+      "timers": [
+        {
+          "label": "3′/1′ ×5",
+          "type": "tabata"
+        }
+      ]
     }
   ]
 }

@@ -1720,6 +1720,26 @@
       letter-spacing: 0.04em;
     }
     #ftbStopBtn:hover { filter: brightness(1.1); }
+    /* Skip-phase button — same size/shape as ⏹ עצור so the two read as one
+       control pair, amber (advance) vs red (destroy). Shown only while a
+       phase-based clock runs; hidden for single-phase AMRAP/For Time. */
+    #ftbSkipBtn {
+      margin-top: 0.35rem;
+      margin-left: 0.4rem;
+      padding: 0.4rem 1.1rem;
+      font-family: 'Heebo', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 900;
+      color: #1c1917;
+      background: linear-gradient(135deg, #f59e0b, #fbbf24);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      direction: rtl;
+      letter-spacing: 0.04em;
+    }
+    #ftbSkipBtn:hover { filter: brightness(1.1); }
+    #ftbSkipBtn.hidden { display: none; }
 
     /* ── Key diagnostic viewer (hidden by default; debug the TV remote) ──── */
     #keyDiagOverlay {
@@ -1990,6 +2010,7 @@
       <span id="ftbTime"></span>
       <span id="ftbRound"></span>
       <div id="ftbProgress"></div>
+      <button id="ftbSkipBtn" class="hidden" onclick="skipTimerPhase();" title="עבור למקטע הבא — למשל כשכולם סיימו לפני מגבלת הזמן (מקש n)">⏭ הבא</button>
       <button id="ftbStopBtn" onclick="coachStopTimer();hideFloatingTimerBar();" title="עצור את הטיימר (OK / Backspace)">⏹ עצור</button>
     </div>
   </div>
@@ -2440,10 +2461,15 @@
         // WORK: "M:SS work" form
         wm = line.match(/(?<![:\d])(\d+):(\d{2})\s+work\b/i);
         if (wm) { if (pushPhase(classified, { type:'work', seconds:parseInt(wm[1])*60+parseInt(wm[2]), label:`${wm[1]}:${wm[2]} work` })) continue; }
-        // WORK: "N min tc" / "N min t.c" — coach's time-cap shorthand (TC after the number,
-        // on its own line). Label starts with "TC" so a chained label reads "TC ×2 · 16′ work / 2′ rest".
-        wm = line.match(/^(\d+)\s*min(?:utes?)?\s+t\.?\s*c\b/i);
-        if (wm) { const n=parseInt(wm[1]); if (pushPhase(classified, { type:'work', seconds:n*60, label:`TC ${n}′` })) continue; }
+        // WORK: a time cap — a capped block IS a bounded work phase.
+        // Delegates to the canonical capSecondsFromLine so BOTH written
+        // directions count: "16 min tc" (number-first) AND "t.c 14" /
+        // "part 1: t.c 14" (TC-first). The old inline regex here accepted only
+        // the number-first form, so the coach's "part 1: t.c 14" never became a
+        // work phase and the two parts could never chain (2026-08-08).
+        // Label starts with "TC" so a uniform chain reads "TC ×2 · 16′ work…".
+        const capSec = capSecondsFromLine(line);
+        if (capSec > 0) { if (pushPhase(classified, { type:'work', seconds:capSec, label:`TC ${Math.round(capSec/60)}′` })) continue; }
 
         // ── REST patterns, most-specific first ──
         // (a) Time format, optional "min" between:  "2:00 rest" / "3:00 min rest" / "1:30 minutes rest"
@@ -2504,6 +2530,48 @@
       return classified.filter(c => c.type === 'work' || c.type === 'rest');
     }
 
+    // Build ONE chained interval timer from a line list, or null.
+    // 2+ uniform WORK phases separated by uniform REST → a single `tabata`
+    // config with skipLastRest, which the runtime already renders as a
+    // switching per-phase clock with WORK/REST colours, round calls and the
+    // full voice suite (see PARSER.md "Switching clock display").
+    //
+    // Extracted from detectTimers 2026-08-08 so extractTimerConfigs can run the
+    // SAME check over a whole cell whose parts it is about to split apart —
+    // copying the block would be exactly the drift the shared-helper rule
+    // exists to prevent. detectTimers' own behaviour is unchanged.
+    function chainFromTimeline(lines) {
+      const timeline = buildWorkoutTimeline(lines);
+      const tlWork = timeline.filter(p => p.type === 'work');
+      const tlRest = timeline.filter(p => p.type === 'rest');
+      if (tlWork.length < 2 || tlRest.length < 1) return null;
+      const totalSec = timeline.reduce((s, p) => s + p.seconds, 0);
+      const allSameWork = tlWork.every(p => p.seconds === tlWork[0].seconds);
+      const allSameRest = tlRest.every(p => p.seconds === tlRest[0].seconds);
+      // Sanity: total ≤90min, work ≥30s, rest ≤10min
+      if (!(allSameWork && allSameRest && totalSec <= 90 * 60
+            && tlWork[0].seconds >= 30 && tlRest[0].seconds <= 600)) return null;
+      const workSec = tlWork[0].seconds;
+      const restSec = tlRest[0].seconds;
+      const workMins = Math.round(workSec / 60);
+      const restMins = restSec / 60;
+      const restShort = (restSec % 60 === 0) ? `${restMins}′` : `${Math.floor(restSec/60)}:${String(restSec%60).padStart(2,'0')}`;
+      // Label. When every work phase is the same FORMAT ("AMRAP","AMRAP") the
+      // established "AMRAP ×3 · 10′ work / 2′ rest" wording stands (byte-for-byte
+      // — `chained_amrap` locks it). When the formats DIFFER (the coach's
+      // "t.c 14 → rest → amrap 14"), naming the chain after the first phase
+      // would hide that phase 2 is an AMRAP, so the label spells the sequence.
+      const names = tlWork.map(p => (p.label || '').trim());
+      const uniform = names.every(n => n.split(' ')[0] === names[0].split(' ')[0]);
+      const label = uniform
+        ? `${names[0].split(' ')[0]} ×${tlWork.length} · ${workMins}′ work / ${restShort} rest`
+        : `${names.join(' → ')} · ${restShort} rest`;
+      return {
+        type: 'tabata', workSeconds: workSec, restSeconds: restSec,
+        rounds: tlWork.length, skipLastRest: true, label
+      };
+    }
+
     // THE canonical time-cap matcher — one line in, seconds out (0 = no cap).
     // Works on a single line so the regex never crosses a newline. The previous
     // in-place version used `\s` and matched "tc\n800" on the boundary between
@@ -2541,6 +2609,136 @@
     // Returns a PER-CELL array of cap hints (seconds; 0 = none), so only the
     // single recipient cell ever sees a cross-cell cap. Used by renderWorkout
     // AND the test harness (same scan → goldens match production).
+    // ═══════════════════════════════════════════════════════════════════════
+    // TIMING FACTS — the audit channel that makes SILENCE measurable.
+    // ═══════════════════════════════════════════════════════════════════════
+    // Every incident in PARSER.md has the same shape: the coach writes a
+    // workout, ONE token doesn't match, and detection returns `[]` — on the TV,
+    // in front of a class. `[]` is ALSO the correct answer when she genuinely
+    // wrote no timing ("no invented timer values"), so a parse FAILURE is
+    // camouflaged as correctness. Nothing in the pipeline could tell the two
+    // apart; that is why these bugs were only ever found by someone noticing a
+    // wrong clock in the gym.
+    //
+    // A "timing fact" is a number that lexes WITH timing context bound to it:
+    // a real unit word, a M:SS colon form, or a format keyword. That binding is
+    // what keeps rep counts, loads and calories out — "21-15-9", "10 push up",
+    // "@75%", "30 cal" carry no unit, so the false-positive problem is solved
+    // at the lexer instead of by thresholds.
+    //
+    // ⚠️ Bare `m`/`s` are NOT units here — "3000 m run" is metres. Same reason
+    // the on/off parser rejects them (see PARSER.md).
+    //
+    // This is a SHADOW channel: it never changes a config. It exists so the
+    // harness can assert "every duration the coach wrote reached some clock, or
+    // is on the explicitly-ignored list" — the property that would have caught
+    // today's part-header bug, the EVEY typo, and the min+on/off gap the day
+    // each landed, instead of months later.
+    const FACT_UNIT = '(?:min(?:ute)?s?|sec(?:ond)?s?)';
+    function extractTimingFacts(rawText) {
+      const facts = [];
+      const lines = String(rawText || '').split('\n');
+      lines.forEach((rawLine, li) => {
+        const line = (rawLine || '').trim();
+        if (!line || line === '__SPACER__') return;
+        const seen = [];   // [start,end) spans already claimed on this line
+        const claim = (a, b) => { if (seen.some(s => a < s[1] && b > s[0])) return false; seen.push([a, b]); return true; };
+        const add = (kind, seconds, token, ignored) =>
+          facts.push({ kind, seconds, token, line: li, ignored: ignored || null });
+
+        // ── Intentionally-ignored shapes, claimed FIRST so their numbers can't
+        // be re-read as durations by the rules below. ──
+        // A duration RANGE ("40-60 sec Plank") yields no timer on purpose:
+        // picking an end would be an invented value.
+        let m, re;
+        re = new RegExp(`\\b(\\d+)\\s*[-–—]\\s*(\\d+)\\s*${FACT_UNIT}\\b`, 'gi');
+        while ((m = re.exec(line)) !== null) {
+          if (claim(m.index, m.index + m[0].length)) add('duration', 0, m[0], 'range');
+        }
+        // Pace/warm-up descriptors ("20 min easy row") are deliberately clockless.
+        re = new RegExp(`\\b(\\d+)\\s*${FACT_UNIT}\\s+(?:easy|recovery|warm\\s*up|warmup|cool\\s*down)\\b`, 'gi');
+        while ((m = re.exec(line)) !== null) {
+          if (claim(m.index, m.index + m[0].length)) add('duration', 0, m[0], 'pace');
+        }
+
+        // ── Time cap — the canonical matcher, so this can never drift from
+        // what detection itself recognises. ──
+        const cap = capSecondsFromLine(line);
+        if (cap > 0) add('cap', cap, line, null);
+
+        // ── A format keyword carrying its own length: "AMRAP 14", "14 min
+        // AMRAP", "EMOM 10", "E2MOM 18". These ARE durations. ──
+        re = /\b(?:([1-9]\d*)\s*(?:min(?:ute)?s?\s+)?AMRAP|AMRAP\s+([1-9]\d*)|E\d?MOM\s+([1-9]\d*)|EMOM\s+([1-9]\d*))\b/gi;
+        while ((m = re.exec(line)) !== null) {
+          const n = parseInt(m[1] || m[2] || m[3] || m[4]);
+          if (n && claim(m.index, m.index + m[0].length)) add('duration', n * 60, m[0], null);
+        }
+
+        // ── M:SS ("2:00 rest", "every 4:00", "1:30"). ──
+        re = /(?<![:\d])(\d+):(\d{2})(?![:\d])/g;
+        while ((m = re.exec(line)) !== null) {
+          if (claim(m.index, m.index + m[0].length)) add('duration', parseInt(m[1]) * 60 + parseInt(m[2]), m[0], null);
+        }
+
+        // ── "N min" / "N seconds", unit REQUIRED. ──
+        re = new RegExp(`\\b(\\d+)\\s*(${FACT_UNIT})\\b`, 'gi');
+        while ((m = re.exec(line)) !== null) {
+          if (!claim(m.index, m.index + m[0].length)) continue;
+          const n = parseInt(m[1]);
+          add('duration', /^min/i.test(m[2]) ? n * 60 : n, m[0], null);
+        }
+
+        // ── Counts. Recorded for context; NOT asserted, and deliberately kept
+        // OUT of `seconds` — a count is not a duration, and letting "3 sets"
+        // land in the seconds field made a cell with only counts look "dark".
+        re = /[x×*]\s*([1-9]\d*)\b|\b([1-9]\d*)\s*(?:sets?|rounds?|rft)\b/gi;
+        while ((m = re.exec(line)) !== null) {
+          facts.push({ kind: 'count', seconds: 0, value: parseInt(m[1] || m[2]), token: m[0], line: li, ignored: null });
+        }
+      });
+      return facts;
+    }
+
+    // Which durations did the resolved configs actually account for?
+    // Includes DERIVED totals, because the coach's written "(40 min)" is often
+    // stored only as the round count that total implies.
+    function configSeconds(configs) {
+      const vals = new Set();
+      for (const c of (configs || [])) {
+        for (const k of ['workSeconds', 'restSeconds', 'capSeconds', 'totalSeconds', 'intervalSeconds']) {
+          if (c[k]) vals.add(c[k]);
+        }
+        const r = c.rounds || 0;
+        if (c.type === 'tabata' && c.workSeconds && r) {
+          const rest = c.restSeconds || 0;
+          vals.add(c.workSeconds * r + rest * (c.skipLastRest ? r - 1 : r));
+          vals.add((c.workSeconds + rest) * r);
+        }
+        if (c.intervalSeconds && r) vals.add(c.intervalSeconds * r);
+      }
+      return vals;
+    }
+
+    // The report. `unexplained` is the alarm: a duration/cap the coach WROTE
+    // that no config accounts for and that isn't on the ignored list.
+    function timerParseReport(rawText, configs) {
+      const facts = extractTimingFacts(rawText);
+      const vals = configSeconds(configs);
+      const unexplained = facts.filter(f =>
+        !f.ignored && f.seconds > 0 && (f.kind === 'duration' || f.kind === 'cap') && !vals.has(f.seconds));
+      return {
+        facts,
+        ignored: facts.filter(f => f.ignored),
+        unexplained,
+        // A cell with a written DURATION and no clock at all — the loudest
+        // signal, and the exact shape of the EVEY / min-on-off / part-header
+        // incidents. Counts alone don't qualify: "3 sets" with no duration is
+        // legitimately clockless.
+        dark: facts.some(f => !f.ignored && f.seconds > 0 && (f.kind === 'duration' || f.kind === 'cap'))
+              && (configs || []).length === 0
+      };
+    }
+
     function partCapHints(cells) {
       cells = cells || [];
       const hints = cells.map(() => 0);
@@ -2729,32 +2927,9 @@
       // Scans lines top→bottom, builds [work, rest, work, rest, work] phases.
       // If 2+ work phases with uniform durations + rest → one chained timer.
       // Falls through to individual regex detection otherwise.
-      const timeline = buildWorkoutTimeline(lines);
-      const tlWork = timeline.filter(p => p.type === 'work');
-      const tlRest = timeline.filter(p => p.type === 'rest');
+      const chainCfg = chainFromTimeline(lines);
       let chained = false;
-
-      if (tlWork.length >= 2 && tlRest.length >= 1) {
-        const totalSec = timeline.reduce((s, p) => s + p.seconds, 0);
-        const allSameWork = tlWork.every(p => p.seconds === tlWork[0].seconds);
-        const allSameRest = tlRest.every(p => p.seconds === tlRest[0].seconds);
-        // Sanity: total ≤90min, work ≥30s, rest ≤10min
-        if (allSameWork && allSameRest && totalSec <= 90 * 60
-            && tlWork[0].seconds >= 30 && tlRest[0].seconds <= 600) {
-          const workSec = tlWork[0].seconds;
-          const restSec = tlRest[0].seconds;
-          const workMins = Math.round(workSec / 60);
-          const restMins = restSec / 60;
-          const restShort = (restSec % 60 === 0) ? `${restMins}′` : `${Math.floor(restSec/60)}:${String(restSec%60).padStart(2,'0')}`;
-          const timerName = tlWork[0].label.split(' ')[0]; // "AMRAP", "EMOM", etc.
-          results.push({
-            type: 'tabata', workSeconds: workSec, restSeconds: restSec,
-            rounds: tlWork.length, skipLastRest: true,
-            label: `${timerName} ×${tlWork.length} · ${workMins}′ work / ${restShort} rest`
-          });
-          chained = true;
-        }
-      }
+      if (chainCfg) { results.push(chainCfg); chained = true; }
 
       // Find ALL AMRAP patterns — only if not already chained above.
       // A trailing "×N" turns a single AMRAP into a back-to-back rotation:
@@ -3197,6 +3372,10 @@
     // line parser, the warm-up reset, the column layout and the timer splitter
     // all agree on what a part header is (see the 3-place-pattern rule).
     const PART_HEADER_RE = /^\s*part\s*\d+\b/i;
+    // Just the "part N" label + its separator, so the REST of that line (the
+    // coach writes the part's timing there: "part 1: t.c 14", "part 2: amrap
+    // 14") can be handed to the detectors instead of being thrown away.
+    const PART_HEADER_PREFIX_RE = /^\s*part\s*\d+\s*[:.)–—-]?\s*/i;
 
     // Parse a duration token ("1:00", "45 sec", "3 min", "2m") -> seconds, or null.
     function parseDur(str) {
@@ -3266,21 +3445,60 @@
     // `partCapSeconds` (optional) = scanPartCapSeconds() over the whole part's
     // cells — threaded into detectTimers as the external-cap hint (a "t.c N"
     // the coach wrote in another column of the same part caps this cell too).
+    // Branch-coverage counters for extractTimerConfigs. Today's bug lived in a
+    // branch NO fixture exercised (the in-cell part split) — and a path with
+    // zero coverage looks exactly like a path that works. The harness asserts
+    // every id below is hit by at least one fixture, so the next structural
+    // branch someone adds cannot go dark without turning the suite red.
+    // Deliberately at BRANCH granularity, not per-regex: this is where the
+    // structural bugs have actually been.
+    const TIMER_PATHS = ['whole-cell', 'activity-fallback', 'part-split',
+                         'part-inline-spec', 'compound-chain', 'header-cap'];
+    const __timerPathHits = Object.fromEntries(TIMER_PATHS.map(k => [k, 0]));
+    function tpHit(id) { __timerPathHits[id] = (__timerPathHits[id] || 0) + 1; }
+    // Exposed as FUNCTIONS on purpose: a top-level `const` in a classic script
+    // is not a window property, so the harness could not read the object.
+    function timerPathIds() { return TIMER_PATHS.slice(); }
+    function timerPathHits() { return Object.assign({}, __timerPathHits); }
+
     function extractTimerConfigs(lines, header, partCapSeconds) {
       if (!lines || lines.length === 0) return [];
       const partIdx = lines.map((l, i) => PART_HEADER_RE.test(l || '') ? i : -1).filter(i => i >= 0);
       let out;
       if (partIdx.length < 2) {
+        tpHit('whole-cell');
         out = detectTimers(lines, partCapSeconds);
+        // Same last-resort fallback the part branch has always had. It was
+        // reachable ONLY from inside the part loop, so the coach's plain
+        // interval style ("5 sets / 3 min run / 1 min rest" — no part headers)
+        // produced NO timer at all. The `activity_interval` fixture is named
+        // after this detector and its golden had frozen an empty timer list as
+        // "current behaviour" — found 2026-08-08 by the unexplained-facts
+        // assertion on its first run, not by anyone reading the code.
+        if (out.length === 0) {
+          const ai = detectActivityInterval(lines);
+          if (ai) { tpHit('activity-fallback'); out = [ai]; }
+        }
       } else {
+        tpHit('part-split');
         const segments = [];
         if (partIdx[0] > 0) segments.push({ num: 0, lines: lines.slice(0, partIdx[0]) });
         for (let p = 0; p < partIdx.length; p++) {
           const start = partIdx[p];
           const end = p + 1 < partIdx.length ? partIdx[p + 1] : lines.length;
           const numMatch = lines[start].match(/part\s*(\d+)/i);
+          // The part header line carries the part's OWN timing when the coach
+          // writes it inline ("part 1: t.c 14" / "part 2: amrap 14"). Slicing
+          // from start+1 discarded it, so BOTH written numbers never reached a
+          // timer — a live no-invented-values violation in its mirror form
+          // (written and dropped). Feed the remainder after "part N:" to the
+          // detectors; the literal "part N" words are stripped so no regex can
+          // read the part NUMBER as minutes or rounds.
+          const segLines = lines.slice(start + 1, end);
+          const inlineSpec = (lines[start] || '').replace(PART_HEADER_PREFIX_RE, '').trim();
+          if (inlineSpec) { tpHit('part-inline-spec'); segLines.unshift(inlineSpec); }
           segments.push({ num: numMatch ? parseInt(numMatch[1]) : p + 1,
-                          lines: lines.slice(start + 1, end) });
+                          lines: segLines });
         }
 
         out = [];
@@ -3291,8 +3509,34 @@
             if (ai) cfgs = [ai];
           }
           const tag = seg.num ? `P${seg.num} · ` : '';
-          for (const c of cfgs) out.push({ ...c, label: tag + c.label });
+          for (const c of cfgs) out.push({ ...c, label: tag + c.label, _preamble: !seg.num });
         }
+
+        // ── The COMPOUND clock (2026-08-08) ──
+        // The parts of one cell are usually one continuous session: "part 1:
+        // t.c 14 / … / 2:00 rest / part 2: amrap 14" is 14′ → 2′ → 14′, and the
+        // coach had to start three clocks by hand. detectTimers can never see
+        // that — the split above hands it one part at a time, so no segment
+        // ever holds 2 work phases plus the rest. Run the SAME chain check over
+        // the WHOLE cell and offer the result FIRST, with the per-part clocks
+        // kept behind it so she can still run one part alone.
+        //
+        // Every value comes from her text: the chain needs two written work
+        // durations AND a written rest, or chainFromTimeline returns null and
+        // only the per-part buttons stand. A missing rest is never invented.
+        const whole = chainFromTimeline(lines);
+        if (whole) {
+          tpHit('compound-chain');
+          out.unshift(whole);
+          // The preamble's bare format line ("for time:" above the parts) is
+          // the umbrella header for those parts, not a block of its own; once
+          // the compound clock exists its capless count-up is a duplicate that
+          // would sit in front of the real ones in the ⏱↻ cycle. Drop it ONLY
+          // when it carries no written value of its own (no cap, no total) —
+          // a preamble with real timing stays a legitimate separate clock.
+          out = out.filter(c => !(c._preamble && c.type === 'fortime' && !c.capSeconds));
+        }
+        out = out.map(({ _preamble, ...c }) => c);
       }
 
       // Header time-cap → its own fortime config, ALWAYS offered (even when
@@ -3302,6 +3546,7 @@
       if (header) {
         const cap = capSecondsFromLine(header);
         if (cap > 0 && !out.some(c => c.type === 'fortime' && c.capSeconds === cap)) {
+          tpHit('header-cap');
           out.push({ type: 'fortime', capSeconds: cap, label: `TC ${Math.floor(cap / 60)}′` });
         }
       }
@@ -5982,15 +6227,23 @@
           { key: 'totalSeconds', label: 'זמן כולל', kind: 'time', min: 60, max: 5999, step: 60, steps: TSU_STEPS_TOTAL },
           { key: 'intervalSeconds', label: 'אורך אינטרוול', kind: 'time', min: 5, max: 600, step: 10, steps: TSU_STEPS_INTERVAL }
         ];
+        // ⚠️ work/rest ceilings are 5999 (99:59), NOT 300. A chained interval
+        // config is a `tabata` — a chained AMRAP 10 carries workSeconds 600,
+        // and the compound "TC 14′ → AMRAP 14′" carries 840. Seeding the
+        // overlay from a live clock and pressing ▶ used to CRUSH those to 5:00
+        // silently (seedFromConfig copies the real value in, buildConfig's
+        // clamp cut it on start). A ceiling below what detection legitimately
+        // produces is a wrong clock with no error. Keep these ≥ any detectable
+        // work phase (buildWorkoutTimeline caps a phase at 90 min).
         case 'tabata':  return [
-          { key: 'workSeconds', label: 'עבודה', kind: 'time', min: 1, max: 300, step: 10, steps: TSU_STEPS_INTERVAL },
-          { key: 'restSeconds', label: 'מנוחה', kind: 'time', min: 0, max: 300, step: 10, steps: TSU_STEPS_INTERVAL },
+          { key: 'workSeconds', label: 'עבודה', kind: 'time', min: 1, max: 5999, step: 10, steps: TSU_STEPS_INTERVAL },
+          { key: 'restSeconds', label: 'מנוחה', kind: 'time', min: 0, max: 5999, step: 10, steps: TSU_STEPS_INTERVAL },
           { key: 'rounds', label: 'סיבובים', kind: 'rounds', min: 1, max: 50, step: 1, steps: TSU_STEPS_ROUNDS },
           { key: 'skipLastRest', label: 'דלג מנוחה אחרונה', kind: 'toggle' }
         ];
         case 'mix': {
           const fs = [ { key: 'rounds', label: 'סיבובים', kind: 'rounds', min: 1, max: 50, step: 1, steps: TSU_STEPS_ROUNDS } ];
-          (d.intervals || []).forEach((iv, i) => fs.push({ key: 'iv' + i, label: iv.name || ('אינטרוול ' + (i + 1)), kind: 'time', min: 1, max: 600, step: 10, steps: TSU_STEPS_INTERVAL, ivIndex: i }));
+          (d.intervals || []).forEach((iv, i) => fs.push({ key: 'iv' + i, label: iv.name || ('אינטרוול ' + (i + 1)), kind: 'time', min: 1, max: 5999, step: 10, steps: TSU_STEPS_INTERVAL, ivIndex: i }));
           return fs;
         }
       }
@@ -6189,8 +6442,11 @@
         if (t === 'amrap') config = { totalSeconds: clamp(d.totalSeconds, 0, 5999) };
         else if (t === 'fortime') config = { capSeconds: Math.max(0, Math.round(d.capSeconds || 0)) };
         else if (t === 'emom') config = { totalSeconds: clamp(d.totalSeconds, 60, 5999), intervalSeconds: clamp(d.intervalSeconds, 5, 600) || 60 };
-        else if (t === 'tabata') config = { workSeconds: clamp(d.workSeconds, 1, 300), restSeconds: clamp(d.restSeconds, 0, 300), rounds: clamp(d.rounds, 1, 50), skipLastRest: !!d.skipLastRest };
-        else if (t === 'mix') config = { intervals: (d.intervals || []).map(iv => ({ name: iv.name || 'אינטרוול', seconds: clamp(iv.seconds, 1, 600) })), rounds: clamp(d.rounds, 1, 50) };
+        // Ceilings mirror tsuFieldsFor EXACTLY — a clamp tighter than its own
+        // field's max silently rewrites the coach's number on start (the 300/600
+        // pair crushed every chained work phase to 5:00 / 10:00). Keep in sync.
+        else if (t === 'tabata') config = { workSeconds: clamp(d.workSeconds, 1, 5999), restSeconds: clamp(d.restSeconds, 0, 5999), rounds: clamp(d.rounds, 1, 50), skipLastRest: !!d.skipLastRest };
+        else if (t === 'mix') config = { intervals: (d.intervals || []).map(iv => ({ name: iv.name || 'אינטרוול', seconds: clamp(iv.seconds, 1, 5999) })), rounds: clamp(d.rounds, 1, 50) };
         return { type: t, config };
       },
       start() {
@@ -6235,6 +6491,54 @@
       return timerState === 'running' || timerState === 'paused' || timerState === 'countdown321';
     }
     function stopActiveTimer() { coachStopTimer(); hideFloatingTimerBar(); }
+
+    // ── Skip to the next phase (chained/interval clocks only) ──────────────
+    // A compound clock advances on the WRITTEN schedule: the rest after a
+    // capped For Time starts at the cap, even when the whole class finished at
+    // 12:00 of a 14:00 cap. Without this the coach's only options were to let
+    // the room stand idle or to STOP the clock (every running-timer key stops),
+    // which loses the rest of the sequence — so the compound timer would have
+    // been worse than three manual starts on exactly the day it matters.
+    //
+    // Pure arithmetic on the existing cycle math: jump `timerElapsed` to the
+    // current phase's end boundary. Nothing is invented — the phases and their
+    // lengths are still exactly what she wrote; only the moment of the
+    // transition moves, and only when she asks for it.
+    // Only meaningful for the phase-based types (tabata incl. chained, emom);
+    // a plain AMRAP/For Time has one phase and nothing to skip to.
+    function skipTimerPhase() {
+      if (timerState !== 'running' && timerState !== 'paused') return false;
+      if (timerType !== 'tabata' && timerType !== 'emom') return false;
+      const totalElapsed = timerState === 'running'
+        ? timerElapsed + (performance.now() - timerStartedAt)
+        : timerElapsed;
+      let boundary;
+      if (timerType === 'tabata') {
+        const w = (timerConfig.workSeconds || 20) * 1000;
+        const r = (timerConfig.restSeconds || 10) * 1000;
+        const cycleMs = w + r;
+        const round = Math.floor(totalElapsed / cycleMs);
+        const inCycle = totalElapsed % cycleMs;
+        boundary = inCycle < w ? round * cycleMs + w : (round + 1) * cycleMs;
+      } else {
+        const ivMs = (timerConfig.intervalSeconds || 60) * 1000;
+        boundary = (Math.floor(totalElapsed / ivMs) + 1) * ivMs;
+      }
+      const totalMs = getTimerTotalMs();
+      // Skipping the LAST phase = the workout is over; let the tick finish it
+      // normally (finish sound + "time") rather than inventing a new state.
+      if (totalMs > 0 && boundary >= totalMs) boundary = totalMs;
+      timerElapsed += (boundary - totalElapsed);
+      // The per-phase one-shots are keyed to a phase we just left — reset them
+      // or the new phase inherits "already announced" and goes silent.
+      _tabataPhaseHalfwayDone = false;
+      _tabataPhaseOneMinDone  = false;
+      _tabataPhaseTenSecDone  = false;
+      _tabataTickedSec = 0;
+      _emomTickedSec   = 0;
+      renderTimerDisplay();
+      return true;
+    }
 
     // ── Key diagnostic (hidden by default) ────────────────────────────────
     // Silently logs EVERY keydown (key / code / keyCode) to a rolling 50-entry
@@ -6410,6 +6714,14 @@
       syncTimerTopReserve();
 
       const d = getTimerDisplayData();
+
+      // ⏭ הבא — only where there IS a next phase to skip to (chained/interval
+      // clocks). A single-phase AMRAP or For Time has nothing to advance to, so
+      // the button would just be a second way to end the workout.
+      const skipEl = document.getElementById('ftbSkipBtn');
+      if (skipEl) skipEl.classList.toggle('hidden',
+        !((timerType === 'tabata' || timerType === 'emom')
+          && (timerState === 'running' || timerState === 'paused')));
 
       // Type label: INTERVALS for chained AMRAPs, otherwise raw type
       const typeEl = document.getElementById('ftbType');
@@ -6990,6 +7302,11 @@
         if (e.key === 't') { setDisplayMode('timer'); }
         // G: stop while a timer runs, otherwise open the setup form
         if (e.key === 'g') { if (timerIsActive()) stopActiveTimer(); else TimerSetup.openFromDetected(); }
+        // n = next phase. Deliberately NOT one of the remote's big buttons —
+        // OK/Backspace/g all STOP, and a mis-press that skips a phase mid-WOD
+        // is nearly as bad as one that stops it. The ⏭ button on the docked
+        // clock is the primary, pointer-and-remote-reachable control.
+        if (e.key === 'n') skipTimerPhase();
         // Space or MediaPlayPause: start/pause timer
         if (e.key === ' ' || e.key === 'MediaPlayPause') {
           const timerDocked = document.getElementById('mainContent')?.classList.contains('timer-docked');
