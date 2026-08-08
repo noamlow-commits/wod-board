@@ -146,14 +146,21 @@ Not fixed in the 2026-08-08 session on purpose: each is a behaviour change with
 no covering golden, i.e. exactly the kind that needs its own fixture and, for
 some, the coach.
 
-- **Two drifted exercise-line filters.** `rotationRounds` (2867) excludes lines
-  leading with `set|round`; block E's copy (3240) does **not**. Two "identical"
-  heuristics that already disagree — block E can count `3 sets` as an exercise
-  line and inflate the round count. Unify behind one helper + a fixture.
-- **`rounds = exerciseLines.length || 5` (3241) — the last surviving invented
-  value** in the pipeline, in direct violation of the no-invented-values rule.
-  Before removing it, instrument how often it actually fires on real sheets;
-  deleting it silently turns some current clocks into no-clock.
+- ✅ ~~**Two drifted exercise-line filters.**~~ **CLOSED 2026-08-08** — unified
+  behind `isExerciseLine`; the drift was real (`3 sets` counted as an exercise
+  in one path only → `×4` where the stations say `×3`). Fixture
+  `exercise_line_filter_drift`.
+- ✅ ~~**The unit alias written two ways**~~ — **CLOSED 2026-08-08**. 18 sites
+  rejected the coach's `mins`, 11 accepted it. Normalized. Fixture
+  `plural_mins_alias`.
+- 🟡 **`rounds = exerciseLines.length || 5` — the last surviving invented
+  value.** **Instrumented 2026-08-08, deliberately not deleted.** Every firing
+  is recorded to `localStorage['wodboard-invented']` on the live board and the
+  config carries `roundsInvented: true`; the harness prints which fixtures
+  depend on it. **Read the record off the gym TV in a few weeks, then decide** —
+  deleting it blind turns working clocks into no-clock. No fixture except the
+  deliberate `invented_rounds_fallback` depends on it today, which is
+  encouraging but is *fixture* evidence, not *real-sheet* evidence.
 - **Six different round sanity windows**, none of them chosen as a policy:
   2–30 (A, 2911), 2–60 (amrap ×N, 2945), 2–10 (`minXmRe`, 3056), 2–20
   (`mmssXmRe`, 3076), 2–30 (E derived, 3219), 2–20 (`detectActivityInterval`,
@@ -172,8 +179,8 @@ some, the coach.
 |---|---|---|
 | 1 | Timing facts + unexplained-facts assertion | ✅ **done** 2026-08-08 |
 | 2 | Detection-branch coverage counters | ✅ **done** 2026-08-08 |
-| 3 | Vocabulary consolidation — station markers, unit aliases, work/rest keywords to single consts consumed everywhere | ⬜ next; low risk under the goldens. **Exception:** unifying the two drifted exercise-line filters (§5) is a behaviour change — needs its own fixture |
-| 4 | One shared `resolveRounds()` | ⬜ moderate effort, fully harness-guarded |
+| 3 | Vocabulary consolidation — station markers, unit aliases, exercise-line filter, split rules to single consts | ✅ **done** 2026-08-08. All 26 pre-existing goldens byte-for-byte unchanged; closed two live drifts (see §5). ⬜ **Remaining:** ~15 duration regexes are still *literals* that merely happen to spell the alias identically to `MIN_WORD`/`UNIT_STRICT`. Converting them to `new RegExp` template strings built from the consts is the last mile — deferred as churn in the most fragile function for marginal gain, but it is why a new site can still be written wrong |
+| 4 | One shared `resolveRounds()` | ⬜ **next.** Moderate effort, fully harness-guarded; folds the six sanity windows (§5) into one place |
 | 5 | Full candidate/arbitration model (all detectors run, one conflict-resolution stage with stated precedence, replacing first-match-wins-with-guards) | 🚫 **deliberately not doing now** |
 | 6 | `?diag=1` panel / coach-facing parse report in `coach.html` at posting time | ⬜ nice-to-have; the harness assertion already covers the regression case |
 | 7 | Corpus fixtures from the coach's historical sheets, property-tested only (no goldens) | ⬜ the only measure that catches shapes nobody imagined |

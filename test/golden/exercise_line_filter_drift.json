@@ -1,0 +1,36 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "30 sec on 10 sec off",
+              "3 sets",
+              "1# wall balls",
+              "2# row",
+              "3# burpee"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "30″/10″ ×3",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

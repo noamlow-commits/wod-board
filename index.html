@@ -2425,6 +2425,52 @@
     const EVERY_WORD = 'ev(?:er|re|e|r)y';
     const everyRe = (tail, flags) => new RegExp(`\\b${EVERY_WORD}${tail}`, flags);
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // SHARED VOCABULARY — one source per thing the coach can write.
+    // ═══════════════════════════════════════════════════════════════════════
+    // Every alias below used to be copied into 5-6 regexes, and the copies
+    // drifted: only number-first stations matched for months (a "#1" sheet got
+    // no badge, no clean break and 0 stations for the rotation math); "EVEY"
+    // matched nothing at all. The 3-parallel-places rule kept being HALF
+    // applied because it relied on someone grepping. Build every site's regex
+    // from these consts instead, and a half-applied alias becomes impossible.
+    //
+    // ⚠️ Adding a form here changes EVERY consumer at once — that is the point.
+    // Check the `expectTimers`/BADGE_CHECKS assertions, not just the goldens.
+
+    // Station markers, in BOTH orders + merged form:
+    //   hash-first   "#1", "#2"
+    //   number-first "1#", "2#", merged "2+3#" / "2-3#" / "2,3#" / "2 & 3#"
+    const STATION_HASH_FIRST = '#\\s*\\d+';
+    const STATION_NUM_FIRST  = '\\d+(?:\\s*[+\\-,&]\\s*\\d+)*\\s*#';
+    const STATION_BODY       = `(?:${STATION_HASH_FIRST}|${STATION_NUM_FIRST})`;
+    const STATION_MERGE_SEP  = /[+\-,&]/;   // splits "2+3" into its two stations
+
+    // Time units. TWO deliberately different sets — do not merge them:
+    //   STRICT = spelled-out words only. Required wherever a bare "m" would be
+    //            ambiguous with METRES ("3000 m run", "400 m on the rower").
+    //   LOOSE  = also the bare m/s aliases. Only safe where the pattern is
+    //            already anchored by a literal keyword (work/rest).
+    const UNIT_STRICT = '(?:min(?:ute)?s?|sec(?:ond)?s?)';
+    const UNIT_LOOSE  = '(?:min(?:ute)?s?|m|sec(?:ond)?s?|s)';
+    const MIN_WORD    = 'min(?:ute)?s?';    // matches min · mins · minute · minutes
+
+    // A line that prescribes an exercise, for counting stations as a LAST
+    // resort. ONE definition: the two copies of this filter had already drifted
+    // (one excluded lines leading with "set"/"round", the other did not), so
+    // "3 sets" could be counted as an exercise and inflate a round count.
+    const isExerciseLine = (l) =>
+      /^\s*\d/.test(l) &&
+      !new RegExp(`^\\s*\\d+\\s*(?:sec|on|off|work|rest|min|set|round)`, 'i').test(l);
+
+    // The coach's line-splitting rules — ONE source, consumed by both parse
+    // paths (they were duplicated verbatim as `rawLines` / `rawLines2` with a
+    // "keep in sync" comment, which is the same failure waiting to happen).
+    //   Rule 1: concat repair — "press4 clean" → ["press", "4 clean"]
+    //   Rule 2: a station marker starting mid-line — "air squat 4#rotata"
+    const lineSplitRe = () => new RegExp(
+      `(?<=[a-z\\u0590-\\u05FF])(?=\\d+\\s+[a-zA-Z\\u0590-\\u05FF])|(?<=\\s)(?=[1-9]#|#[1-9])`);
+
     function buildWorkoutTimeline(lines) {
       // Helper: push only if seconds > 0, warn otherwise. Catches the class
       // of bugs where a regex matches but on a bogus substring (see invariant 3).
@@ -2456,7 +2502,7 @@
         wm = line.match(everyRe('\\s+(\\d+):(\\d{2})\\s*[x×*]\\s*(\\d+)', 'i'));
         if (wm) { const iv=parseInt(wm[1])*60+parseInt(wm[2]); if (pushPhase(classified, { type:'work', seconds:iv*parseInt(wm[3]), label:`Every ${wm[1]}:${wm[2]} ×${wm[3]}` })) continue; }
         // WORK: "N min work" / "N minute(s) work" — bare time block (no AMRAP/EMOM keyword)
-        wm = line.match(/\b(\d+)\s*min(?:utes?)?\s+work\b/i);
+        wm = line.match(/\b(\d+)\s*min(?:ute)?s?\s+work\b/i);
         if (wm) { const n=parseInt(wm[1]); if (pushPhase(classified, { type:'work', seconds:n*60, label:`${n}′ work` })) continue; }
         // WORK: "M:SS work" form
         wm = line.match(/(?<![:\d])(\d+):(\d{2})\s+work\b/i);
@@ -2480,12 +2526,12 @@
         // a larger number (invariant 1). Seconds<=0 rejected by pushPhase
         // (invariant 3).
         let rm =
-          line.match(/(?<![:\d])(\d+):(\d{2})\s*(?:min(?:utes?)?\s+)?rest\b/i) ||
+          line.match(/(?<![:\d])(\d+):(\d{2})\s*(?:min(?:ute)?s?\s+)?rest\b/i) ||
           line.match(/\brest\s*(\d+):(\d{2})\b/i);
         if (rm) { if (pushPhase(classified, { type:'rest', seconds:parseInt(rm[1])*60+parseInt(rm[2]) })) continue; }
-        rm = line.match(/(?<![:\d])(\d+)\s*min(?:utes?)?\s*rest\b/i);
+        rm = line.match(/(?<![:\d])(\d+)\s*min(?:ute)?s?\s*rest\b/i);
         if (rm) { if (pushPhase(classified, { type:'rest', seconds:parseInt(rm[1])*60 })) continue; }
-        rm = line.match(/\brest\s*(\d+)\s*min(?:utes?)?\b/i);
+        rm = line.match(/\brest\s*(\d+)\s*min(?:ute)?s?\b/i);
         if (rm) { if (pushPhase(classified, { type:'rest', seconds:parseInt(rm[1])*60 })) continue; }
 
         // TIME_STANDALONE: "2:00" alone on a line (potential implicit rest).
@@ -2498,7 +2544,7 @@
         // MIN_STANDALONE: bare "16 min" on its own line — promoted to WORK in Pass 3
         // when the cell already has an explicit work block (catches the coach's
         // "16 min tc / ... / 2 min rest / 16 min / ..." continuation pattern).
-        const minOnly = line.match(/^(\d+)\s*min(?:utes?)?\s*:?\s*$/i);
+        const minOnly = line.match(/^(\d+)\s*min(?:ute)?s?\s*:?\s*$/i);
         if (minOnly) {
           const n = parseInt(minOnly[1]);
           if (n >= 1 && n <= 60) { classified.push({ type: 'min_standalone', seconds: n*60 }); continue; }
@@ -2586,7 +2632,7 @@
       const ln = (rawLn || '').trim();
       if (!ln || ln === '__SPACER__') return 0;
       let mm = ln.match(/\bt\.?[ \t]*c[\-: \t]*(\d+(?::\d{2})?)\b/i);
-      if (!mm) mm = ln.match(/^(\d+(?::\d{2})?)[ \t]*(?:min(?:utes?)?[ \t]+)?t\.?[ \t]*c\b/i);
+      if (!mm) mm = ln.match(/^(\d+(?::\d{2})?)[ \t]*(?:min(?:ute)?s?[ \t]+)?t\.?[ \t]*c\b/i);
       if (!mm) return 0;
       const tv = mm[1];
       return tv.includes(':') ? parseInt(tv.split(':')[0]) * 60 + parseInt(tv.split(':')[1]) : parseInt(tv) * 60;
@@ -2719,6 +2765,27 @@
       return vals;
     }
 
+    // ── Invented-value recorder — MEASURE BEFORE DELETING ─────────────────
+    // The pipeline has one guess left (`rounds = … || 5`). It violates the
+    // no-invented-values rule, but deleting it blind would silently turn clocks
+    // that work today into NO clock, and nobody knows how many. So every firing
+    // is recorded on the real board: date, which guess, and the cell that
+    // triggered it. Read it off the gym TV after a few weeks —
+    //   JSON.parse(localStorage['wodboard-invented'])
+    // — and THEN decide. A rolling 40 entries; never shown on screen.
+    function recordInventedValue(kind, lines) {
+      try {
+        const key = 'wodboard-invented';
+        const log = JSON.parse(localStorage.getItem(key) || '[]');
+        const snippet = (lines || []).filter(l => l && l !== '__SPACER__').slice(0, 4).join(' / ').slice(0, 120);
+        // Don't re-log the same cell every render/refresh — the board re-parses
+        // on every poll, which would bury real variety under one repeated row.
+        if (log.length && log[log.length - 1].cell === snippet && log[log.length - 1].kind === kind) return;
+        log.push({ at: new Date().toISOString().slice(0, 16), kind, cell: snippet });
+        localStorage.setItem(key, JSON.stringify(log.slice(-40)));
+      } catch (e) { /* private mode / quota — instrumentation must never break the board */ }
+    }
+
     // The report. `unexplained` is the alarm: a duration/cap the coach WROTE
     // that no config accounts for and that isn't on the ignored list.
     function timerParseReport(rawText, configs) {
@@ -2735,7 +2802,9 @@
         // incidents. Counts alone don't qualify: "3 sets" with no duration is
         // legitimately clockless.
         dark: facts.some(f => !f.ignored && f.seconds > 0 && (f.kind === 'duration' || f.kind === 'cap'))
-              && (configs || []).length === 0
+              && (configs || []).length === 0,
+        // Configs whose round count is a GUESS, not something she wrote.
+        invented: (configs || []).filter(c => c.roundsInvented).map(c => c.label)
       };
     }
 
@@ -2819,9 +2888,9 @@
       // unit, so the "4 min"/"1 min" of a work/rest pair can never be swallowed
       // ("4 min work, 1 min rest x2 sets of all (40 min)" → 40, not 4).
       const writtenTotalMin = () => {
-        const tm = text.match(/(\d+)[^\S\r\n]*min(?:utes?)?[^\S\r\n]*total\b/i)
-                || text.match(/\btotal[^\S\r\n:\-]*[:\-]?[^\S\r\n]*(\d+)[^\S\r\n]*min(?:utes?)?\b/i)
-                || text.match(/\((\d+)[^\S\r\n]*min(?:utes?)?[^\S\r\n]*\)/i);
+        const tm = text.match(/(\d+)[^\S\r\n]*min(?:ute)?s?[^\S\r\n]*total\b/i)
+                || text.match(/\btotal[^\S\r\n:\-]*[:\-]?[^\S\r\n]*(\d+)[^\S\r\n]*min(?:ute)?s?\b/i)
+                || text.match(/\((\d+)[^\S\r\n]*min(?:ute)?s?[^\S\r\n]*\)/i);
         return tm ? parseInt(tm[1]) : 0;
       };
       // An explicit round count the coach spells out — a PARENTHETICAL
@@ -2843,10 +2912,10 @@
       // rotates one interval short. Kept in sync with the highlight (~4628)
       // and clean-break (~4764) regexes.
       const stationCount = () => lines.reduce((n, l) => {
-        // Accept BOTH orders the coach writes a station marker:
-        // number-first ("1#", "2+3#") and hash-first ("#1", "#2").
-        const m = l.match(/^\s*(?:#\s*(\d+)|(\d+(?:\s*[+\-,&]\s*\d+)*)\s*#)/);
-        return n + (m ? (m[2] ? m[2].split(/[+\-,&]/).length : 1) : 0);
+        // Both orders, from the shared STATION_* source. Counts DIGIT GROUPS,
+        // not lines: a merged "2+3#" is TWO stations.
+        const m = l.match(new RegExp(`^\\s*(?:(${STATION_HASH_FIRST})|(\\d+(?:\\s*[+\\-,&]\\s*\\d+)*)\\s*#)`));
+        return n + (m ? (m[2] ? m[2].split(STATION_MERGE_SEP).length : 1) : 0);
       }, 0);
       const rotationRounds = (iv, writtenOnly) => {
         const totalMin = writtenTotalMin();
@@ -2864,7 +2933,7 @@
         // 35-minute For Time. Only the bare-every caller opts in; the E#MOM
         // path (and stations-present blocks) keep the historical line fallback.
         if (writtenOnly && stations === 0) return 0;
-        const exerciseLines = lines.filter(l => /^\s*\d/.test(l) && !/^\s*\d+\s*(sec|on|off|work|rest|min|set|round)/i.test(l));
+        const exerciseLines = lines.filter(isExerciseLine);
         return exerciseLines.length >= 2 ? exerciseLines.length : 0;
       };
 
@@ -2878,7 +2947,7 @@
       for (const rawLn of lines) {
         const ln = (rawLn || '').trim();
         if (!ln || ln === '__SPACER__') continue;
-        const wr = ln.match(/(\d+)\s*(min(?:utes?)?|sec(?:onds?)?|m|s)\s*(?:of\s+)?work\b[\s,/\-]*(\d+)\s*(min(?:utes?)?|sec(?:onds?)?|m|s)\s*(?:of\s+)?rest\b/i);
+        const wr = ln.match(/(\d+)\s*(min(?:ute)?s?|sec(?:ond)?s?|m|s)\s*(?:of\s+)?work\b[\s,/\-]*(\d+)\s*(min(?:ute)?s?|sec(?:ond)?s?|m|s)\s*(?:of\s+)?rest\b/i);
         if (!wr) continue;
         const mult = ln.match(/[x×*]\s*(\d+)(?:\s*[\-–]\s*(\d+))?\s*(?:sets?|rounds?)?\b/i)
                   || ln.match(/\b(\d+)(?:\s*[\-–]\s*(\d+))?\s*(?:sets?|rounds?)\b/i);
@@ -3003,7 +3072,7 @@
         // (Each optional tail owns its leading spaces — a shared `[^\S\r\n]*`
         // right after MOM would swallow the space and then silently skip the
         // total-minutes group, since an optional group never forces a backtrack.)
-        const eXmomRe = /\bE(\d{1,2})MOM(?:[^\S\r\n]*[x×*][^\S\r\n]*(\d+)?)?(?:[^\S\r\n]+(\d+)[^\S\r\n]*(?:min(?:utes?)?|′)?(?=[^\S\r\n]*(?:[\r\n]|$)))?/gi;
+        const eXmomRe = /\bE(\d{1,2})MOM(?:[^\S\r\n]*[x×*][^\S\r\n]*(\d+)?)?(?:[^\S\r\n]+(\d+)[^\S\r\n]*(?:min(?:ute)?s?|′)?(?=[^\S\r\n]*(?:[\r\n]|$)))?/gi;
         while ((m = eXmomRe.exec(text)) !== null) {
           consume(m);
           const ivMin = parseInt(m[1]);
@@ -3047,7 +3116,7 @@
         // Modeled as an EMOM-style timer so the round transition is announced
         // mid-workout (essential when exercises change between rounds).
         // Sanity bounds rule out reps×weight ("10x5") and silly schedules.
-        const minXmRe = /\b(\d+)\s*min(?:utes?)?\s*[x×*]\s*(\d+)\b/gi;
+        const minXmRe = /\b(\d+)\s*min(?:ute)?s?\s*[x×*]\s*(\d+)\b/gi;
         while ((m = minXmRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
@@ -3222,6 +3291,7 @@
           // ("*" is coach shorthand — "30 work, 10 rest * 2")
           const roundsMatch = text.match(/[x×*]\s*(\d+)/i) || text.match(/(\d+)\s*rounds?/i);
           let rounds = roundsMatch ? parseInt(roundsMatch[1]) : 0;
+          let inventedRounds = false;   // set only by the `|| 5` guess below
           // "N sets OF <the work/rest spec>" — a WRITTEN count, but only when it
           // sits on the SAME LINE as the interval it multiplies ("3 sets of 30
           // seconds on 10 seconds off"). Deliberately narrow: a bare "N sets" on
@@ -3237,14 +3307,36 @@
           // If still nothing written, count exercise-like lines in the same cell
           // (lines starting with a number or bullet — rough heuristic, fallback to 5)
           if (rounds === 0) {
-            const exerciseLines = lines.filter(l => /^\s*\d/.test(l) && !/^\s*\d+\s*(sec|on|off|work|rest|min)/i.test(l));
-            rounds = exerciseLines.length || 5;
+            // Was a near-copy of rotationRounds' filter that had DRIFTED: it
+            // lacked the set|round exclusion, so a "3 sets" / "5 rounds" line
+            // counted as an exercise and inflated this round count. One source
+            // now (isExerciseLine) — the two ways the coach writes the same
+            // workout must not resolve differently.
+            const exerciseLines = lines.filter(isExerciseLine);
+            rounds = exerciseLines.length;
+            // ⚠️ THE LAST SURVIVING INVENTED VALUE in the pipeline. Nothing the
+            // coach wrote says "5"; it is a guess, in direct violation of the
+            // no-invented-timer-values rule that every other path now obeys.
+            //
+            // NOT deleted — deleting it silently turns some clocks that work
+            // today into NO clock, and we don't know which or how many.
+            // MEASURE FIRST: every firing is recorded (see recordInventedValue)
+            // so the real-world rate can be read off the gym TV before anyone
+            // decides. Remove it only once the record shows it is unused, or
+            // once the coach confirms the blocks it fires on should be
+            // clockless.
+            if (rounds === 0) {
+              rounds = 5;
+              inventedRounds = true;
+              recordInventedValue('rounds-fallback-5', lines);
+            }
           }
           // Priority: written total ÷ (work+rest) → written ×N → nothing.
           // Applied AFTER the ×N chain so that when the total is absent or
           // insane, every ×N form above resolves byte-for-byte as it did before
           // (locked by on_off_no_total_unchanged + seconds_on_off_unchanged).
-          if (saneDerived) rounds = derivedRounds;
+          // A written total overrides the guess — so the guess didn't survive.
+          if (saneDerived) { rounds = derivedRounds; inventedRounds = false; }
           // Sanity window — in practice only reachable now that minutes parse
           // (a seconds-only interval could never total 90 min). Blocks an
           // absurd clock from a mis-read line rather than showing a wrong one.
@@ -3252,7 +3344,8 @@
             const ivLabel = `${fmtDur(workSec)}/${fmtDur(restSec)} ×${rounds}`;
             results.push({
               type: 'tabata', workSeconds: workSec, restSeconds: restSec,
-              rounds, label: hasTabataWord ? `Tabata ${ivLabel}` : ivLabel
+              rounds, label: hasTabataWord ? `Tabata ${ivLabel}` : ivLabel,
+              ...(inventedRounds ? { roundsInvented: true } : {})
             });
           }
         }
@@ -3287,7 +3380,7 @@
       // detected, so it can't double up with tabata custom intervals (which need
       // a companion "rest"/"off") or chained timelines.
       if (!chained && results.length === 0) {
-        const minWorkRe = /\b(\d+)\s*min(?:utes?)?\s+work\b/gi;
+        const minWorkRe = /\b(\d+)\s*min(?:ute)?s?\s+work\b/gi;
         while ((m = minWorkRe.exec(text)) !== null) {
           const mins = parseInt(m[1]);
           if (mins >= 1 && mins <= 90) {
@@ -3338,7 +3431,7 @@
           const isLabelOnly = l => /:\s*$/.test(l) || /^warm[\s-]?up\b/i.test(l);
           const firstLn = lines.map(l => (l || '').trim())
             .find(l => l && l !== '__SPACER__' && !isLabelOnly(l));
-          const bm = firstLn ? firstLn.match(/^(\d+)\s*min(?:utes?)?\s+(.+)$/i) : null;
+          const bm = firstLn ? firstLn.match(/^(\d+)\s*min(?:ute)?s?\s+(.+)$/i) : null;
           if (bm) {
             const mins = parseInt(bm[1]);
             const act = bm[2].trim();
@@ -5019,7 +5112,7 @@
               //         e.g. "press4 clean" → ["press", "4 clean"]
               // Rule 2: space before N# exercise numbering (1#–9#)
               //         e.g. "air squat 4#rotata" → ["air squat", "4#rotata"]
-              .flatMap(l => l.split(/(?<=[a-z\u0590-\u05FF])(?=\d+\s+[a-zA-Z\u0590-\u05FF])|(?<=\s)(?=[1-9]#|#[1-9])/))
+              .flatMap(l => l.split(lineSplitRe()))
               .map(l => l.trim());
             // Preserve empty lines as '__SPACER__', filter bare URLs
             const lines = [];
@@ -5171,7 +5264,7 @@
       // column layout starts each part at the top of its own column.
       if (PART_HEADER_RE.test(text)) {
         let partHtml = escapeHtml(text);
-        partHtml = partHtml.replace(/\b(\d+)\s*min(?:utes?)?\b/gi, '<span class="time-badge">$1 min</span>');
+        partHtml = partHtml.replace(/\b(\d+)\s*min(?:ute)?s?\b/gi, '<span class="time-badge">$1 min</span>');
         partHtml = partHtml.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
         return { type: 'sub-header', isPartHeader: true, html: partHtml };
       }
@@ -5255,7 +5348,7 @@
         || /\bI go\s*(you|u)\s*go\b/i.test(text)
         || /\bIN TEAMS OF\b/i.test(text)
         || /\bteams?\s+of\s+\d/i.test(text)
-        || /\b\d+\s*min(?:utes?)?\s*[x×*]\s*\d+\b/i.test(text)
+        || /\b\d+\s*min(?:ute)?s?\s*[x×*]\s*\d+\b/i.test(text)
         || /\b(min|sec) rest\b/i.test(text);
 
       // A line that opens with a station label ("A1.", "A2.", "B2 -") or a
@@ -5272,7 +5365,7 @@
         html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM[x×]?|TABATA|TBATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
         html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
         html = html.replace(/\b(\d+)\s*min\b/gi, '<span class="time-badge">$1 min</span>');
-        html = html.replace(/\b(\d+)\s*sec(?:onds?)?\b/gi, '<span class="time-badge">$1 sec</span>');
+        html = html.replace(/\b(\d+)\s*sec(?:ond)?s?\b/gi, '<span class="time-badge">$1 sec</span>');
         return { type: 'sub-header', html };
       }
 
@@ -5320,7 +5413,7 @@
       // "2+3#", "2-3#", "2,3#", "2 & 3#". Without the group the "+3" broke the
       // match and the whole line stayed plain white (unlike the bare "1#").
       // Also the hash-first order the coach uses ("#1", "#2").
-      html = html.replace(/^(#\s*\d+|\d+(?:\s*[+\-,&]\s*\d+)*#)/, '<span class="rep-number">$1</span>');
+      html = html.replace(new RegExp(`^(\\s*)(${STATION_BODY})`), '$1<span class="rep-number">$2</span>');
 
       // Highlight rep schemes at start of line: "22-16-10", "10-9-8-7-6-5-4-3-2-1"
       // (3+ numbers separated by dashes or dots)
@@ -5342,7 +5435,7 @@
       // Highlight time patterns
       html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
       if (!isDescriptiveList) html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM[x×]?|TABATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
-      html = html.replace(/\b(\d+)\s*sec(?:onds?)?\b/gi, '<span class="time-badge">$1 sec</span>');
+      html = html.replace(/\b(\d+)\s*sec(?:ond)?s?\b/gi, '<span class="time-badge">$1 sec</span>');
       // Highlight time cap numbers: "t.c 37", "tc 12:00", "t.c- 5", "t. c 42"
       html = html.replace(/\b(t\.?\s*c[\-\s:]*)\s*(\d+(?::\d{2})?)/gi, '$1<span class="time-badge">$2</span>');
 
@@ -5468,12 +5561,12 @@
               if (li === promotedIdx) continue; // lifted into the section header
               const line = cell.lines[li];
               if (/warm\s*up/i.test(line)) inWarmup = true;
-              else if (PART_HEADER_RE.test(line) || /\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom|\b\d+\s*min(?:utes?)?\s*[x×*]\s*\d+\b|\bteams?\s+of\s+\d/i.test(line)) inWarmup = false;
+              else if (PART_HEADER_RE.test(line) || /\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom|\b\d+\s*min(?:ute)?s?\s*[x×*]\s*\d+\b|\bteams?\s+of\s+\d/i.test(line)) inWarmup = false;
               const parsed = parseLine(line);
               const ec = parsed.extraClass ? ' ' + parsed.extraClass : '';
               const grpCls = parsed.isGroupTitle ? ' group-line' : '';
               const isGrpHdr = isGrpLine(line);
-              const isStation = /^\s*(?:#\s*\d+|\d+(?:\s*[+\-,&]\s*\d+)*\s*#)/.test(line); // "1#", "2#", "#1", "#2", merged "2+3#" station markers — clean break points
+              const isStation = new RegExp(`^\\s*${STATION_BODY}`).test(line); // shared STATION_BODY — clean break points
               // Sub-group headers ("B4. 4 sets of:", "A1.") and instruction
               // sub-headers introduce the lines below them — like a group header,
               // they must never be left stranded at the bottom of a column while
@@ -7069,7 +7162,7 @@
             label = val;
           } else {
             const rawLines2 = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*(?!\d|bw\b|rpe\b)/i))
-              .flatMap(l => l.split(/(?<=[a-z\u0590-\u05FF])(?=\d+\s+[a-zA-Z\u0590-\u05FF])|(?<=\s)(?=[1-9]#|#[1-9])/))
+              .flatMap(l => l.split(lineSplitRe()))
               .map(l => l.trim());
             const lines = [];
             let lastWas2 = false;

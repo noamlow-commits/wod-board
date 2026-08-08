@@ -145,6 +145,19 @@ const FIXTURES = [
     expectTimers: ["30″/10″ ×8"],
     rows: [["", "WOD"],
            ["", "30 sec on 10 sec off x 8\nmax cal bike"]] },
+  { name: "invented_rounds_fallback", note: "MEASUREMENT fixture (2026-08-08), not a correctness claim: this is the exact shape that reaches `rounds = exerciseLines.length || 5` — a work/rest interval with NO ×N, NO written total, NO same-line 'N sets of', and NO numbered exercise lines to count. The '5' is a pure guess: nothing the coach wrote says 5. It is the LAST surviving invented value in the pipeline and it violates the no-invented-timer-values rule every other path now obeys. It is NOT deleted, because deleting it blind turns this shape from a ×5 clock into NO clock and nobody knows how many real sheets look like this. This fixture makes the cost of deletion concrete (the harness prints which fixtures depend on the guess) while the live board records real firings to localStorage['wodboard-invented']. When the record says it is unused — or the coach confirms blocks like this should be clockless — delete the `|| 5`, and this fixture's expectTimers becomes forbidTimers. See TIMER_ROADMAP.md §5.",
+    expectTimers: ["30″/10″ ×5"],
+    rows: [["", "WOD"],
+           ["", "30 sec on 10 sec off\nmax cal bike"]] },
+  { name: "plural_mins_alias", note: "ALIAS-DRIFT guard (2026-08-08, vocabulary consolidation): the time-unit alias was written two ways across the file — 'min(?:utes?)?' (min · minute · minutes) at 18 sites and 'min(?:ute)?s?' (which ALSO accepts the coach's 'mins') at 11. So '4 mins on 1 min off' parsed in some paths and not others, purely by which spelling that path happened to be copied from — the exact half-applied-alias shape that cost the whole clock for 'EVEY' and 'e2momx'. All sites normalized to the permissive union (same for sec(?:onds?)? → sec(?:ond)?s?), so every path now accepts every form she writes. This fixture is the proof the widening is REAL and not just green: the plural 'mins' must produce the same clock the singular does. The 26 pre-existing goldens were byte-for-byte unchanged by the normalization, which is what proves it widened without shifting anything.",
+    expectTimers: ["4′/1′ ×4"],
+    rows: [["", "CARDIO"],
+           ["", "Metcon:\n4 mins on 1 min off x 4\n1. 400 meter run\n2. 30 t2b"]] },
+  { name: "exercise_line_filter_drift", note: "DRIFT guard (2026-08-08, vocabulary consolidation): the 'count the exercise lines' heuristic existed TWICE and the copies had already diverged — rotationRounds (~2913) excluded lines leading with 'set'/'round', the custom work/rest fallback's copy (~3286) did NOT. So a bare 'N sets' line counted as an EXERCISE in one path and not the other, inflating the fallback's round count by one per such line. Here '30 sec on 10 sec off' carries no ×N, no same-line 'N sets of' and no written total, so the fallback reaches the exercise-line count. Verified counterfactually on the two filters, not assumed: the drifted one counts ['3 sets','1# wall balls','2# row','3# burpee'] = 4 → 30″/10″ ×4 (a 20-minute clock on a 15-minute block); the unified isExerciseLine counts only the 3 stations → ×3, which is also exactly what the same cell WITHOUT the '3 sets' line resolves to (probed) — the two shapes of one workout now agree. Distinct from superset_group_cohesion, whose 'warm up : 2 sets' does not start with a digit and so never reached this filter at all. forbidTimers locks the old ×4 out.",
+    expectTimers: ["30″/10″ ×3"],
+    forbidTimers: ["30″/10″ ×4"],
+    rows: [["", "WOD"],
+           ["", "30 sec on 10 sec off\n3 sets\n1# wall balls\n2# row\n3# burpee"]] },
   { name: "inline_part_header_timing", note: "coach's real CARDIO cell (2026-08-08, VERBATIM from getWorkoutSheet, column '2'): TWO 'part N' blocks inside ONE cell, each with its timing written INLINE on the part header line — 'part 1: t.c 14' and 'part 2: amrap 14'. The TV showed a bare 'For Time' and 'P1 · 12 RFT': BOTH written 14s were gone, and part 2 had no clock at all. Cause: extractTimerConfigs splits the cell on part headers and built each segment as lines.slice(start + 1, end) (~3283) — the part-header LINE ITSELF was excluded, so its inline spec never reached detectTimers. capSecondsFromLine('part 1: t.c 14') returns 840 perfectly well; nothing ever asked it. This is the no-invented-timer-values rule in its mirror form — a value the coach DID write must reach the clock. No fixture covered the in-cell part-split path at all (multipart_parts uses part-named COLUMNS; evey_typo_explicit_rounds has a single 'PART1:' line and takes the partIdx.length < 2 whole-cell branch), which is why it survived. Fix: the remainder after the 'part N:' prefix is prepended to its own segment. The literal 'part N' words are STRIPPED, not passed through, so no regex can read the part NUMBER as minutes/rounds — 'part 2: amrap 14' resolves to AMRAP 14′, never AMRAP 2′. forbidTimers locks both wrong outputs out.",
     expectTimers: ["TC 14′ → AMRAP 14′ · 2′ rest", "P1 · 12 RFT (TC 14′)", "P2 · AMRAP 14′"],
     forbidTimers: ["P1 · 12 RFT", "AMRAP 2′", "TC 2′", "TC 1′", "For Time"],
@@ -311,6 +324,7 @@ const layoutFails = [];
 
 // Detection-branch coverage, accumulated across every fixture.
 const PATH_IDS = new Set();
+const INVENTED = [];
 const PATH_HITS = {};
 
 const results = [];
@@ -369,9 +383,10 @@ for (const fx of FIXTURES) {
           if (!raw || !String(raw).trim()) continue;
           const cfgs = window.extractTimerConfigs(row.cells[i].lines, row.cells[i].header, capHints[i]) || [];
           const rep = window.timerParseReport(raw, cfgs);
-          if (rep.unexplained.length || rep.dark) {
+          if (rep.unexplained.length || rep.dark || rep.invented.length) {
             reports.push({ cell: `row${ri + 1}/${row.cells[i].header}`, dark: rep.dark,
                            got: cfgs.map((c) => c.label),
+                           invented: rep.invented,
                            unexplained: rep.unexplained.map((f) => f.token.trim()) });
           }
         }
@@ -388,6 +403,11 @@ for (const fx of FIXTURES) {
       for (const [id, n] of Object.entries(parsed.pathHits || {})) {
         PATH_HITS[id] = (PATH_HITS[id] || 0) + n;
       }
+    }
+    // Which fixtures still depend on the `|| 5` GUESS. Reported, not failed:
+    // the point is to measure before deleting it, not to force the issue.
+    for (const r of parsed.reports || []) {
+      for (const label of r.invented || []) INVENTED.push(`${fx.name} · ${r.cell} → ${label}`);
     }
 
     // ── Unexplained-facts assertion ──
@@ -508,6 +528,18 @@ if (darkPaths.length === 0) {
     [...PATH_IDS].map((id) => `${id}:${PATH_HITS[id]}`).join("  "));
 } else {
   console.log(`❌ NO fixture exercises: ${darkPaths.join(", ")} — add one, or remove the dead branch`);
+}
+
+// ── Invented values still in the pipeline ──
+// Reported, never failed. `rounds = … || 5` is the last guess left, and it
+// cannot be deleted blind — that would silently turn working clocks into NO
+// clock. This line says which fixtures depend on it; the live board records
+// real firings to localStorage['wodboard-invented']. Decide from the data.
+console.log("\nInvented values (measure before deleting — see TIMER_ROADMAP.md §5)");
+if (INVENTED.length === 0) {
+  console.log("✅ no fixture depends on the `|| 5` round guess");
+} else {
+  for (const s of INVENTED) console.log(`⚠️  ${s}`);
 }
 
 if (diff) console.log("\nReview each DIFF: if the change was intended, re-run with --update to accept it.");

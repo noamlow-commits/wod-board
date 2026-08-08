@@ -1,0 +1,35 @@
+{
+  "data": {
+    "headers": [
+      "CARDIO"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "CARDIO",
+            "lines": [
+              "Metcon:",
+              "4 mins on 1 min off x 4",
+              "1. 400 meter run",
+              "2. 30 t2b"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "CARDIO",
+      "timers": [
+        {
+          "label": "4′/1′ ×4",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

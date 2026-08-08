@@ -113,6 +113,74 @@ Call `repositionQR()` 900ms after render and 350ms after mode switches.
 
 **Coach panel:** "⏱ טיימר" tab in coach.html. Type selector → config form → START/PAUSE/RESUME/RESET.
 
+### ⭐ Shared vocabulary — one source per thing the coach can write (added 2026-08-08)
+
+The **3-parallel-places rule kept being half-applied** because it relied on
+someone remembering to grep. It cost the whole clock three times (`EVEY`,
+`e2momx`, `tbata`) and cost the station badge once (`#1` hash-first matched only
+some of five regexes). The fix is structural: every alias is now **one const**,
+and each site builds its regex from it — a half-applied alias becomes impossible
+rather than merely discouraged.
+
+| Const | Covers | Consumers |
+|---|---|---|
+| `EVERY_WORD` / `everyRe` | `EVERY · EVEY · EVRY · EVREY` | rotation paths, format-header, warm-up reset |
+| `STATION_HASH_FIRST` / `STATION_NUM_FIRST` / `STATION_BODY` | `#1` · `1#` · merged `2+3#`/`2-3#`/`2,3#`/`2 & 3#` | `stationCount`, the orange highlight, the clean-break `isStation` |
+| `STATION_MERGE_SEP` | splits `2+3` into two stations | `stationCount` |
+| `UNIT_STRICT` / `UNIT_LOOSE` / `MIN_WORD` | `min·mins·minute·minutes` / `sec·secs·second·seconds` (+ bare `m`/`s` in LOOSE only) | duration lexing everywhere |
+| `isExerciseLine` | "a line that prescribes an exercise" | `rotationRounds`, the custom work/rest fallback |
+| `lineSplitRe()` | the concat-repair + mid-line-station split rules | **both** parse paths (was duplicated verbatim as `rawLines`/`rawLines2`) |
+
+**⚠️ `UNIT_STRICT` and `UNIT_LOOSE` must NOT be merged.** Bare `m` is *metres*
+(`3000 m run`, `400 m on the rower`), so it is only safe where the pattern is
+already anchored by a literal `work`/`rest` keyword. That distinction is
+semantic, not accidental — see the on/off note above.
+
+**Two real drifts were found and closed by doing this, both silent until now:**
+
+1. **The unit alias was written two ways** — `min(?:utes?)?` (min · minute ·
+   minutes) at **18** sites and `min(?:ute)?s?` (which also accepts the coach's
+   **`mins`**) at **11**. So `4 mins on 1 min off` parsed in some paths and not
+   others, purely by which spelling that path had been copied from. All
+   normalized to the permissive union (same for `sec`). Fixture:
+   `plural_mins_alias`.
+2. **The exercise-line filter had two copies that disagreed** — `rotationRounds`
+   excluded lines leading with `set`/`round`, the custom work/rest fallback's
+   copy did **not**. A bare `3 sets` line therefore counted as an *exercise* in
+   one path and not the other, inflating the fallback's round count by one per
+   such line (`30″/10″ ×4` where the stations say ×3 — a 20-minute clock on a
+   15-minute block). Verified counterfactually on both filters, not assumed.
+   Fixture: `exercise_line_filter_drift`.
+
+**All 26 pre-existing goldens were byte-for-byte unchanged** by the whole
+consolidation — that is what proves it unified without shifting behaviour.
+
+### ⚠️ The last invented value — `rounds = exerciseLines.length || 5`
+
+One guess remains in the pipeline, and it is a live violation of the
+no-invented-values rule: with no `×N`, no written total, no same-line
+`N sets of` and no countable exercise lines, the custom work/rest fallback
+guesses **5 rounds**. Nothing the coach wrote says 5.
+
+**It is deliberately NOT deleted.** Deleting it blind turns every sheet of that
+shape from a working clock into **no clock**, and nobody knows how many there
+are — which is the same silent-loss failure this whole section exists to
+prevent. **Measure first:**
+
+- Every firing is recorded by `recordInventedValue()` to
+  `localStorage['wodboard-invented']` on the real board (rolling 40, deduped
+  against re-parses, never shown on screen). Read it off the gym TV with
+  `JSON.parse(localStorage['wodboard-invented'])`.
+- The config carries `roundsInvented: true`, which surfaces in
+  `timerParseReport().invented`; the harness prints **which fixtures depend on
+  the guess** (today: only `invented_rounds_fallback`, the fixture that exists
+  to make the cost of deletion concrete).
+- A written total still overrides it, and clears the flag.
+
+**Delete it when** the record shows it unused, or the coach confirms blocks of
+that shape should be clockless. Then `invented_rounds_fallback`'s
+`expectTimers` becomes `forbidTimers`.
+
 ### ⭐ Making SILENCE measurable — timing facts + branch coverage (added 2026-08-08)
 
 Every incident in this file has one shape: the coach writes a workout, **one token doesn't match**, and detection returns `[]` — on the gym TV, in front of a class. `EVEY`, `e2momx`, `min`+`on/off`, the `(40 min)` total, today's `part N:` header. The reason they all shipped is structural, and it is worth stating plainly:
