@@ -14,7 +14,23 @@ than none.
 These are workout *semantics*. The standing rule (`PARSER.md`, the ×N/stations
 asymmetry) applies: **the coach decides semantics, not code consistency.**
 
-### Q1 — The compound clock counts part 1 DOWN. Is that acceptable? 🔴 LIVE
+> ⚠️ **2026-08-10 — the compound clock's scope narrowed before most of these got
+> answered.** The coach reported that the very cell it was built on is **staged**
+> — `part 2: amrap 14 / 1000 m run / and then: amrap:` — so part 2's clock starts
+> when the athletes finish an untimed run, not at a fixed offset. A whole-cell
+> chain is now **suppressed for a staged part** (predicate + reasoning in
+> `PARSER.md`, the ⛔ note in the compound-clock section). Read Q1/Q3/Q4 with that
+> in mind: the compound clock now fires on **fewer** cells than the day they were
+> written, and this week's live sheet is no longer one of them.
+
+### Q1 — The compound clock counts part 1 DOWN. Is that acceptable? 🟡 LIVE, but narrower
+
+**Status 2026-08-10:** still unanswered, and now **lower-stakes**. The cell that
+made it urgent (`t.c 14` + `amrap 14`) is staged and no longer chains at all, so
+the coach is on the per-part buttons there — and `P1 · 12 RFT (TC 14′)` **does**
+count up. The question below still decides whether a *genuinely continuous*
+For-Time-then-AMRAP cell should chain, but it is no longer blocking this week.
+
 
 The compound clock (`TC 14′ → AMRAP 14′ · 2′ rest`) runs on the chained-`tabata`
 engine, which represents both work phases identically: **a countdown**. So a
@@ -38,7 +54,7 @@ whole class finished at 12:00. Worth confirming: is a button press the right
 interaction, or does she want the rest to start when *the last athlete* is done
 (which the board cannot know)?
 
-### Q3 — The compound clock only appears when the parts happen to be uniform.
+### Q3 — The compound clock only appears sometimes. 🔴 SHARPER after 2026-08-10
 
 `t.c 14` + `amrap 14` chains. Next week's `t.c 14` + `amrap 12` will not (the
 uniform-durations sanity rule), and she gets the per-part buttons instead. Is
@@ -47,10 +63,46 @@ extra presses? **Do not relax the uniform rule to "fix" this** — the tabata
 runtime's arithmetic is built on a fixed `work+rest` cycle; non-uniform phases
 belong to a sequence engine.
 
-### Q4 — The redundant `For Time` preamble button (answered 2026-08-08: suppress).
+**This is now the sharpest open question of the three,** because there are two
+independent reasons a cell won't chain (non-uniform durations, and a staged
+part) and she cannot see either from the board. The honest framing for her:
+*"sometimes one button, sometimes two — is that fine, or would you rather it were
+always two?"* If the answer is "always two", the compound clock should be deleted
+outright rather than accumulating suppressions.
 
-A bare format line above the parts (`for time:`) is now dropped **when** the
-compound clock exists and the preamble carries no written value of its own.
+### Q5 — Staging without the marker. 🔴 NEW 2026-08-10
+
+The staged-part suppression fires on a **written** sequence-transition marker
+(`and then` / `then:` / `after that` / `ואז` / `לאחר מכן`) — the coach's own
+words, so nothing is guessed. But the same workout written **without** the
+marker —
+
+```
+part 2: amrap 14
+1000 m run
+amrap:
+20 squat jump
+```
+
+— still chains, and would again start the AMRAP mid-run. **Do not "fix" this by
+inference.** The obvious wider rule ("untimed work before the declared format")
+requires guessing which lines are work and which are notes, *and* it misfires on
+`part 1: t.c 14 / 12 rft:`, where a cap and its rep scheme are one block. The
+right move is to ask her: **does she always write the transition, or is the
+marker just how she happened to write it this week?** If it's habitual, the
+predicate is already correct and this closes. If not, the answer is probably a
+convention ("write *and then* when a part has an untimed lead-in") rather than a
+cleverer regex.
+
+### Q4 — The redundant `For Time` preamble button (answered 2026-08-08: suppress; trigger widened 2026-08-10).
+
+A bare format line above the parts (`for time:`) is dropped when the preamble
+carries no written value of its own **and** either the compound clock exists or
+**≥2 numbered parts produced their own clocks**. The second half was added on
+2026-08-10: killing the chain for a staged cell would otherwise have handed that
+useless capless `For Time` back as the ⏱↻ *default* — the exact annoyance the
+suppression exists to remove. Verified counterfactually
+(`detectTimers(['for time:'])` → `{fortime, capSeconds: 0}`), not assumed.
 Flagging it here because the reasoning was a judgement call: a preamble with
 real work content under it would be a legitimate separate block. If she ever
 reports a missing clock on a cell shaped like that, this is the first suspect.
@@ -70,6 +122,26 @@ reports a missing clock on a cell shaped like that, this is the first suspect.
 | 7 | Timing facts + unexplained-facts assertion | makes a silent parse failure impossible to ship |
 | 8 | Detection-branch coverage | a branch at 0 hits now fails the run |
 | 9 | `detectActivityInterval` reachable outside the part loop | found by #7 on its first run — see below |
+
+## 2b. What shipped 2026-08-10 (sw v136) — the compound clock's first narrowing
+
+| # | Change | Why it mattered |
+|---|---|---|
+| 1 | **Staged part → no compound chain** (`STAGE_MARKER_RE`) | the coach's live cell has an untimed `1000 m run` inside part 2; the chain would have started her AMRAP mid-run |
+| 2 | Preamble suppression trigger widened to `chain ‖ ≥2 parts with clocks` | otherwise #1 resurrects the capless `For Time` as the ⏱↻ default |
+| 3 | New branch id `staged-part` + control fixture `continuous_parts_compound_chain` | #1 dropped `compound-chain` to **0** hits — the coverage assertion caught it |
+
+**The lesson from #3 is worth keeping.** Suppressing the only cell that exercised
+the compound clock made a *narrowing* look identical to a *revert*, and the only
+thing that said so was the branch counter going to zero. **A suppression needs a
+surviving positive case, or it isn't a suppression.** The control fixture is the
+same sheet minus exactly the two staged lines, so the pair is a strict A/B — the
+diff between the fixtures *is* the predicate.
+
+Second lesson, from #2: **a suppression written as "only when X exists" silently
+depends on X.** Removing X in one place un-removed something in another, three
+lines away. The compound clock and the preamble drop looked independent; they
+were one conditional.
 
 **#9 is the lesson.** `activity_interval` — a fixture *named after* that detector
 — had a golden of an **empty timer list**. The detector was only reachable from
@@ -112,7 +184,10 @@ was debugged by rediscovering a slice of it. Line numbers are anchors as of
 ### `extractTimerConfigs` ~3464 — branch coverage ids
 
 `whole-cell` · `activity-fallback` · `part-split` · `part-inline-spec` ·
-`compound-chain` · `header-cap`. All six are asserted to be hit by ≥1 fixture.
+`compound-chain` · `staged-part` · `header-cap`. All **seven** are asserted to be
+hit by ≥1 fixture. (`staged-part` added 2026-08-10 — the compound chain's
+*suppression* is a branch too, and giving it an id is what keeps a future edit
+from quietly disabling the chain everywhere.)
 
 ---
 

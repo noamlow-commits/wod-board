@@ -3469,6 +3469,24 @@
     // coach writes the part's timing there: "part 1: t.c 14", "part 2: amrap
     // 14") can be handed to the detectors instead of being thrown away.
     const PART_HEADER_PREFIX_RE = /^\s*part\s*\d+\s*[:.)–—-]?\s*/i;
+    // A part is INTERNALLY STAGED when the coach writes a sequence transition
+    // inside it — "part 2: amrap 14 / 1000 m run / and then: amrap: / …". The
+    // 1000 m carries no clock, so the AMRAP she declared on the header does not
+    // start when part 2 starts; the athletes decide that moment. A compound
+    // chain would auto-advance rest → AMRAP at a FIXED offset and start the
+    // AMRAP while people are still running (coach, 2026-08-10).
+    //
+    // THE PREDICATE, stated exactly: a written sequence-transition marker on any
+    // line inside a NUMBERED part's own body. Nothing is inferred — the marker
+    // is her own word for "and only after that". Deliberately NOT the wider
+    // "untimed work line before the declared format": telling work from a note
+    // is a guess, and the wider rule also fires on `part 1: t.c 14 / 12 rft:`
+    // (a cap and its rep scheme describe ONE block, not two stages), which would
+    // kill the continuous case this narrowing must leave alone.
+    // A bare leading "then" is excluded on purpose — the coach writes
+    // "Then Max Handstand Hold in the remaining time" INSIDE an interval, where
+    // it sequences reps, not clocks (see the hashfirst_stations_rounds sheet).
+    const STAGE_MARKER_RE = /\band\s+then\b|\bthen\s*:|\bafter\s+that\b|ואז|לאחר\s+מכן/i;
 
     // Parse a duration token ("1:00", "45 sec", "3 min", "2m") -> seconds, or null.
     function parseDur(str) {
@@ -3546,7 +3564,8 @@
     // Deliberately at BRANCH granularity, not per-regex: this is where the
     // structural bugs have actually been.
     const TIMER_PATHS = ['whole-cell', 'activity-fallback', 'part-split',
-                         'part-inline-spec', 'compound-chain', 'header-cap'];
+                         'part-inline-spec', 'compound-chain', 'staged-part',
+                         'header-cap'];
     const __timerPathHits = Object.fromEntries(TIMER_PATHS.map(k => [k, 0]));
     function tpHit(id) { __timerPathHits[id] = (__timerPathHits[id] || 0) + 1; }
     // Exposed as FUNCTIONS on purpose: a top-level `const` in a classic script
@@ -3595,11 +3614,18 @@
         }
 
         out = [];
+        // How many NUMBERED parts produced a clock of their own, and is any of
+        // them internally staged. Both feed the two decisions below.
+        let partsWithClocks = 0, stagedPart = false;
         for (const seg of segments) {
           let cfgs = detectTimers(seg.lines, partCapSeconds);
           if (cfgs.length === 0) {
             const ai = detectActivityInterval(seg.lines);
             if (ai) cfgs = [ai];
+          }
+          if (seg.num) {
+            if (cfgs.length) partsWithClocks++;
+            if (seg.lines.some(l => STAGE_MARKER_RE.test(l || ''))) stagedPart = true;
           }
           const tag = seg.num ? `P${seg.num} · ` : '';
           for (const c of cfgs) out.push({ ...c, label: tag + c.label, _preamble: !seg.num });
@@ -3617,16 +3643,34 @@
         // Every value comes from her text: the chain needs two written work
         // durations AND a written rest, or chainFromTimeline returns null and
         // only the per-part buttons stand. A missing rest is never invented.
-        const whole = chainFromTimeline(lines);
+        //
+        // ── NARROWING 2026-08-10: a STAGED part gets no chain ──
+        // The chain's whole premise is that the written schedule IS the running
+        // order: cap → rest → AMRAP, back to back. When a part is internally
+        // staged (STAGE_MARKER_RE above) that premise is false — the untimed
+        // 1000 m run sits between part 2's start and the AMRAP it declares, so
+        // the moment part 2's clock should start belongs to the athletes, not
+        // to the sheet. Auto-advancing at a fixed offset would start the AMRAP
+        // mid-run. Per-part clocks, started by hand, are the correct answer.
+        // This suppresses ONLY the whole-cell chain; every per-part clock above
+        // stands untouched (losing a clock is worse than a wrong one).
+        if (stagedPart) tpHit('staged-part');
+        const whole = stagedPart ? null : chainFromTimeline(lines);
         if (whole) {
           tpHit('compound-chain');
           out.unshift(whole);
-          // The preamble's bare format line ("for time:" above the parts) is
-          // the umbrella header for those parts, not a block of its own; once
-          // the compound clock exists its capless count-up is a duplicate that
-          // would sit in front of the real ones in the ⏱↻ cycle. Drop it ONLY
-          // when it carries no written value of its own (no cap, no total) —
-          // a preamble with real timing stays a legitimate separate clock.
+        }
+        // The preamble's bare format line ("for time:" above the parts) is the
+        // umbrella header for those parts, not a block of its own; its capless
+        // count-up is a duplicate that would sit in FRONT of the real clocks in
+        // the ⏱↻ cycle — the exact annoyance suppression was added to remove.
+        // Trigger: the compound clock exists, OR ≥2 numbered parts produced
+        // their own clocks (Noam's call, 2026-08-10 — killing the chain must not
+        // resurrect the useless "For Time" as the ⏱↻ default). Drop it ONLY
+        // when it carries no written value of its own (no cap, no total) — a
+        // preamble with real timing stays a legitimate separate clock, so a
+        // wrongly-dropped clock is still impossible.
+        if (whole || partsWithClocks >= 2) {
           out = out.filter(c => !(c._preamble && c.type === 'fortime' && !c.capSeconds));
         }
         out = out.map(({ _preamble, ...c }) => c);
