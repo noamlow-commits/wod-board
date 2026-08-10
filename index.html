@@ -3427,10 +3427,40 @@
         // on line 1 of its cell — DOES get its clock (three_column_block_timers).
         // Same intent, opposite outcome. A stage is allowed to carry several
         // clocks (see the per-stage ⏱↻ array), so both belong here: 6′ → Tabata.
+        // ── WIDENED 2026-08-10: UNTIMED work may precede the block duration ──
+        // The coach's warm-up read:
+        //     warmup -                                    ← label, skipped
+        //     600 run x 1                                 ← work, NO clock on it
+        //     7 min lat and quad mobilit for front squat  ← the block duration
+        // and got NO 7′ clock. "First content line" was taken by the 600 m run,
+        // so the 7 min line was never examined — while the DISPLAY layer, which
+        // owns the same pattern (parseLine's isInstruction, `^\d+\s*(min|…)`),
+        // painted it as a timed instruction with a red badge. Two layers, one
+        // pattern, disagreeing only about POSITION: the board said "there is a
+        // time here" and the detector never looked.
+        //
+        // The rule is now: the first content line that CARRIES A DURATION,
+        // provided every content line before it carries no timing at all. The
+        // original guard's intent — "a leading duration NAMES the block; a
+        // mid-list '3 min bike' does not" — survives as "nothing timed came
+        // first", which is the honest form of it: a block that opens with
+        // untimed work is still a block that this duration names. Same family
+        // as the staged-part narrowing above (untimed work before timed work);
+        // there it removed a wrong clock, here it restores a missing one.
+        // Scanning STOPS at the first timed line even when that line yields no
+        // config (a rest line, an interval spec) — once timing has appeared,
+        // another detector owns the block and a count-up here would be a ghost.
         if (!chained) {
           const isLabelOnly = l => /:\s*$/.test(l) || /^warm[\s-]?up\b/i.test(l);
-          const firstLn = lines.map(l => (l || '').trim())
-            .find(l => l && l !== '__SPACER__' && !isLabelOnly(l));
+          const hasTiming = l => /\d{1,2}:\d{2}/.test(l)
+            || new RegExp(`\\d+\\s*${UNIT_STRICT}\\b`, 'i').test(l);
+          let firstLn = null;
+          for (const raw of lines) {
+            const l = (raw || '').trim();
+            if (!l || l === '__SPACER__' || isLabelOnly(l)) continue;
+            if (hasTiming(l)) { firstLn = l; break; }   // first TIMED content line
+            // an untimed work line ("600 run x 1") does not consume the slot
+          }
           const bm = firstLn ? firstLn.match(/^(\d+)\s*min(?:ute)?s?\s+(.+)$/i) : null;
           if (bm) {
             const mins = parseInt(bm[1]);
@@ -3449,8 +3479,25 @@
               || /[x×*]\s*\d/i.test(act)
               || /\d+\s*(?:min(?:ute)?s?|sec(?:ond)?s?)\b/i.test(act);
             const alreadyHaveThisLong = results.some(r => r.totalSeconds === mins * 60);
+            // Second anti-double-count, forced by the widening above (caught by
+            // the harness on its first run, fixture `activity_interval`): with
+            // untimed lines no longer consuming the slot, the coach's
+            //     5 sets / 3 min run / 1 min rest
+            // reached this rule for the first time and emitted a ghost "3′ run"
+            // count-up INSTEAD of detectActivityInterval's correct 3′/1′ ×5 —
+            // strictly worse than the missing clock this widening set out to
+            // fix. A standalone REST line carrying its own duration means the
+            // candidate is the WORK half of an interval, not a block duration.
+            // Deliberately narrow: an on/off spec that carries its OWN
+            // durations ("3 sets of 30 sec on 10 sec off") does not claim this
+            // line, so "6 min leg mobility" above such a spec keeps its clock
+            // (leading_duration_behind_labels).
+            const restPairRe = new RegExp(
+              `^(?:\\d+\\s*${UNIT_STRICT}|\\d{1,2}:\\d{2})\\s*(?:of\\s+)?rest\\b`
+              + `|^rest\\s*[:\\-]?\\s*(?:\\d+\\s*${UNIT_STRICT}|\\d{1,2}:\\d{2})`, 'i');
+            const isWorkHalfOfInterval = lines.some(l => restPairRe.test((l || '').trim()));
             if (mins >= 1 && mins <= 90
-                && !actIsIntervalSpec && !alreadyHaveThisLong
+                && !actIsIntervalSpec && !alreadyHaveThisLong && !isWorkHalfOfInterval
                 && !/^t\.?\s*c\b/i.test(act)
                 && !/\b(rest|easy|recovery|warm[\s-]?up|cool[\s-]?down)\b/i.test(act)) {
               results.push({ type: 'amrap', totalSeconds: mins * 60, label: `${mins}′ ${act}` });

@@ -212,6 +212,18 @@ Why the same failure shape kept recurring — these are causes, not bugs:
    re-join sandwich, so line-anchored rules and whole-text rules disagree about
    what "same line" means.
 6. **No coverage signal.** **Closed 2026-08-08** by branch counters.
+7. **Two layers own one pattern and disagree about POSITION.** *(added
+   2026-08-10, the `7 min lat and quad mobility` warm-up.)* `parseLine`'s
+   `isInstruction` and the leading-block-duration detector both recognise
+   `^\d+\s*(min|sec|rounds|sets)`, but only the detector carries a positional
+   guard ("first content line"). An untimed `600 run x 1` above it meant the
+   board **painted a red time-badge on a line no detector ever examined** —
+   nothing misspelled, nothing unrecognised, and the display *looks* like it
+   understood. Distinct from causes 1–6, and not closed: the two layers are
+   still independent. **When adding a positional guard to one layer, ask what
+   the other does with the same line.** A fixture of the shape would have caught
+   it via the unexplained-timing-facts assertion — which is the cheap mitigation
+   until the layers actually share a predicate.
 
 ---
 

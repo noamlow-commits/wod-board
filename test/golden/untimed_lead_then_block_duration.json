@@ -1,0 +1,34 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "warmup -",
+              "600 run x 1",
+              "7 min lat and quad mobilit for front squat"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "7′ lat and quad mobilit for front squat",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}
