@@ -151,6 +151,46 @@ clock. The fixture had been asserting that the detector does nothing, because
 
 ---
 
+## 2c. What shipped 2026-08-11 (sw v139, `5fcad5a`) — and the blind spot it exposed
+
+| # | Change | Why it mattered |
+|---|---|---|
+| 1 | **A stage change turns off a clock that can't end by itself** (`navClearsTimer`/`navClearTimer`) | a finished clock survived ◄ ► in center-focus and had to be stopped by hand |
+| 2 | State guard on `startTimer`'s countdown interval | resetting during the 10s lead-in resurrected an **invisible** `running` clock with `timerType` null |
+| 3 | **`test/timer-nav.mjs`** — a second harness, for timer *runtime* | see below |
+
+**⚠️ This file has a blind spot, and so did the test suite: everything above is
+about the timer's RUNTIME, and nothing here or in `verify-board.mjs` covers that
+class at all.** §3-§5 map `detectTimers`/`extractTimerConfigs` — *which clock is
+detected from what the coach wrote*. But a clock that is detected perfectly can
+still be shown at the wrong time, survive a view change, or resurrect itself.
+Both defects fixed on 2026-08-11 were of that second kind, and the 32 goldens
+passed cleanly through both of them — **not because the code was right, but
+because the harness could not see that far.** "The goldens pass" is a statement
+about detection only. Say so when reporting it.
+
+**Runtime defects, currently open** (now testable — `timer-nav.mjs` boots the page
+and drives real state, so these no longer need a manual TV session to reproduce):
+
+- 🟡 **`centerFocus` and `tvCenterOverlay.open` linger stuck `true`** after a
+  center-focus session while the board shows the normal spread. Known since
+  2026-07-26. No longer blocks the timer (scoping moved to `partFocusIndex`, and
+  the nav teardown keys on timer state only), so it is latent — but it is a real
+  state-management bug and the *reason* two subsystems must avoid an otherwise
+  obvious flag. Worth an actual fix now that a runtime harness exists.
+- **Nothing asserts the docked clock's teardown is complete.** `hideFloatingTimerBar`
+  clears seven things (`display`, `.timer-docked`, `.overlay-mode`,
+  `.clock-reserve`, `overlay.style.right`, `#tvTimerControls.visible`, and the
+  RAF via `resetTimer`). `timer-nav.mjs` checks them for the nav path; any *other*
+  path that hides the bar is still unguarded. Miss one and the clock's reserved
+  top space stays subtracted from the workout with no clock in it.
+
+**The lesson to carry:** when a bug report is about *when* or *whether* a clock
+shows — not about which clock was read off the sheet — this file and the golden
+harness are the wrong tools, and their silence means nothing.
+
+---
+
 ## 3. The detection pipeline, in execution order
 
 Nothing else in the repo shows the whole pipeline at once; every past incident
@@ -231,7 +271,8 @@ Why the same failure shape kept recurring — these are causes, not bugs:
 
 Not fixed in the 2026-08-08 session on purpose: each is a behaviour change with
 no covering golden, i.e. exactly the kind that needs its own fixture and, for
-some, the coach.
+some, the coach. **These are all *detection* defects — for the runtime ones
+(state, the docked clock, teardown) see §2c.**
 
 - ✅ ~~**Two drifted exercise-line filters.**~~ **CLOSED 2026-08-08** — unified
   behind `isExerciseLine`; the drift was real (`3 sets` counted as an exercise
