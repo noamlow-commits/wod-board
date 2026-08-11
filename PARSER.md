@@ -458,6 +458,28 @@ Helper: `fmtMMSS(ms)` formats a duration as `mm:ss`.
 ### Floating timer bar (over WOD content)
 Same logic adapted for compact horizontal bar. `borderColor` and `boxShadow` flip green/red by phase. Background uses a vertical gradient tinted by phase color (or solid dark `rgba(0,0,0,0.95)` when paused). Round line: `R1/3 · tot 33:54` or `→R2/3 · tot 23:54`.
 
+### ⭐ A stage change turns the clock off — closed vs. open clocks (added 2026-08-11)
+
+**The bug:** a finished clock (🏁 TIME!) survived ◄ ► in center-focus mode and had to be stopped by hand. `updateFloatingTimerBar` only auto-hides on `timerState === 'idle'` (`'finished'` renders the banner forever), and `navigatePart` never touched timer state at all.
+
+**The rule (Noam's distinction — not a code-consistency choice):** a stage change turns off only a clock that *cannot end by itself*.
+
+| Clock | On ◄ ► / WOD↔CARDIO / 🏠 | Why |
+|---|---|---|
+| `finished` | **cleared** | nothing left to measure |
+| uncapped `For Time` (`capSeconds` 0) | **cleared** | counts UP forever; the coach moving on IS the end of that unit — *"מעבר חלק מבטא למעשה מעבר יחידה"* |
+| AMRAP / EMOM / Tabata / MIX / **capped** For Time | **survives** | bounded — runs to a written end. The coach legitimately browses the next stage while one runs, and a stray ► on the remote must never cost a live WOD clock (the same fear that keeps `n`/skip off the remote's big buttons) |
+| `idle` / `configured` | untouched | nothing docked over the board; `configured` only persists via the remote `configure` command, in full timer mode |
+
+**`getTimerTotalMs()` already IS the closed/open test** — `>0` = bounded, `0` = uncapped For Time. Do **not** add a second classifier. The predicate is `navClearsTimer()`; the teardown is `navClearTimer()`, both just above `navigatePart`.
+
+- **Keyed on timer state only.** Never on `centerFocus` / overlay `.open` — they linger stuck (same reason `getPartTimerConfigs` scopes by `partFocusIndex`).
+- **`resetTimer() + hideFloatingTimerBar()`, never `coachStopTimer()`.** The "Time!" call-out belongs to a deliberate ⏹/Backspace stop; navigation is a view change and must be **silent**. Both calls are required and neither is sufficient: `resetTimer` alone strands a visible bar (the `idle → hide` path at ~7118 only runs when something *calls* `updateFloatingTimerBar`, and the RAF is already dead); `hideFloatingTimerBar` alone leaves state `'finished'`, where Space → `toggleTimerPause()` → `startTimer()` restarts a dead clock.
+- **⊙ מרכוז is deliberately NOT in the list** — it zooms the current stage, it doesn't change it.
+- **The 350ms timeout in `navigatePart`** re-asserts `overlay-mode` + `display:flex`. It is disarmed by the teardown removing `.timer-docked` (which its own precondition tests), plus a `timerState !== 'idle'` term. No cancel-token — that would add mutable state for nothing.
+- ⚠️ **Countdown landmine, fixed here because this rule made it reachable:** `startTimer`'s `cdInterval` had no state guard. Resetting during the 10s lead-in left the closure alive; it decremented past 0, fell into the else branch and **resurrected `timerState='running'` with `timerType` null** — an invisible ghost clock that barks GO! and never finishes (`getTimerTotalMs()` → 0). Pre-existing on ⏹/Backspace-during-countdown; **measured** both ways (`test/timer-nav.mjs` reports `state:"running"` with the guard removed). The guard is the first line of the interval callback.
+- Covered by **`node test/timer-nav.mjs`** — `verify-board.mjs` is parser-only and cannot see timer state or the docked DOM.
+
 ### Per-phase voice cues (chained timers only)
 Flags `_tabataPhaseHalfwayDone` / `_tabataPhaseOneMinDone` / `_tabataPhaseTenSecDone` reset on every phase transition (not just timer start). Triggers only during WORK phase:
 - `halfway` at 50% of a WORK phase ≥ 4 min (e.g. 5:00 into each AMRAP 10)
@@ -474,6 +496,6 @@ Flags `_tabataPhaseHalfwayDone` / `_tabataPhaseOneMinDone` / `_tabataPhaseTenSec
 - EMOM interval warning ticks (added 2026-04-13)
 
 ### SW Cache Versioning
-**Critical:** bump `CACHE_NAME` in `sw.js` on every code change (`sw.js` is the source of truth — currently **v137**; this number drifts, always read `sw.js`). **The SW is NETWORK-FIRST for the app shell** (navigations + `.html`/`.js`) since 2026-07-26 — a deploy shows up on the next normal F5, no cache-clearing needed. (It was cache-first, which served the STALE app for a load after every push and cost hours of "my fix isn't showing" debugging.) Static assets (images/MP3s) stay stale-while-revalidate. To break a client already stuck on the OLD cache-first SW, run once in its console: `navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))).then(()=>caches.keys()).then(ks=>Promise.all(ks.map(k=>caches.delete(k)))).then(()=>location.reload())`.
+**Critical:** bump `CACHE_NAME` in `sw.js` on every code change (`sw.js` is the source of truth — currently **v139**; this number drifts, always read `sw.js`). **The SW is NETWORK-FIRST for the app shell** (navigations + `.html`/`.js`) since 2026-07-26 — a deploy shows up on the next normal F5, no cache-clearing needed. (It was cache-first, which served the STALE app for a load after every push and cost hours of "my fix isn't showing" debugging.) Static assets (images/MP3s) stay stale-while-revalidate. To break a client already stuck on the OLD cache-first SW, run once in its console: `navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))).then(()=>caches.keys()).then(ks=>Promise.all(ks.map(k=>caches.delete(k)))).then(()=>location.reload())`.
 
 **Status:** Chained interval display and per-phase voice cues implemented. **Apps Script must be redeployed** to coach's sheet for timer sync to work (console `_timerCb_` / `_scoreCb_` errors until deployed).

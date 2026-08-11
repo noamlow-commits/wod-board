@@ -23,9 +23,16 @@ CrossFit gym display app. Three surfaces:
 
 ## Testing
 
-`node test/verify-board.mjs` — parser/timer regression test (golden snapshots of
-the real in-page parser against fixture sheets). Run after any parser/timer
-change; `--update` to accept intended changes. See [`test/README.md`](test/README.md).
+`node test/verify-board.mjs` — parser/timer **detection** regression test (golden
+snapshots of the real in-page parser against fixture sheets). Run after any
+parser/timer change; `--update` to accept intended changes.
+
+`node test/timer-nav.mjs` — timer **runtime** test (boots the page, drives real
+timer state + the docked clock's DOM). Covers what the golden harness structurally
+cannot: which clocks a stage change turns off, and the countdown-resurrection
+guard. Run after any change to timer state, `navigatePart`, or the docked bar.
+
+See [`test/README.md`](test/README.md).
 
 ## Correction → Rule (keep this file learning)
 

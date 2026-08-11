@@ -2065,7 +2065,7 @@
     <button class="tv-btn" id="tvBtnWod" data-section="WOD" onclick="setTvSection('WOD')" tabindex="0">WOD</button>
     <button class="tv-btn" id="tvBtnCardio" data-section="CARDIO" onclick="setTvSection('CARDIO')" tabindex="0">CARDIO</button>
     <div class="tv-sep"></div>
-    <button class="tv-btn" onclick="partFocusIndex=null;centerFocus=false;sectionFilter=null;applySectionFilter();applyCenterFocus();document.documentElement.style.setProperty('--font-scale','0.4');requestAnimationFrame(()=>autoFitFontSize());" tabindex="0" title="חזרה לכל הלוח">🏠</button>
+    <button class="tv-btn" onclick="navClearTimer();partFocusIndex=null;centerFocus=false;sectionFilter=null;applySectionFilter();applyCenterFocus();document.documentElement.style.setProperty('--font-scale','0.4');requestAnimationFrame(()=>autoFitFontSize());" tabindex="0" title="חזרה לכל הלוח">🏠</button>
   </div>
 
   <!-- Settings Modal -->
@@ -3936,6 +3936,12 @@
       // Soft tick for the first mark (10)
       TimerAudio.beep(440, 0.08, 1);
       const cdInterval = setInterval(() => {
+        // Anything that resets the clock DURING the 10s lead-in (⏹, Backspace,
+        // or the nav teardown below) must kill this closure too. Without the
+        // guard it keeps decrementing past 0, falls into the else branch and
+        // RESURRECTS timerState='running' with timerType null — a ghost clock
+        // that barks GO! and never finishes (getTimerTotalMs() defaults to 0).
+        if (timerState !== 'countdown321') { clearInterval(cdInterval); return; }
         timerCountdownNum--;
         if (timerCountdownNum > 3) {
           // 9..4 — soft ticks, no voice
@@ -6396,9 +6402,41 @@
       return max;
     }
 
+    // ── A stage change turns the clock off (Noam, 2026-08-11) ─────────────
+    // Moving between stages must not leave a stale clock docked over the new
+    // stage. The reported bug: a finished clock (🏁 TIME!) survives ◄ ► in
+    // center-focus mode and has to be stopped by hand.
+    //
+    // WHICH clocks a stage change turns off — Noam's distinction:
+    //   • finished       → always. It has nothing left to measure.
+    //   • an OPEN clock  → yes. An uncapped `For Time` counts UP and never ends
+    //     by itself, so it is the coach moving on that ends it: "מעבר חלק מבטא
+    //     למעשה מעבר יחידה".
+    //   • a CLOSED clock → NO. AMRAP / EMOM / Tabata / MIX and a *capped* For
+    //     Time all run to a written end and finish on their own. The coach
+    //     legitimately browses the next stage while one runs, and a stray ►
+    //     on the remote must never cost a live WOD clock (same fear the `n`
+    //     key is deliberately kept off the remote's big buttons for).
+    // `getTimerTotalMs()` ALREADY is that distinction — >0 = bounded, 0 = an
+    // uncapped For Time (see its `fortime` case). No second classifier.
+    //
+    // Keyed on timer state only — NEVER on centerFocus / the overlay `.open`
+    // class, which linger stuck (see getPartTimerConfigs' note below).
+    function navClearsTimer() {
+      if (timerState === 'finished') return true;
+      if (!timerIsActive()) return false;   // idle / configured — nothing docked over the board
+      return getTimerTotalMs() === 0;       // running|paused|countdown321 → open-ended For Time only
+    }
+    function navClearTimer() {
+      if (!navClearsTimer()) return;
+      resetTimer();            // silent on purpose — the "Time!" call-out belongs to a
+      hideFloatingTimerBar();  // deliberate ⏹/Backspace stop, not to a view change.
+    }
+
     function navigatePart(dir) {
       const max = getMaxParts();
       if (max === 0) return;
+      navClearTimer(); // before applyPartFocus/applyCenterFocus, so they see the undocked state
       partTimerCycleIdx = 0; // Reset timer cycle when changing parts
       // Don't auto-center in SPLIT mode — scoreboard must stay visible
       const autoCenter = displayMode !== 'split';
@@ -6422,7 +6460,10 @@
         const _ov = document.getElementById('tvCenterOverlay');
         const _tb = document.getElementById('floatingTimerBar');
         const _mc2 = document.getElementById('mainContent');
-        if (_ov && _ov.classList.contains('open') && _mc2 && _mc2.classList.contains('timer-docked') && _tb) {
+        // `timerState !== 'idle'` — after a nav teardown there is no clock to
+        // re-assert; without it this timeout could force `display:flex` back
+        // onto a bar we just hid 350ms earlier.
+        if (timerState !== 'idle' && _ov && _ov.classList.contains('open') && _mc2 && _mc2.classList.contains('timer-docked') && _tb) {
           _tb.classList.add('overlay-mode');
           _tb.style.display = 'flex';
           _ov.style.right = '14vw';
@@ -6431,6 +6472,7 @@
     }
 
     function setTvSection(section) {
+      navClearTimer(); // WOD↔CARDIO is a stage change too — same rule as ◄ ►
       sectionFilter = section;
       applySectionFilter();
       // Preserve the currently-focused part index across section switches so
@@ -6992,7 +7034,10 @@
     document.addEventListener('keydown', (e) => KeyDiag.push(e), true);
 
     // Side timer panel control
-    let _timerBarPartIdx = null;
+    // (A write-only `_timerBarPartIdx` used to live here — a stalled attempt at
+    // "which stage owns this clock". Removed 2026-08-11: the nav teardown rule
+    // needs no ownership, and tracking it would wrongly spare a clock started
+    // from the all-parts view, where partFocusIndex is null.)
 
     function _syncTimerPadding() {
       // No-op: side panel uses CSS padding-right, no height hacks needed
@@ -7031,8 +7076,6 @@
     }
 
     function showFloatingTimerBar() {
-      _timerBarPartIdx = partFocusIndex;
-
       // Dock timer as in-flow flex child — content reflows naturally
       const mc = document.getElementById('mainContent');
       if (mc) mc.classList.add('timer-docked');
@@ -7067,8 +7110,6 @@
     }
 
     function hideFloatingTimerBar() {
-      _timerBarPartIdx = null;
-
       // Undock timer
       const bar = document.getElementById('floatingTimerBar');
       if (bar) bar.style.display = 'none';

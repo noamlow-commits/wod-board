@@ -73,6 +73,41 @@ was a red herring earlier misdiagnosed as a gradient-text / headless issue — i
 is neither.) It is fine for the **parser/timer golden test** above (which reads
 the DOM, not pixels), just not for screenshots.
 
+## `timer-nav.mjs` — timer runtime test (added 2026-08-11)
+
+`verify-board.mjs` snapshots what **detection** produces from a sheet. It never
+exercises the running clock, so a whole class of timer bugs is structurally
+invisible to it — including the one it was written for: a finished clock that
+survived ◄ ► and had to be stopped by hand.
+
+This file boots the page, seeds a minimal `.part-block` DOM (`navigatePart`
+early-returns when `getMaxParts() === 0`), drives real timer state, and asserts
+on the docked bar's actual DOM — `display`, `.timer-docked`, `.overlay-mode`,
+`.clock-reserve`, `#tvTimerControls.visible`.
+
+What it locks down (see PARSER.md "A stage change turns the clock off"):
+
+- a **finished** clock is cleared by ◄ ► / WOD↔CARDIO / 🏠 — and is **still gone
+  600ms later**, past the 350ms timeout inside `navigatePart` that re-asserts
+  `overlay-mode`. That delay is the resurrection window; assert after it.
+- an **uncapped For Time** is cleared in `running` / `paused` / `countdown321`.
+- **control cases that must NOT change:** AMRAP, EMOM, Tabata and a *capped* For
+  Time all keep running through ►, and ⊙ מרכוז never touches a clock. These pass
+  on the unfixed code too — that is the point. They are what makes the diff a
+  *rule* rather than "clear the timer on navigate", which is a different feature.
+- the **countdown-resurrection guard** in `startTimer`.
+
+Verified honest: against the pre-fix `index.html` it reports **8 fail**; with the
+countdown guard alone removed, the ghost clock shows up as `state:"running"` with
+the bar hidden. A guard nobody has watched fail is not yet a guard.
+
+Two harness facts, not product bugs: the board's JSONP callbacks (`_timerCb_…`)
+can't resolve from `file://` and are filtered; and `applyCenterFocus` sets its own
+`overlay.style.right = '0'` after the teardown, so only the timer-owned `14vw`
+squeeze is asserted gone.
+
+## Visual checks
+
 So for a visual check, render the **live deployed board**:
 
 ```js
