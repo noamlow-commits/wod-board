@@ -54,11 +54,11 @@
       "header": "2",
       "timers": [
         {
-          "label": "TC 14′ → AMRAP 14′ · 2′ rest",
+          "label": "TC 12′ → AMRAP 14′ · 2′ rest",
           "type": "tabata"
         },
         {
-          "label": "P1 · 12 RFT (TC 14′)",
+          "label": "P1 · TC 12′ · 12 RFT",
           "type": "fortime"
         },
         {

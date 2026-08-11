@@ -33,7 +33,7 @@
       "header": "Metcon:",
       "timers": [
         {
-          "label": "For Time (TC 8′)",
+          "label": "TC 8′ · For Time",
           "type": "fortime"
         }
       ]

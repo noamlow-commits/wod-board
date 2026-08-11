@@ -102,14 +102,14 @@ const FIXTURES = [
     expectTimers: ["Every 4:00 (TC 35′)", "TC 35′"],
     rows: [["", "for time:", ""],
            ["", "3000 m run\nevery 4:00\n5 burpee\n8 push up\n20 d.u", "rx+ 4000 m run\n*המטרה לסיים במינימום סטים\nt.c 35"]] },
-  { name: "cap_no_leak_two_work_blocks", note: "cap-LEAK guard (2026-07-27, coach-flagged): a part with TWO independent work blocks, each with its OWN timing. 'Strength:' carries its own 'front squat / 10 min tc / 4 sets…' — the cap belongs to Strength ONLY. 'B Accessories: for time' is a SEPARATE block with NO cap. The old scan applied the first cap it found to EVERY cell → Accessories wrongly read 'For Time (TC 10′)'. partCapHints fixes this: the 10-min cap's own cell ('Strength') has real work content (not a pure-notes cell) → it is NOT an orphan cap → it never propagates. Strength keeps its local TC 10′; Accessories stays a bare 'For Time'. forbidTimers locks the leak shut.",
+  { name: "cap_no_leak_two_work_blocks", note: "cap-LEAK guard (2026-07-27, coach-flagged): a part with TWO independent work blocks, each with its OWN timing. 'Strength:' carries its own 'front squat / 10 min tc / 4 sets…' — the cap belongs to Strength ONLY. 'B Accessories: for time' is a SEPARATE block with NO cap. The old scan applied the first cap it found to EVERY cell → Accessories wrongly read 'For Time (TC 10′)'. partCapHints fixes this: the 10-min cap's own cell ('Strength') has real work content (not a pure-notes cell) → it is NOT an orphan cap → it never propagates. Strength keeps its local TC 10′; Accessories stays a bare 'For Time'. forbidTimers locks the leak shut. ── 2026-08-11: the leaked label is now spelled 'TC 10′ · For Time' (the cap LEADS the label — see the time-first note in detectTimers). The forbid entry was updated with it. This matters more than it looks: a forbidTimers string the code can no longer emit passes vacuously, so the guard would have gone dead the moment the label format changed while still reading like it guards.",
     expectTimers: ["TC 10′", "For Time"],
-    forbidTimers: ["For Time (TC 10′)"],
+    forbidTimers: ["TC 10′ · For Time", "For Time (TC 10′)"],
     rows: [["", "Strength:", "B Accessories:"],
            ["", "front squat\n10 min tc\n4 sets of 4 reps of 1.5 front squat", "for time:\n50 burpees\n50 pull ups"]] },
-  { name: "cap_local_fortime_plus_amrap", note: "cap-LEAK guard, sibling case (2026-07-27): a For-Time block writes its OWN cap IN ITS OWN cell ('for time: / 21-15-9 thrusters / t.c 8') next to a separate 'amrap 5:' block. The t.c 8 sits in a cell with real work content → not an orphan → stays local (For Time (TC 8′)); it must NOT bleed onto the AMRAP. AMRAP keeps its own 5′. Confirms the fix leaves same-cell caps untouched while blocking cross-cell leaks.",
-    expectTimers: ["For Time (TC 8′)", "AMRAP 5′"],
-    forbidTimers: ["AMRAP 5′ (TC 8′)", "AMRAP (TC 8′)"],
+  { name: "cap_local_fortime_plus_amrap", note: "cap-LEAK guard, sibling case (2026-07-27): a For-Time block writes its OWN cap IN ITS OWN cell ('for time: / 21-15-9 thrusters / t.c 8') next to a separate 'amrap 5:' block. The t.c 8 sits in a cell with real work content → not an orphan → stays local ('TC 8′ · For Time'); it must NOT bleed onto the AMRAP. AMRAP keeps its own 5′. Confirms the fix leaves same-cell caps untouched while blocking cross-cell leaks. ── 2026-08-11: label re-spelled cap-first (time-first note in detectTimers); the old '(TC 8′)' parenthetical is kept in forbidTimers so a revert to the truncation-prone wording fails loudly.",
+    expectTimers: ["TC 8′ · For Time", "AMRAP 5′"],
+    forbidTimers: ["AMRAP 5′ (TC 8′)", "AMRAP (TC 8′)", "For Time (TC 8′)"],
     rows: [["", "Metcon:", "Finisher:"],
            ["", "for time:\n21-15-9 thrusters\nt.c 8", "amrap 5:\nmax cal bike"]] },
   { name: "minutes_on_off_intervals", note: "coach's real sheet (2026-08-03, VERBATIM from getWorkoutSheet — 3 columns, headers '1'/'2'/'3'): the Metcon cell leads with 'Metcon:' and then '4 min on 1 min off x 4' over 4 numbered stations → NO timer at all on the gym TV. Two work/rest patterns already existed and the coach wrote the gap between them: the timeline pattern (~2620) accepts MINUTE units but only the literal words work/rest; the regex fallback (~2944) accepts on/off but only SECONDS ('30 sec on 10 sec off'). 'min' + 'on/off' matched neither. Nor did anything else fire: no AMRAP/EMOM/every/tabata/for-time keyword, no t.c cap, and the 'leading standalone block duration' fallback needs the FIRST content line to lead with 'N min' — here it is 'Metcon:', so even the (wrong) 4-minute count-up never appeared. Total silent loss of the clock, same shape as the EVEY typo. Fix: the fallback's unit group now accepts min/minutes/m as well as sec/seconds/s INDEPENDENTLY on each side, converts to seconds, and labels via fmtDur → '4′/1′ ×4'. The written 'x 4' is the round count: 4×(4+1) = 20′. Col 1 locks the SECOND bug on the same board: it reads 'warm up tabata' + '3 sets of 30 seconds on 10 seconds off pause squat'. The bare 'tabata' keyword used to fire FIRST with the classic 20/10 ×8 default, and the custom-interval block was then skipped by the `!results.some(type==='tabata')` guard — so the GUESSED 20/10 ×8 replaced her WRITTEN 30/10 ×3 (a live no-invented-timer-values violation). The keyword default is now a LAST resort, after the custom/single-line/chained paths; when she did write values the keyword only NAMES the block → 'Tabata 30″/10″ ×3'. `forbidTimers: ['Tabata']` locks the bare default out of this sheet. The ×3 comes from a narrow 'N sets OF <the work/rest spec>' rule that only fires when the count sits on the SAME LINE as the interval — a bare 'N sets' on its own line above a station list stays ROTATION semantics (sets × stations), untouched: superset_group_cohesion still yields 30″/10″ ×3 from its station count, not ×2 from its 'warm up : 2 sets' line. THIRD fix on the same cell: '6 min leg mobility' got no clock either, because the leading-standalone-duration rule (a) read the LITERAL first line ('warm up tabata', a zone label) and (b) sat inside the `!chained && results.length === 0` last-resort block, which the pause-squat interval had already filled. Both are positional accidents — '8 min leg and lat activation', the identical shape written on line 1 of its own cell, DOES get its clock (three_column_block_timers). The rule now skips label-only lines (ending ':' or starting 'warm up') and lives OUTSIDE the last-resort guard, so a stage can carry BOTH clocks (⏱↻ cycles 6′ → Tabata 30″/10″ ×3). Its new anti-double-count is the `forbidTimers` entry here: the Metcon line '4 min on 1 min off x 4' ALSO leads with 'N min', and without the interval-spec test (format word / on-off / ×N / a SECOND duration in the remainder) it produced a ghost 4′ count-up beside its correct 4′/1′ ×4.",
@@ -159,30 +159,66 @@ const FIXTURES = [
     rows: [["", "WOD"],
            ["", "30 sec on 10 sec off\n3 sets\n1# wall balls\n2# row\n3# burpee"]] },
   { name: "inline_part_header_timing", note: "coach's real CARDIO cell (2026-08-08, VERBATIM from getWorkoutSheet, column '2'): TWO 'part N' blocks inside ONE cell, each with its timing written INLINE on the part header line — 'part 1: t.c 14' and 'part 2: amrap 14'. The TV showed a bare 'For Time' and 'P1 · 12 RFT': BOTH written 14s were gone, and part 2 had no clock at all. Cause: extractTimerConfigs splits the cell on part headers and built each segment as lines.slice(start + 1, end) (~3283) — the part-header LINE ITSELF was excluded, so its inline spec never reached detectTimers. capSecondsFromLine('part 1: t.c 14') returns 840 perfectly well; nothing ever asked it. This is the no-invented-timer-values rule in its mirror form — a value the coach DID write must reach the clock. No fixture covered the in-cell part-split path at all (multipart_parts uses part-named COLUMNS; evey_typo_explicit_rounds has a single 'PART1:' line and takes the partIdx.length < 2 whole-cell branch), which is why it survived. Fix: the remainder after the 'part N:' prefix is prepended to its own segment. The literal 'part N' words are STRIPPED, not passed through, so no regex can read the part NUMBER as minutes/rounds — 'part 2: amrap 14' resolves to AMRAP 14′, never AMRAP 2′. forbidTimers locks both wrong outputs out. ── STAGED, 2026-08-10 (coach): the compound clock added the same day is WRONG for this exact cell, and the reason is inside part 2. 'part 2: amrap 14 / 1000 m run / and then: amrap: / …' is internally STAGED — the 1000 m run carries no clock, so the AMRAP she declared on the header does not begin when part 2 begins; the athletes decide that moment. A whole-cell chain auto-advances rest → AMRAP at a FIXED offset and would start the AMRAP while people are still running. Per-part clocks, started by hand, are the correct answer, so the chain is now suppressed for a staged part and forbidTimers locks it out. The suppression is deliberately narrow — a written sequence-transition marker ('and then' / 'then:' / 'after that' / 'ואז' / 'לאחר מכן') on a line inside a NUMBERED part's own body — not a revert of the compound feature and not a blanket disable: continuous_parts_compound_chain (the same cell minus the two staged lines) still chains byte-for-byte. Both per-part clocks MUST survive: losing a clock is worse than a wrong one, which is why expectTimers still names them. And the capless 'For Time' preamble must NOT come back as the ⏱↻ default now that the compound clock is gone — its suppression trigger widened from 'the compound clock exists' to 'that OR ≥2 numbered parts produced their own clocks' (Noam's call). Verified counterfactually, not assumed: detectTimers(['for time:']) does return {fortime, capSeconds:0, 'For Time'}, so without the widening it would be back at the head of the cycle.",
-    // ⚠️ The compound clock this fixture originally locked IN is now locked OUT
-    // — see the STAGED note below. The golden was updated 2026-08-10; that is
-    // the one intended baseline shift of that change.
-    expectTimers: ["P1 · 12 RFT (TC 14′)", "P2 · AMRAP 14′"],
-    forbidTimers: ["TC 14′ → AMRAP 14′ · 2′ rest", "P1 · 12 RFT", "AMRAP 2′", "TC 2′", "TC 1′", "For Time"],
-    // The 2:00 rest is a DELIBERATE non-detection here, and it is the direct
-    // consequence of the suppression: with the parts un-chained nothing
-    // auto-advances through that rest, so no config carries a 120 s phase. The
-    // coach runs it off the wall clock and starts part 2 when the room is back.
-    // Inventing a standalone 2′ rest clock to silence this assertion would be
-    // exactly the invented value the rule forbids. In the continuous sibling
-    // below the SAME 2:00 IS consumed (by the chain's restSeconds) and needs no
-    // escape hatch — which is what makes this entry a statement about staging
-    // rather than about the harness.
-    ignoreFacts: ["2:00"],
+    // ── 2026-08-11, Noam: the part duration is the part's TOTAL BUDGET ──
+    // Third reading of this one cell in four days, and the first that the coach's
+    // own objection does not contradict. Additively it is 14 + 2 + 14 = 30′
+    // (2026-08-08); un-chained it was two hand-started clocks (2026-08-10); it is
+    // actually TWO 14-MINUTE PARTS — part 1 being 12′ of work plus the 2:00 rest
+    // written inside it, part 2 being 14′ that covers the 1000 m run AND the
+    // AMRAP that follows it. Session = 12 + 2 + 14 = 28′.
+    //
+    // This RESOLVES the coach's objection rather than reverting it: her complaint
+    // was that a chain would start the AMRAP while people were still running.
+    // Under this reading the AMRAP is not a phase at all — it is simply what is
+    // left of part 2's 14′ once the run is done, so nothing auto-starts mid-part.
+    // Her words ("1000 מטר ללא זמן") mean the run has no cap OF ITS OWN, not that
+    // it sits outside the clock.
+    //
+    // Two consequences the assertions below lock:
+    //  • The 12 is DERIVED (14 − 2). Both operands are written, same family as
+    //    the long-standing "written total ÷ (work+rest)" — see partBudget. The
+    //    additive 14′ work phase is now the WRONG answer and is forbidden.
+    //  • The staged-part suppression no longer fires here, because part 2's
+    //    length IS written on its header and therefore bounds the whole part,
+    //    run included. It still fires when a staged part's length is unwritten —
+    //    that case moved to `staged_unbounded_part_no_chain`, which is now the
+    //    only holder of the `staged-part` branch.
+    //
+    // `ignoreFacts: ["2:00"]` is GONE, and its absence is the point: the rest is
+    // a real phase of the compound clock again, so the unexplained-facts
+    // assertion passes on its own. Every written number in the cell now reaches
+    // a clock — the state this whole fixture family exists to reach.
+    expectTimers: ["TC 12′ → AMRAP 14′ · 2′ rest", "P1 · TC 12′ · 12 RFT", "P2 · AMRAP 14′"],
+    forbidTimers: ["TC 14′ → AMRAP 14′ · 2′ rest", "P1 · TC 14′ · 12 RFT",
+                   "P1 · 12 RFT (TC 14′)", "P1 · 12 RFT", "AMRAP 2′", "TC 2′", "TC 1′", "For Time"],
     rows: [["", "1", "2"],
            ["CARDIO", "Warm up: \nskill: d.u\n tabata- coach choice",
             "for time:\npart 1: t.c 14\n12 rft:\n6 box jump over\n9 ring row\n12/10 cal row\n\n2:00 rest\n\npart 2: amrap 14\n1000 m run\nand then: amrap:\n20 squat jump\n40 d.u\n20 burpee"]] },
   { name: "continuous_parts_compound_chain", note: "THE CONTROL for inline_part_header_timing (2026-08-10). Byte-for-byte the SAME sheet with exactly TWO lines removed — the untimed '1000 m run' and the 'and then: amrap:' transition. That is the whole difference between the two fixtures, so the pair proves the staging suppression keys on the staged work and on nothing else (not on the part count, not on the preamble, not on the 't.c 14'/'amrap 14' pairing). Here the written schedule IS the running order — cap → 2:00 rest → AMRAP, back to back — so the compound clock is correct and must keep firing exactly as it did on 2026-08-08: one 30:00 start, phases WORK 14:00 → REST 2:00 → WORK 14:00, per-part buttons still behind it in the ⏱↻ cycle. This fixture is also the only remaining holder of the `compound-chain` branch: when the staged cell stopped chaining, that branch's hit count went to ZERO and the coverage assertion would have failed — correctly, because a suppression with no surviving positive case is indistinguishable from a revert. The capless 'For Time' preamble stays suppressed here too (the compound clock exists), unchanged from 2026-08-08.",
-    expectTimers: ["TC 14′ → AMRAP 14′ · 2′ rest", "P1 · 12 RFT (TC 14′)", "P2 · AMRAP 14′"],
-    forbidTimers: ["For Time", "P1 · 12 RFT", "AMRAP 2′", "TC 2′", "TC 1′"],
+    // ── 2026-08-11: what this fixture proves has CHANGED, and honestly so ──
+    // It was the A/B control showing the staging suppression keyed on the two
+    // staged lines. Under the budget reading those lines no longer change the
+    // schedule at all, so this cell and its staged sibling now resolve to the
+    // SAME timers — which is precisely the new claim: staging INSIDE a part
+    // whose length is written does not affect the session's running order.
+    // Its job is now to lock that equivalence (remove the run + "and then" and
+    // nothing moves). The staging suppression's own positive case lives in
+    // `staged_unbounded_part_no_chain`.
+    // Part 1 is 12′ + its 2:00 rest here too — the same text, the same reading.
+    expectTimers: ["TC 12′ → AMRAP 14′ · 2′ rest", "P1 · TC 12′ · 12 RFT", "P2 · AMRAP 14′"],
+    forbidTimers: ["TC 14′ → AMRAP 14′ · 2′ rest", "P1 · TC 14′ · 12 RFT",
+                   "P1 · 12 RFT (TC 14′)", "For Time", "P1 · 12 RFT", "AMRAP 2′", "TC 2′", "TC 1′"],
     rows: [["", "1", "2"],
            ["CARDIO", "Warm up: \nskill: d.u\n tabata- coach choice",
             "for time:\npart 1: t.c 14\n12 rft:\n6 box jump over\n9 ring row\n12/10 cal row\n\n2:00 rest\n\npart 2: amrap 14\n20 squat jump\n40 d.u\n20 burpee"]] },
+  { name: "staged_unbounded_part_no_chain", note: "THE surviving positive case for the staged-part suppression (2026-08-11), and the only holder of the `staged-part` branch after the budget reading un-suppressed the coach's real cell. The 2026-08-10 rule blocked the whole-cell chain for ANY part carrying a sequence marker; it is now narrowed to a part whose OWN LENGTH IS NOT WRITTEN. Here part 2's header is a bare 'part 2:' — no duration — and the only duration inside it ('amrap 14') sits AFTER the 'and then:' marker, so it is the length of the SECOND STAGE only. Part 2's true length is run (unknown) + 14, i.e. unknown, and a chain that auto-advances at fixed offsets would start part 2's AMRAP while people are still running — exactly the coach's 2026-08-10 objection, in the shape where it is still valid. The suppression is genuinely LOAD-BEARING here and not incidentally null: without it chainFromTimeline(lines) finds work 840 (t.c 14) / rest 120 / work 840 (amrap 14) — uniform, in range, a perfectly well-formed 'TC 14′ → AMRAP 14′ · 2′ rest' — which forbidTimers now locks out. Contrast with inline_part_header_timing, where the SAME marker does NOT suppress because 'part 2: amrap 14' writes the length on the header and so bounds the whole part, run included. Both per-part clocks must survive (losing a clock is worse than a wrong one), and part 1 still gets the budget treatment — its written 14 contains its own 2:00 rest → TC 12′. The 2:00 is a deliberate non-detection here for the same reason it was in the staged cell before: un-chained, nothing auto-advances through it, and emitting a standalone 2′ rest clock to quiet the assertion would be an invented control surface.",
+    expectTimers: ["P1 · TC 12′ · 12 RFT", "P2 · AMRAP 14′"],
+    forbidTimers: ["TC 14′ → AMRAP 14′ · 2′ rest", "TC 12′ → AMRAP 14′ · 2′ rest",
+                   "P1 · TC 14′ · 12 RFT", "For Time"],
+    ignoreFacts: ["2:00"],
+    rows: [["", "1", "2"],
+           ["CARDIO", "Warm up: \nskill: d.u\n tabata- coach choice",
+            "for time:\npart 1: t.c 14\n12 rft:\n6 box jump over\n9 ring row\n12/10 cal row\n\n2:00 rest\n\npart 2:\n1000 m run\nand then: amrap 14\n20 squat jump\n40 d.u\n20 burpee"]] },
   { name: "untimed_lead_then_block_duration", note: "coach's real warm-up cell (2026-08-10, from the gym TV): 'warmup -' / '600 run x 1' / '7 min lat and quad mobilit for front squat' produced NO clock. The 7 min was not missed by the duration lexer — the board PAINTED it, red time-badge and all, because parseLine's isInstruction owns the same `^\\d+\\s*(min|sec|rounds|sets)` pattern. The DETECTOR simply never looked at that line: the leading-block-duration rule read the first content line only, and the untimed '600 run x 1' had taken that slot. Two layers, one pattern, disagreeing about POSITION — the exact silent-loss shape this suite exists to catch, and a fixture of this shape would have caught it years earlier via the unexplained-timing-facts assertion. Widened 2026-08-10 (Noam's call): the slot goes to the first content line that CARRIES a duration, provided every content line before it carries no timing at all. The original intent — 'a leading duration NAMES the block; a mid-list 3 min bike does not' — survives in its honest form, 'nothing timed came first': a block that opens with untimed work is still a block that this duration names. Same family as the staged-part narrowing shipped the same day (untimed work preceding timed work); there it removed a wrong clock, here it restores a missing one. ── THE NEGATIVE CONTROL IS `activity_interval`, and it is not decorative: it FAILED on this change's first run. With untimed lines no longer consuming the slot, her '5 sets / 3 min run / 1 min rest' reached this rule for the first time and emitted a ghost '3′ run' count-up INSTEAD of detectActivityInterval's correct 3′/1′ ×5 — strictly worse than the missing clock the widening set out to fix, and the `activity-fallback` branch went to zero hits. Hence the second anti-double-count: a standalone REST line carrying its own duration means this line is the WORK half of an interval, not a block duration. Deliberately narrow — an on/off spec carrying its OWN durations ('3 sets of 30 sec on 10 sec off') does not claim the line, so leading_duration_behind_labels keeps its 6′ clock. The harness caught this; nothing else would have.",
     expectTimers: ["7′ lat and quad mobilit for front squat"],
     forbidTimers: ["600′ run x 1", "1′ lat and quad mobilit for front squat"],

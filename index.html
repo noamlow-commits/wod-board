@@ -2618,6 +2618,113 @@
       };
     }
 
+    // ── A part's written duration is its TOTAL budget (2026-08-11) ──────────
+    // The coach writes each part's clock on the part header, and any transition
+    // rest INSIDE the part it belongs to:
+    //     part 1: t.c 14 / 12 rft: / … / 2:00 rest
+    //     part 2: amrap 14 / 1000 m run / and then: amrap: / …
+    // Read additively that is 14 + 2 + 14 = 30′, which is what the compound
+    // clock emitted from 2026-08-08. Noam's reading (2026-08-11) is that the
+    // header number is the WHOLE part's budget, so a rest written inside it is
+    // carved OUT, not added: part 1 = 12′ work + 2′ rest, part 2 = 14′ covering
+    // the run AND the AMRAP that follows it. Session total 28′, not 30′.
+    //
+    // ⚠️ The 12 is DERIVED (14 − 2), and that is allowed: both operands are
+    // written, exactly like the long-standing "written total ÷ (work+rest)".
+    // Nothing is invented — a part with no written duration returns null and
+    // gets no budget treatment at all.
+    //
+    // Returns { budget, restSec, workSec, workLabel } or null.
+    function partBudget(inlineSpec, segLines) {
+      if (!inlineSpec) return null;
+      const head = buildWorkoutTimeline([inlineSpec]).find(p => p.type === 'work');
+      if (!head || !head.seconds) return null;
+      // Several rests inside one part are SUMMED: the part contributes a single
+      // work phase (its budget), so there is no way to know where a second rest
+      // would sit inside it. One trailing rest is the only coherent reading.
+      const restSec = buildWorkoutTimeline(segLines)
+        .filter(p => p.type === 'rest')
+        .reduce((s, p) => s + p.seconds, 0);
+      const workSec = head.seconds - restSec;
+      // A rest that swallows its own part means this reading does not apply to
+      // that cell — leave it alone rather than emit a nonsense clock.
+      if (workSec < 30) return null;
+      return { budget: head.seconds, restSec, workSec,
+               workLabel: relabelDuration(head.label, workSec) };
+    }
+
+    // "TC 14′" + 720 → "TC 12′". Keeps the format word the timeline already
+    // resolved and re-renders only the number, so a budget-adjusted phase can
+    // never display its pre-adjustment duration.
+    function relabelDuration(label, seconds) {
+      const head = String(label || '').trim().split(/\s+/)[0] || '';
+      const t = (seconds % 60 === 0)
+        ? `${seconds / 60}′`
+        : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+      return head ? `${head} ${t}` : t;
+    }
+
+    // Rewrite the cap minutes inside an already-built per-part label. Since the
+    // cap now LEADS the label ("TC 14′ · 12 RFT", see the time-first note in
+    // detectTimers) one anchored replacement covers both it and the bare
+    // "TC 14′" form. The parenthetical "(TC N′)" form is still accepted so an
+    // older label shape can never silently keep its pre-adjustment number.
+    function relabelConfigLabel(cfg, seconds) {
+      if (cfg.type !== 'fortime') return relabelDuration(cfg.label, seconds);
+      const t = `TC ${Math.floor(seconds / 60)}′`;
+      if (/^TC\s*\d+′/.test(cfg.label)) return cfg.label.replace(/^TC\s*\d+′/, t);
+      if (/\(TC\s*\d+′\)/.test(cfg.label)) return cfg.label.replace(/\(TC\s*\d+′\)/, `(${t})`);
+      return cfg.label;
+    }
+
+    // Build ONE whole-cell compound clock from budget-adjusted parts.
+    // Unlike chainFromTimeline this does NOT require uniform durations — the
+    // result carries an explicit `phases` schedule that tabataPhaseAt walks
+    // (12′ → 2′ → 14′ is not expressible as a fixed work+rest cycle). Every
+    // part must carry its own written duration, or there is no schedule to run
+    // and we return null rather than guess one.
+    function compoundFromParts(segs) {
+      const phases = [];
+      const workNames = [];
+      const restVals = [];
+      for (const seg of segs) {
+        if (!seg.num) continue;            // the preamble introduces parts, isn't one
+        if (!seg.budget) return null;      // a part whose length is unwritten
+        phases.push({ type: 'work', seconds: seg.budget.workSec, label: seg.budget.workLabel });
+        workNames.push(seg.budget.workLabel);
+        if (seg.budget.restSec > 0) {
+          phases.push({ type: 'rest', seconds: seg.budget.restSec });
+          restVals.push(seg.budget.restSec);
+        }
+      }
+      // The session ends on work — a rest written at the very end of the last
+      // part has nothing to lead into (same intent as skipLastRest).
+      while (phases.length && phases[phases.length - 1].type === 'rest') {
+        phases.pop();
+        restVals.pop();
+      }
+      const works = phases.filter(p => p.type === 'work');
+      if (works.length < 2 || restVals.length < 1) return null;
+      const totalSec = phases.reduce((s, p) => s + p.seconds, 0);
+      // Same sanity window the uniform chain uses.
+      if (totalSec > 90 * 60) return null;
+      if (works.some(p => p.seconds < 30)) return null;
+      if (restVals.some(r => r > 600)) return null;
+      const restSec = restVals[0];
+      const restShort = (restSec % 60 === 0)
+        ? `${restSec / 60}′`
+        : `${Math.floor(restSec / 60)}:${String(restSec % 60).padStart(2, '0')}`;
+      // Heterogeneous parts must SPELL the sequence — naming the chain after
+      // its first phase would hide that phase 2 is an AMRAP (2026-08-08 rule).
+      const heads = workNames.map(n => n.split(' ')[0]);
+      const sameFormat = heads.every(h => h === heads[0]);
+      const sameLength = works.every(p => p.seconds === works[0].seconds);
+      const label = (sameFormat && sameLength)
+        ? `${heads[0]} ×${works.length} · ${Math.round(works[0].seconds / 60)}′ work / ${restShort} rest`
+        : `${workNames.join(' → ')} · ${restShort} rest`;
+      return { type: 'tabata', phases, rounds: works.length, skipLastRest: true, label };
+    }
+
     // THE canonical time-cap matcher — one line in, seconds out (0 = no cap).
     // Works on a single line so the regex never crosses a newline. The previous
     // in-place version used `\s` and matched "tc\n800" on the boundary between
@@ -2753,6 +2860,15 @@
       for (const c of (configs || [])) {
         for (const k of ['workSeconds', 'restSeconds', 'capSeconds', 'totalSeconds', 'intervalSeconds']) {
           if (c[k]) vals.add(c[k]);
+        }
+        // An explicit (possibly non-uniform) schedule — see tabataPhaseAt. Each
+        // phase length is a written value in its own right, and so is the sum;
+        // without both, the unexplained-facts assertion would flag durations the
+        // compound clock genuinely does run.
+        if (Array.isArray(c.phases) && c.phases.length) {
+          let sum = 0;
+          for (const p of c.phases) { if (p.seconds) { vals.add(p.seconds); sum += p.seconds; } }
+          if (sum) vals.add(sum);
         }
         const r = c.rounds || 0;
         if (c.type === 'tabata' && c.workSeconds && r) {
@@ -3369,7 +3485,12 @@
       const rftMatch = text.match(/\b(\d+)\s*RFT\b/i);
       if (/\bfor\s+time\b/i.test(text) || rftMatch) {
         const roundsLbl = rftMatch ? `${rftMatch[1]} RFT` : 'For Time';
-        results.push({ type: 'fortime', capSeconds: effCapSeconds, label: effCapSeconds ? `${roundsLbl} (TC ${Math.floor(effCapSeconds/60)}′)` : roundsLbl });
+        // TIME FIRST (2026-08-11, Noam). #tvTimerBtn is a fixed 11rem box with
+        // an ellipsis (so ◄ ► never shift — 2026-07-09), and "12 RFT (TC 14′)"
+        // truncated to "12 RFT (T…" — hiding the one number that says how long
+        // the block runs, and leaving a rep COUNT looking like the clock. The
+        // duration is what the coach needs at a glance, so it leads.
+        results.push({ type: 'fortime', capSeconds: effCapSeconds, label: effCapSeconds ? `TC ${Math.floor(effCapSeconds/60)}′ · ${roundsLbl}` : roundsLbl });
       } else if (capSeconds > 0 && results.length === 0) {
         results.push({ type: 'fortime', capSeconds: capSeconds, label: `TC ${Math.floor(capSeconds/60)}′` });
       }
@@ -3656,8 +3777,12 @@
           const segLines = lines.slice(start + 1, end);
           const inlineSpec = (lines[start] || '').replace(PART_HEADER_PREFIX_RE, '').trim();
           if (inlineSpec) { tpHit('part-inline-spec'); segLines.unshift(inlineSpec); }
-          segments.push({ num: numMatch ? parseInt(numMatch[1]) : p + 1,
-                          lines: segLines });
+          const num = numMatch ? parseInt(numMatch[1]) : p + 1;
+          segments.push({ num, lines: segLines, inlineSpec,
+                          // The part's written duration as its TOTAL budget —
+                          // drives BOTH the per-part clock below and the
+                          // compound schedule (they must not drift apart).
+                          budget: num ? partBudget(inlineSpec, segLines) : null });
         }
 
         out = [];
@@ -3670,9 +3795,34 @@
             const ai = detectActivityInterval(seg.lines);
             if (ai) cfgs = [ai];
           }
+          // ── Budget semantics on the PER-PART clock too (Noam, 2026-08-11) ──
+          // If part 1's 14 includes its own 2:00 rest, then running part 1 alone
+          // is a 12′ cap, not a 14′ one. Keyed EXACTLY: only the config whose
+          // duration equals the part's written budget is the budget-bearing one,
+          // so a second clock in the same part is never touched.
+          if (seg.budget && seg.budget.restSec > 0) {
+            const { budget, workSec } = seg.budget;
+            cfgs = cfgs.map(c => {
+              if (c.type === 'fortime' && c.capSeconds === budget) {
+                return { ...c, capSeconds: workSec, label: relabelConfigLabel(c, workSec) };
+              }
+              if (c.type === 'amrap' && c.totalSeconds === budget) {
+                return { ...c, totalSeconds: workSec, label: relabelConfigLabel(c, workSec) };
+              }
+              return c;
+            });
+          }
           if (seg.num) {
             if (cfgs.length) partsWithClocks++;
-            if (seg.lines.some(l => STAGE_MARKER_RE.test(l || ''))) stagedPart = true;
+            // ── NARROWED 2026-08-11: staging only blocks an UNBOUNDED part ──
+            // The 2026-08-10 rule suppressed the chain for any part carrying a
+            // sequence marker. But when the part's own length is written on its
+            // header, that number bounds the WHOLE part — run included — so the
+            // chain still knows exactly when the part starts and ends. What
+            // floats is only the internal run→AMRAP handoff, which the chain
+            // never modelled. Staging blocks the chain only when the part's
+            // length is NOT written, because then its end is genuinely unknown.
+            if (!seg.budget && seg.lines.some(l => STAGE_MARKER_RE.test(l || ''))) stagedPart = true;
           }
           const tag = seg.num ? `P${seg.num} · ` : '';
           for (const c of cfgs) out.push({ ...c, label: tag + c.label, _preamble: !seg.num });
@@ -3702,7 +3852,11 @@
         // This suppresses ONLY the whole-cell chain; every per-part clock above
         // stands untouched (losing a clock is worse than a wrong one).
         if (stagedPart) tpHit('staged-part');
-        const whole = stagedPart ? null : chainFromTimeline(lines);
+        // Budget-adjusted schedule first (non-uniform capable, 2026-08-11); the
+        // uniform whole-cell chain stays as the fallback for cells whose parts
+        // carry no header duration — losing a clock is worse than a wrong one.
+        const whole = stagedPart ? null
+          : (compoundFromParts(segments) || chainFromTimeline(lines));
         if (whole) {
           tpHit('compound-chain');
           out.unshift(whole);
@@ -3869,6 +4023,11 @@
         case 'fortime': return (timerConfig.capSeconds || 0) * 1000; // 0 = no cap
         case 'emom': return (timerConfig.totalSeconds || 600) * 1000;
         case 'tabata': {
+          // An explicit schedule wins — its phases ARE the workout (tabataPhaseAt).
+          const sched = timerConfig.phases;
+          if (Array.isArray(sched) && sched.length) {
+            return sched.reduce((s, p) => s + (p.seconds || 0), 0) * 1000;
+          }
           const w = timerConfig.workSeconds || 20;
           const r = timerConfig.restSeconds || 10;
           const rounds = timerConfig.rounds || 8;
@@ -3883,6 +4042,82 @@
         }
         default: return 0;
       }
+    }
+
+    // ── THE canonical phase resolver for `tabata` (incl. chained intervals) ──
+    // Three sites did this cycle arithmetic independently: the tick (phase
+    // sounds + per-phase voice cues), getTimerDisplayData (the switching clock)
+    // and skipTimerPhase (⏭ הבא). Three copies of one rule is the exact drift
+    // shape PARSER.md documents over and over — and it became untenable the
+    // moment a chain stopped being a fixed work+rest cycle.
+    //
+    // `timerConfig.phases` is an explicit, possibly NON-UNIFORM schedule
+    // ("12′ work → 2′ rest → 14′ work", 2026-08-11). It cannot be expressed as
+    // `totalElapsed % (w + r)` at all, which is why the compound clock could
+    // previously only chain parts of equal length. Two modes, one function:
+    //   • phases present → cumulative walk over the written schedule
+    //   • otherwise      → the original modulo math, results byte-for-byte
+    // `boundary` is the absolute end of the current phase — what ⏭ הבא jumps to.
+    function tabataPhaseAt(totalElapsed, totalMsHint) {
+      const totalMs = totalMsHint === undefined ? getTimerTotalMs() : totalMsHint;
+      const sched = Array.isArray(timerConfig.phases) && timerConfig.phases.length
+        ? timerConfig.phases : null;
+
+      if (sched) {
+        const durs = sched.map(p => Math.max(0, p.seconds || 0) * 1000);
+        const totalPhases = sched.length;
+        const totalRounds = sched.filter(p => p.type === 'work').length || 1;
+        // How many WORK phases have started by index i (1-based "round").
+        const workRoundAt = (i) => sched.slice(0, i + 1).filter(p => p.type === 'work').length;
+        if (totalMs > 0 && totalElapsed >= totalMs) {
+          const last = totalPhases - 1;
+          return { phase: sched[last].type || 'work', phaseTotal: durs[last],
+                   phaseElapsed: durs[last], phaseRemaining: 0,
+                   phaseIndex: totalPhases, totalPhases, round: totalRounds,
+                   workRound: totalRounds, nextWorkRound: totalRounds,
+                   totalRounds, boundary: totalMs };
+        }
+        let acc = 0;
+        for (let i = 0; i < totalPhases; i++) {
+          if (totalElapsed < acc + durs[i] || i === totalPhases - 1) {
+            const el = totalElapsed - acc;
+            const wr = workRoundAt(i);
+            const isRest = sched[i].type === 'rest';
+            return { phase: sched[i].type || 'work', phaseTotal: durs[i], phaseElapsed: el,
+                     phaseRemaining: durs[i] - el, phaseIndex: i + 1, totalPhases,
+                     round: Math.max(1, wr), workRound: Math.max(1, wr),
+                     nextWorkRound: Math.min(totalRounds, wr + (isRest ? 1 : 0)),
+                     totalRounds, boundary: acc + durs[i] };
+          }
+          acc += durs[i];
+        }
+      }
+
+      // ── Legacy uniform cycle — arithmetic unchanged from the three originals ──
+      const w = (timerConfig.workSeconds || 20) * 1000;
+      const r = (timerConfig.restSeconds || 10) * 1000;
+      const rounds = timerConfig.rounds || 8;
+      const cycleMs = w + r;
+      const totalPhases = timerConfig.skipLastRest ? Math.max(1, rounds * 2 - 1) : rounds * 2;
+      if (totalMs > 0 && totalElapsed >= totalMs) {
+        // Finished — freeze on the last WORK phase ending.
+        return { phase: 'work', phaseTotal: w, phaseElapsed: w, phaseRemaining: 0,
+                 phaseIndex: totalPhases, totalPhases, round: rounds,
+                 workRound: rounds, nextWorkRound: rounds, totalRounds: rounds,
+                 boundary: totalMs };
+      }
+      const inCycle = totalElapsed % cycleMs;
+      const currentRound = Math.floor(totalElapsed / cycleMs); // 0-based
+      const phase = inCycle < w ? 'work' : 'rest';
+      const phaseTotal = phase === 'work' ? w : r;
+      const phaseElapsed = phase === 'work' ? inCycle : inCycle - w;
+      let phaseIndex = currentRound * 2 + (phase === 'work' ? 1 : 2);
+      if (phaseIndex > totalPhases) phaseIndex = totalPhases;
+      return { phase, phaseTotal, phaseElapsed, phaseRemaining: phaseTotal - phaseElapsed,
+               phaseIndex, totalPhases, round: currentRound + 1,
+               workRound: currentRound + 1, nextWorkRound: Math.min(rounds, currentRound + 2),
+               totalRounds: rounds,
+               boundary: phase === 'work' ? currentRound * cycleMs + w : (currentRound + 1) * cycleMs };
     }
 
     // Main tick — called via requestAnimationFrame
@@ -3957,13 +4192,10 @@
 
       // ── Tabata / custom interval phase tracking ──
       if (timerType === 'tabata') {
-        const w = (timerConfig.workSeconds || 20) * 1000;
-        const r = (timerConfig.restSeconds || 10) * 1000;
-        const cycleMs = w + r;
-        const inCycle = totalElapsed % cycleMs;
-        const phase = inCycle < w ? 'work' : 'rest';
-        const currentRound = Math.floor(totalElapsed / cycleMs) + 1;
-        const totalRounds = timerConfig.rounds || 8;
+        const ph = tabataPhaseAt(totalElapsed, totalMs);
+        const phase = ph.phase;
+        const currentRound = ph.round;
+        const totalRounds = ph.totalRounds;
         timerRound = currentRound;
 
         // Phase transition sounds
@@ -3993,9 +4225,9 @@
         _lastTabataPhase = phase;
 
         // 5-second warning ticks before each phase transition
-        const phaseMs = phase === 'work' ? w : r;
-        const phaseElapsed = phase === 'work' ? inCycle : (inCycle - w);
-        const phaseRemaining = phaseMs - phaseElapsed;
+        const phaseMs = ph.phaseTotal;
+        const phaseElapsed = ph.phaseElapsed;
+        const phaseRemaining = ph.phaseRemaining;
         if (phaseRemaining <= 5500 && phaseRemaining > 200) {
           const secLeft = Math.ceil(phaseRemaining / 1000);
           if (secLeft !== _tabataTickedSec && secLeft >= 1 && secLeft <= 5) {
@@ -4134,32 +4366,14 @@
       let tabataWorkRound = 0;       // 1-based WORK round (what "R1/3" means)
       let tabataNextWorkRound = 0;   // if in REST, which round is coming next
       if (timerType === 'tabata') {
-        const w = (timerConfig.workSeconds || 20) * 1000;
-        const r = (timerConfig.restSeconds || 10) * 1000;
-        const rounds = timerConfig.rounds || 8;
-        const skipLast = !!timerConfig.skipLastRest;
-        const cycleMs = w + r;
-        tabataTotalPhases = skipLast ? Math.max(1, rounds * 2 - 1) : rounds * 2;
-
-        if (totalMs > 0 && totalElapsed >= totalMs) {
-          // Finished — freeze display on the last WORK phase ending
-          tabataPhase = 'work';
-          tabataPhaseRemaining = 0;
-          tabataPhaseTotal = w;
-          tabataPhaseIndex = tabataTotalPhases;
-          tabataWorkRound = rounds;
-          tabataNextWorkRound = rounds;
-        } else {
-          const inCycle = totalElapsed % cycleMs;
-          const currentRound = Math.floor(totalElapsed / cycleMs); // 0-based
-          tabataPhase = inCycle < w ? 'work' : 'rest';
-          tabataPhaseTotal = tabataPhase === 'work' ? w : r;
-          tabataPhaseRemaining = tabataPhase === 'work' ? w - inCycle : (w + r) - inCycle;
-          tabataPhaseIndex = currentRound * 2 + (tabataPhase === 'work' ? 1 : 2);
-          if (tabataPhaseIndex > tabataTotalPhases) tabataPhaseIndex = tabataTotalPhases;
-          tabataWorkRound = currentRound + 1;
-          tabataNextWorkRound = Math.min(rounds, currentRound + 2);
-        }
+        const ph = tabataPhaseAt(totalElapsed, totalMs);
+        tabataPhase = ph.phase;
+        tabataPhaseTotal = ph.phaseTotal;
+        tabataPhaseRemaining = ph.phaseRemaining;
+        tabataPhaseIndex = ph.phaseIndex;
+        tabataTotalPhases = ph.totalPhases;
+        tabataWorkRound = ph.workRound;
+        tabataNextWorkRound = ph.nextWorkRound;
       }
 
       // EMOM interval (same "switching clock" idea — big clock shows interval remaining)
@@ -4229,7 +4443,7 @@
       // Total rounds for display
       let totalRounds = 0;
       if (timerType === 'emom') totalRounds = Math.ceil(getTimerTotalMs() / ((timerConfig.intervalSeconds || 60) * 1000));
-      if (timerType === 'tabata') totalRounds = timerConfig.rounds || 8;
+      if (timerType === 'tabata') totalRounds = tabataPhaseAt(totalElapsed, totalMs).totalRounds;
       if (timerType === 'mix') totalRounds = timerConfig.rounds || 1;
 
       const progress = totalMs > 0 ? Math.min(1, totalElapsed / totalMs) : 0;
@@ -6445,6 +6659,27 @@
         this.draft = JSON.parse(JSON.stringify(TSU_DEFAULTS[this.type]));
       },
       seedFromConfig(cfg) {
+        // ── A `phases` schedule has no workSeconds/restSeconds to copy ────────
+        // The compound clock (2026-08-11) carries an explicit, possibly
+        // non-uniform schedule instead of a work/rest pair. Seeding it as
+        // `tabata` silently kept the 20″/10″ DEFAULTS — so opening ⏱＋ over the
+        // docked 28-minute session and pressing ▶ started a 20″/10″ ×2 tabata.
+        // Same failure class as the 300/600 clamp documented in buildConfig: a
+        // wrong clock with no error. `mix` is the editable representation of an
+        // arbitrary work/rest sequence, and every phase length survives exactly.
+        // ⚠️ Known, VISIBLE trade-off: `mix` has no per-phase displayMs branch,
+        // so a manually re-started schedule shows one total countdown instead of
+        // the switching clock. That is a pre-existing mix limitation (see
+        // PARSER.md), not a silent corruption — the durations are all correct.
+        if (Array.isArray(cfg.phases) && cfg.phases.length) {
+          this.seedDefaults('mix');
+          this.draft.intervals = cfg.phases.map((p, i) => ({
+            name: p.label || (p.type === 'rest' ? 'מנוחה' : `מקטע ${i + 1}`),
+            seconds: Math.max(1, Math.round(p.seconds || 0)),
+          }));
+          this.draft.rounds = 1;
+          return;
+        }
         this.seedDefaults(cfg.type);
         const d = this.draft;
         if (this.type === 'mix') {
@@ -6698,12 +6933,7 @@
         : timerElapsed;
       let boundary;
       if (timerType === 'tabata') {
-        const w = (timerConfig.workSeconds || 20) * 1000;
-        const r = (timerConfig.restSeconds || 10) * 1000;
-        const cycleMs = w + r;
-        const round = Math.floor(totalElapsed / cycleMs);
-        const inCycle = totalElapsed % cycleMs;
-        boundary = inCycle < w ? round * cycleMs + w : (round + 1) * cycleMs;
+        boundary = tabataPhaseAt(totalElapsed).boundary;
       } else {
         const ivMs = (timerConfig.intervalSeconds || 60) * 1000;
         boundary = (Math.floor(totalElapsed / ivMs) + 1) * ivMs;

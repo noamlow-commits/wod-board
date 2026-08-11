@@ -28,9 +28,9 @@
               "__SPACER__",
               "2:00 rest",
               "__SPACER__",
-              "part 2: amrap 14",
+              "part 2:",
               "1000 m run",
-              "and then: amrap:",
+              "and then: amrap 14",
               "20 squat jump",
               "40 d.u",
               "20 burpee"
@@ -55,10 +55,6 @@
       "section": "CARDIO",
       "header": "2",
       "timers": [
-        {
-          "label": "TC 12′ → AMRAP 14′ · 2′ rest",
-          "type": "tabata"
-        },
         {
           "label": "P1 · TC 12′ · 12 RFT",
           "type": "fortime"
