@@ -1,0 +1,37 @@
+{
+  "data": {
+    "headers": [
+      "1"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "8 min WARM UP :",
+              "200 m run",
+              "20 S.U/DU",
+              "OHS DB- 5 EACH HAND",
+              "10 סיבובי מקל",
+              "20 sec shoulder stretch"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "1",
+      "timers": [
+        {
+          "label": "8′ WARM UP",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}

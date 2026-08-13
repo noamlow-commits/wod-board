@@ -2455,6 +2455,28 @@
     const UNIT_LOOSE  = '(?:min(?:ute)?s?|m|sec(?:ond)?s?|s)';
     const MIN_WORD    = 'min(?:ute)?s?';    // matches min · mins · minute · minutes
 
+    // PACE DESCRIPTORS — a duration sitting next to one of these is
+    // deliberately clockless ("20 min easy row"): the word modifies HOW the work
+    // is done, so the number reads as an intensity target rather than a clock
+    // the coach starts. ONE source, consumed by BOTH the leading-block-duration
+    // rule and the shadow fact channel's intentionally-ignored list. They were
+    // two copies and had already drifted (`warm[\s-]?up` here vs
+    // `warm\s*up|warmup` there).
+    //
+    // ⚠️ `warm up` / `cool down` were REMOVED from this list on 2026-08-13, and
+    // the reason is worth more than the words. A block NAME is not a pace
+    // descriptor: the coach's `8 min WARM UP :` DECLARES an eight-minute block,
+    // and it produced no clock at all on the gym TV. The deeper defect is that
+    // the same two words were also in the fact channel's ignore list — so the
+    // unexplained-facts assertion, the one thing built to make a silent miss
+    // impossible to ship, recorded the 8 min as `ignored: "pace"` and agreed it
+    // was clockless. A blacklist copied into its own measurement channel can
+    // never be measured wrong; a fixture of this exact cell would have PASSED.
+    // Keep this const single-sourced for that reason, not merely for tidiness.
+    // `easy`/`recovery` stay — `set_wave_lift`'s "20 min easy row" is still
+    // timer-less because of them, which is the surviving positive case.
+    const PACE_DESCRIPTOR = '(?:easy|recovery)';
+
     // A line that prescribes an exercise, for counting stations as a LAST
     // resort. ONE definition: the two copies of this filter had already drifted
     // (one excluded lines leading with "set"/"round", the other did not), so
@@ -2808,8 +2830,14 @@
         while ((m = re.exec(line)) !== null) {
           if (claim(m.index, m.index + m[0].length)) add('duration', 0, m[0], 'range');
         }
-        // Pace/warm-up descriptors ("20 min easy row") are deliberately clockless.
-        re = new RegExp(`\\b(\\d+)\\s*${FACT_UNIT}\\s+(?:easy|recovery|warm\\s*up|warmup|cool\\s*down)\\b`, 'gi');
+        // Pace descriptors ("20 min easy row") are deliberately clockless.
+        // ⚠️ Built from the SHARED PACE_DESCRIPTOR — this list used to be a
+        // second, drifted copy that also held `warm up`/`cool down`, which is
+        // how `8 min WARM UP :` came to be recorded as a deliberate omission by
+        // the very channel that exists to prove no duration was dropped. See the
+        // const's own note: a blacklist inside its own measurement channel can
+        // never be measured wrong.
+        re = new RegExp(`\\b(\\d+)\\s*${FACT_UNIT}\\s+${PACE_DESCRIPTOR}\\b`, 'gi');
         while ((m = re.exec(line)) !== null) {
           if (claim(m.index, m.index + m[0].length)) add('duration', 0, m[0], 'pace');
         }
@@ -3216,8 +3244,29 @@
                          label: `EMOM ${m[1]}′` });
         }
 
-        // "e 1:30 mom x 8" — coach shorthand for EMOM
-        const emomShortRe = /\be\s*(\d+):(\d{2})\s*mom\s*[x×*]\s*(\d+)/gi;
+        // "e 1:30 mom x 8" / "e 1:30 x 7" — coach shorthand for EMOM, i.e. her
+        // "every" abbreviated to a bare "e".
+        //
+        // The "mom" is OPTIONAL as of 2026-08-13. She wrote `e 1:30 x 7` above a
+        // snatch complex and the block got NO clock — a 10:30 EMOM lost to one
+        // absent token, the same silent-total-loss shape as the EVEY typo. The
+        // display layer meanwhile painted `1:30` with its red time badge, so the
+        // board looked like it had understood (structural cause #7 in
+        // TIMER_ROADMAP: two layers own one pattern).
+        //
+        // ⚠️ The bare "e" deliberately does NOT join EVERY_WORD, even though it
+        // is the same word. EVERY_WORD has a sixth consumer OUTSIDE detection —
+        // the layout layer's `isFormatHeader` (~5900) splices it into
+        // `\b(amrap|emom|…|EVERY_WORD|…)\b`, where an alternative of "e" matches
+        // any stray letter ("e.g.", a lone "e") and would turn it into a
+        // block boundary, tearing a superset across columns. A bare "e" is only
+        // her "every" when a clock time AND a round count follow it, so the
+        // anchor is part of the token rather than an afterthought — which is
+        // exactly what EVERY_WORD, being position-free, cannot express.
+        // Horizontal-whitespace classes only: `text` is lines.join('\n'), and a
+        // `\s*` here would let a line ending in "e" bind to a time on the NEXT
+        // line (the newline-crossing bug capSecondsFromLine documents).
+        const emomShortRe = /\be[^\S\r\n]*(\d+):(\d{2})[^\S\r\n]*(?:mom)?[^\S\r\n]*[x×*][^\S\r\n]*(\d+)/gi;
         while ((m = emomShortRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
@@ -3572,9 +3621,18 @@
         // config (a rest line, an interval spec) — once timing has appeared,
         // another detector owns the block and a count-up here would be a ghost.
         if (!chained) {
-          const isLabelOnly = l => /:\s*$/.test(l) || /^warm[\s-]?up\b/i.test(l);
           const hasTiming = l => /\d{1,2}:\d{2}/.test(l)
             || new RegExp(`\\d+\\s*${UNIT_STRICT}\\b`, 'i').test(l);
+          // A LABEL-ONLY line is skipped so the scan can reach the real duration
+          // line beneath it ("warm up tabata" / "warmup:" → "6 min leg
+          // mobility"). ⚠️ `!hasTiming` added 2026-08-13: the two shapes were
+          // tested independently, so a line that is BOTH — the coach's
+          // `8 min WARM UP :`, a label that carries its own duration — was
+          // skipped as if it were empty, and the block got no clock. The trailing
+          // ":" is a proxy for "no content of its own", and a written duration IS
+          // content; a line that carries timing is never label-only.
+          const isLabelOnly = l => !hasTiming(l)
+            && (/:\s*$/.test(l) || /^warm[\s-]?up\b/i.test(l));
           let firstLn = null;
           for (const raw of lines) {
             const l = (raw || '').trim();
@@ -3620,8 +3678,11 @@
             if (mins >= 1 && mins <= 90
                 && !actIsIntervalSpec && !alreadyHaveThisLong && !isWorkHalfOfInterval
                 && !/^t\.?\s*c\b/i.test(act)
-                && !/\b(rest|easy|recovery|warm[\s-]?up|cool[\s-]?down)\b/i.test(act)) {
-              results.push({ type: 'amrap', totalSeconds: mins * 60, label: `${mins}′ ${act}` });
+                && !new RegExp(`\\b(?:rest|${PACE_DESCRIPTOR})\\b`, 'i').test(act)) {
+              // Trailing punctuation the coach left on a header line ("WARM UP :")
+              // is hers to write, not ours to print on a 1080p TV button.
+              results.push({ type: 'amrap', totalSeconds: mins * 60,
+                             label: `${mins}′ ${act.replace(/[\s:.\-–—]+$/, '')}` });
             }
           }
         }

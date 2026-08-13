@@ -1,0 +1,53 @@
+{
+  "data": {
+    "headers": [
+      "A",
+      "B"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "A",
+            "lines": [
+              "Snatch For Strength",
+              "(4) Standing Row >",
+              "Stanting Row to Over Head >",
+              "(2+3+4+5+7) Hang Power Snatch>",
+              "(Start +1+2) לימוד מעברך ברך",
+              "(Start-7) Snatch"
+            ]
+          },
+          {
+            "header": "B",
+            "lines": [
+              "e 1:30 x 7",
+              "1 snatch deadlift",
+              "1 hang squat snatch",
+              "1 ohs",
+              "@70%"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "A",
+      "timers": []
+    },
+    {
+      "section": "—",
+      "header": "B",
+      "timers": [
+        {
+          "label": "EMOM 1:30 ×7",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

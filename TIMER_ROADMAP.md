@@ -191,6 +191,25 @@ harness are the wrong tools, and their silence means nothing.
 
 ---
 
+## 2d. What shipped 2026-08-13 (sw v140) — two missing clocks, one new failure class
+
+Both reported by Noam off the gym TV, same board, same morning.
+
+| # | Change | Why it mattered |
+|---|---|---|
+| 1 | **`isLabelOnly` no longer swallows a line that carries timing** | `8 min WARM UP :` — a label AND a duration on one line. The `:` guard exists to walk *past* labels to the duration beneath; the two shapes were tested independently, so a line that is both was skipped as empty |
+| 2 | **`warm up`/`cool down` out of the pace blacklist**, and the list single-sourced as `PACE_DESCRIPTOR` | a block NAME is not a pace descriptor. `easy`/`recovery` stay — `set_wave_lift`'s "20 min easy row" is the surviving positive case |
+| 3 | **`mom` optional in the bare-`e` EMOM shorthand** | `e 1:30 x 7` over a snatch complex → no clock. A 10:30 EMOM lost to one absent token |
+| 4 | Fixtures `warmup_header_carries_its_duration`, `emom_bare_e_shorthand` | both verified to FAIL with their fix reverted — not decorative goldens |
+
+**#2 is the one to remember, and it is a new entry for §4.** The same blacklist existed a second time — *drifted* (`warm[\s-]?up` vs `warm\s*up|warmup`) — inside `extractTimingFacts`, i.e. inside the **audit channel built in §2 #7 to make exactly this class of silent miss impossible to ship**. It recorded the 8 min as `ignored: "pace"`. A fixture of that cell would have passed with an empty timer list. Confirmed by reverting: the fixture fails on `expectTimers` only; the property test never speaks.
+
+> **A measurement channel that contains a copy of the rule it audits cannot contradict it.** The unexplained-facts assertion is still the right guard — it caught #3's shape instantly (`1:30` written, no clock) — but its coverage is exactly *"all written durations, minus whatever the ignore-list already excuses."* Every `ignoreFacts` entry and every shared ignore const is a hole in it, by construction. Keep such exclusions in ONE const consumed by both sides, and give each one a fixture asserting its positive case.
+
+**Also worth noting:** #1 and #3 are both the §4 cause-7 shape again (two layers, one pattern) — the display layer painted red time badges on `8 min` and `1:30` while no detector examined either line. That is now three separate incidents from one cause, and it remains open.
+
+---
+
 ## 3. The detection pipeline, in execution order
 
 Nothing else in the repo shows the whole pipeline at once; every past incident
@@ -263,7 +282,22 @@ Why the same failure shape kept recurring — these are causes, not bugs:
    still independent. **When adding a positional guard to one layer, ask what
    the other does with the same line.** A fixture of the shape would have caught
    it via the unexplained-timing-facts assertion — which is the cheap mitigation
-   until the layers actually share a predicate.
+   until the layers actually share a predicate. **Two more instances 2026-08-13**
+   (`8 min WARM UP :`, `e 1:30 x 7`): three incidents, one cause, still open.
+8. **An audit channel that contains a copy of the rule it audits.** *(added
+   2026-08-13, the `8 min WARM UP :` warm-up.)* `extractTimingFacts` carried its
+   own drifted copy of the detector's pace/warm-up blacklist, so the
+   unexplained-facts assertion — cause 4's closure — classified the missing 8′
+   clock as a deliberate omission. **This is the failure mode of the safety net
+   itself, and it is invisible from inside:** the assertion is green, the fixture
+   passes, and the only signal is a human watching the TV. Distinct from cause 2
+   (duplicated fragments) because the duplication crosses the boundary between
+   the code and its own test oracle — a drifted copy there doesn't produce a
+   wrong clock, it produces a *wrong proof*. Mitigation shipped: one shared
+   `PACE_DESCRIPTOR`. Mitigation NOT shipped: nothing prevents the next
+   exclusion from being written twice, and `ignoreFacts` entries remain
+   unaudited holes by design. **Before trusting a green property test on a
+   missing-clock report, check whether the fact channel ignores that shape.**
 
 ---
 
