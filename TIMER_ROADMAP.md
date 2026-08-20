@@ -210,6 +210,50 @@ Both reported by Noam off the gym TV, same board, same morning.
 
 ---
 
+## 2e. What shipped 2026-08-20 (sw v141) — the written total, on the other interval path
+
+Found while answering a question that was not about this at all: Noam asked why
+the bottom bar reads `חלק 2 / 2` beside a timer chip reading `(1/2)`. It does not
+conflict — those are two different collections (parts vs. the focused part's
+timer array), and there is no bug there. But measuring the cell to answer it
+surfaced one.
+
+| # | Change | Why it mattered |
+|---|---|---|
+| 1 | **`mmssXmRe` now consults `writtenTotalMin()`**, with the same three-tier precedence `everyExpRe` has always had (written total → `(N Rounds)` → header ×N) | `every 2:30 x 4 sets (30 min total)` shipped a **ten-minute clock on a thirty-minute block**. The coach's own written total reached no clock at all |
+| 2 | Fixture `xsets_written_total_beats_xN` | verified to FAIL with the fix reverted — and it failed via the **unexplained-facts property test**, not merely the golden |
+
+**Why this survived so long is the part worth keeping.** `mmssXmRe` is matcher 7;
+the every-matchers are 8 and 9. When the coach writes the `x`, matcher 7 claims
+the line and calls `consume()` — so `everyExpRe`, *the path that has honoured a
+written total since the day it was written*, never sees it. The two matchers are
+two spellings of one workout, and only one of them knew the rule. This is the
+`cardio_written_total_beats_xN` incident (2026-08-04) again, one matcher over:
+that fix hoisted `writtenTotalMin()` to the top of `detectTimers` **precisely so
+the shapes could not drift** — and then a third consumer was left not calling it.
+
+> **A shared helper prevents drift only in the paths that call it.** Hoisting a
+> rule into one function is half the job; the other half is an assertion that
+> every path reaching the same decision consults it. `writtenTotalRounds()` had
+> exactly the same shape and *was* wired here — the two tiers sat one line apart,
+> and nobody noticed one was missing.
+
+⚠️ **What this deliberately does NOT decide.** `every M:SS x N sets` with **no**
+written total still resolves to the literal ×N, byte-for-byte
+(`evey_typo_explicit_rounds` and `hashfirst_stations_rounds` both pass unchanged,
+and the live gym-TV cell that started this — `every 2:30 x 4 sets (10 min each)`
+over three stations — still yields `2:30 ×4` = 10′). Whether *that* is what she
+means, when her own note in the same cell reads *"נשארים בכל תחנה ארבע סטים ואז
+עוברים"*, is a **semantics question for the coach**, not a code-consistency one —
+the standing rule applies: do not guess it. `(10 min each)` also has no pattern
+anywhere in the parser ("each" is unparseable), so nothing the board reads can
+currently express "10 minutes per station".
+
+Tests: verify-board **35/0** (all 34 pre-existing goldens byte-for-byte
+unchanged), timer-nav **15/0**. sw v141.
+
+---
+
 ## 3. The detection pipeline, in execution order
 
 Nothing else in the repo shows the whole pipeline at once; every past incident

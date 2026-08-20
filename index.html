@@ -3304,12 +3304,24 @@
           const iv = parseInt(m[1])*60 + parseInt(m[2]);
           const r1 = parseInt(m[3]);
           const r2 = m[4] ? parseInt(m[4]) : 0;
-          // An explicit "(N Rounds)" the coach wrote is the literal interval
-          // count and overrides the header ×N ("1:30 x 3 sets (6 Rounds)" → ×6).
-          const rounds = writtenTotalRounds() || Math.max(r1, r2);
+          // Same precedence as the "every X:XX ×N" path below, deliberately —
+          // the two shapes of ONE workout must not drift apart: a written TOTAL
+          // wins, then an explicit "(N Rounds)", then the header ×N
+          // ("1:30 x 3 sets (6 Rounds)" → ×6).
+          // ⚠️ Until 2026-08-20 this path had only the last two tiers, so
+          // "every 2:30 x 4 sets (30 min total)" shipped a TEN-minute clock on a
+          // thirty-minute block: mmssXmRe runs BEFORE the every-matchers and
+          // consume()s the span, so everyExpRe — which has always honoured the
+          // written total — never saw it. A value the coach WROTE reaching no
+          // clock is the mirror form of no-invented-timer-values, and the
+          // hashfirst_stations_rounds note already claimed this equivalence
+          // ("like (N min total) already did") while it was false here.
+          const totalMin = writtenTotalMin();
+          const rounds = totalMin ? Math.round((totalMin * 60) / iv)
+                                  : (writtenTotalRounds() || Math.max(r1, r2));
           if (iv >= 30 && iv <= 30*60 && rounds >= 2 && rounds <= 20) {
-            results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
-                           label: `${m[1]}:${m[2]} ×${rounds}` });
+            results.push({ type: 'emom', totalSeconds: totalMin ? totalMin * 60 : iv * rounds,
+                           intervalSeconds: iv, label: `${m[1]}:${m[2]} ×${rounds}` });
           }
         }
 

@@ -1,0 +1,34 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "every 2:00 x 3 sets (20 min total)",
+              "1# 12 cal row",
+              "2# 10 push up"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "2:00 ×10",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}
