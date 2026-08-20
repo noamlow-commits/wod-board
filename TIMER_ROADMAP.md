@@ -367,6 +367,37 @@ some, the coach. **These are all *detection* defects — for the runtime ones
   deleting it blind turns working clocks into no-clock. No fixture except the
   deliberate `invented_rounds_fallback` depends on it today, which is
   encouraging but is *fixture* evidence, not *real-sheet* evidence.
+- 🔴 **Three emit paths still ignore `writtenTotalMin()`** (found 2026-08-20 by
+  grepping the helper right after fixing `mmssXmRe`; all three confirmed by
+  measurement — the same cell with and without a written total produces
+  byte-identical output):
+
+  | Path | Written | Clock | Should be |
+  |---|---|---|---|
+  | `amrapRe` (`AMRAP N ×M`, ~3154) | `AMRAP 10 x3 (20 min total)` | `AMRAP ×3 · 10′` = **30′** | 20′ |
+  | `emomShortRe` (`e M:SS ×N`, ~3269) | `e 1:30 x 7 (15 min total)` | `EMOM 1:30 ×7` = **10.5′** | 15′ |
+  | `minXmRe` (`N min x M`, ~3284) | `4 Min x2 (12 min total)` | `4′ ×2` = **8′** | 12′ |
+
+  Each is the same omission as the three already-closed ones (single-line
+  interval 08-04, on/off fallback 08-04, `mmssXmRe` 08-20), so the class is now
+  **six incidents from one cause** and counting. `minXmRe` is the sharpest:
+  its own comment names `"4 Min x2 (8 total)"` as the worked example and the
+  code has never read that total — invisible only because 4 × 2 = 8 makes the
+  wrong path print the right number. `emomShortRe` is *newer than the rule*
+  (shipped 08-13, sw v140) and was written without it.
+
+  **Deliberately not fixed on 2026-08-20** — Noam's call was the one confirmed
+  defect only, and each of these moves a live clock on the gym TV, so each needs
+  its own fixture plus a reverted-fix counterfactual. **Do not batch them into
+  one commit**: they have different sanity windows (`amrapRe` 2–60,
+  `minXmRe` 2–10, `mmssXmRe` 2–20) and `amrapRe` also owns the
+  amrap-vs-emom fork, so a shared "just call the helper" patch would silently
+  re-tier three different decisions at once. ⚠️ Before fixing, settle the
+  ordering question too: these matchers run *before* the `every` paths and
+  `consume()` their spans, which is the mechanism that hid `mmssXmRe` for
+  thirteen months — the real fix may be an assertion that every emit site
+  consults the helper, not four more call sites.
+
 - **Six different round sanity windows**, none of them chosen as a policy:
   2–30 (A, 2911), 2–60 (amrap ×N, 2945), 2–10 (`minXmRe`, 3056), 2–20
   (`mmssXmRe`, 3076), 2–30 (E derived, 3219), 2–20 (`detectActivityInterval`,
