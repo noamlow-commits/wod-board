@@ -1,0 +1,36 @@
+{
+  "data": {
+    "headers": [
+      "1"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "WARM UP x 6 min",
+              "10 CAL Row/Bike",
+              "10 Push Press DBs easy",
+              "10 m Walking Lunges",
+              "7 Inchworm"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "1",
+      "timers": [
+        {
+          "label": "6′ WARM UP",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}

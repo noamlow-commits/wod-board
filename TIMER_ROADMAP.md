@@ -94,6 +94,28 @@ predicate is already correct and this closes. If not, the answer is probably a
 convention ("write *and then* when a part has an untimed lead-in") rather than a
 cleverer regex.
 
+### Q6 — Does she ever write a block duration with NO multiplier? 🔴 NEW 2026-08-21
+
+`WARM UP x 6 min` now gets its clock, and `8 min WARM UP :` always did. What
+still does **not** is the bare trailing form with no `x`:
+
+```
+WARM UP 6 min
+10 CAL Row/Bike
+```
+
+This is deliberate, not an oversight. Dropping the `x` requirement would also
+claim `A. Deadlift Prog-8 min` (fixture `station_labels_with_keywords`), where
+the 8 is how long she expects a progression to *take* — a note, not a clock she
+wants on the TV. The two shapes are indistinguishable by pattern; only she knows
+which she means.
+
+**Ask her:** *when a block runs for a set time, do you always write the `x`
+("WARM UP x 6 min") or sometimes just the number ("WARM UP 6 min")?* If the `x`
+is habitual, this closes and the guard is already correct. If not, the answer is
+a **convention** ("write the x when you want a clock") rather than a cleverer
+regex — because no regex can separate her two meanings here.
+
 ### Q4 — The redundant `For Time` preamble button (answered 2026-08-08: suppress; trigger widened 2026-08-10).
 
 A bare format line above the parts (`for time:`) is dropped when the preamble
@@ -249,8 +271,69 @@ the standing rule applies: do not guess it. `(10 min each)` also has no pattern
 anywhere in the parser ("each" is unparseable), so nothing the board reads can
 currently express "10 minutes per station".
 
+> ✅ **ANSWERED 2026-08-21 (Noam): 2:30 per turn at a station — the current
+> reading is correct and stays.** `intervalSeconds: 150` × 4 = 600 s: she starts
+> the clock once per station and it beeps every 2:30 through the four sets. The
+> question closes with **no code change**; see §2f. Worth noting that the
+> guess-refusal was the right call *and* cost nothing — the value it declined to
+> invent turned out to be the value already on the board.
+
 Tests: verify-board **35/0** (all 34 pre-existing goldens byte-for-byte
 unchanged), timer-nav **15/0**. sw v141.
+
+---
+
+## 2f. What shipped 2026-08-21 (sw v142) — a missing clock, and a clock in the wrong seat
+
+Both reported by Noam off the gym TV, from the same live sheet, minutes apart.
+
+| # | Change | Why it mattered |
+|---|---|---|
+| 1 | **The block duration may TRAIL its name**: `WARM UP x 6 min` now yields `6′ WARM UP` (fixture `warmup_trailing_x_duration`) | the whole warm-up column had **no clock at all** |
+| 2 | **`blockClocksFirst`** — a clock declared on a station line is nested inside the block that cycles the stations, so the block's clock leads ⏱↻ (fixture `station_amrap_nested_in_rotation`) | `every 2:30 …` + `2# amrap 2` opened on **`AMRAP 2′ (1/2)`** — the TV told the room to start the wrong clock |
+| 3 | **`expectTimerOrder`** added to the harness | see below — no existing assertion could fail on #2 |
+
+**#1 is the third anchor in this rule to outlive its reason.** `8 min WARM UP :`
+(2026-08-13) works; `WARM UP x 6 min` did not — *same block, same coach, same
+column of the same sheet*, differing only in whether the number came before or
+after the name. The `^(\d+)\s*min` anchor was chosen to keep `20 ring rows` and
+`rest 3 min` out; **word order was never what it meant to test**. Counting the
+previous two — "first line" (positional, widened 2026-08-10) and trailing `:`
+(label proxy, fixed 2026-08-13) — the pattern is now hard to miss: *every guard
+here has eventually excluded a legitimate case it was never aimed at.* When
+adding a positional anchor to this rule, write down what it excludes.
+
+**#2 is a failure class the harness could not previously express.** Every clock
+in that cell was detected, correctly labelled, and correctly timed. Nothing was
+missing and nothing was wrong — the *order* was, and index 0 is the board's
+default clock. `expectTimers` passed on the broken code and `forbidTimers` had
+nothing to forbid; order lived only in the golden, where `--update` would have
+frozen it silently. Hence `expectTimerOrder`.
+
+> **When a contract has a privileged position, assert the position, not just the
+> membership.** This is the ordering twin of "Making SILENCE measurable": that
+> assertion catches a value that reached *no* clock, this one catches values that
+> all reached clocks in the wrong sequence.
+
+✅ **§2e's open question is ANSWERED (Noam, 2026-08-21): the interval is 2:30 per
+turn at a station, and the warm-up is 6 minutes.** Both were already what the
+board produces — verified by value, not by label: the rotation config carries
+`intervalSeconds: 150` (2:30) × 4 = `totalSeconds: 600`, i.e. she starts it once
+per station and it beeps every 2:30 for the four sets her own note describes
+(*"נשארים בכל תחנה ארבע סטים ואז עוברים"*); the warm-up carries
+`totalSeconds: 360`. So **no value changed today — only the ORDER did**, and the
+`(10 min each)` reading flagged in §2e stands rather than being replaced.
+
+> The reason to write this down even though nothing changed: §2e left a live
+> question about a number on the gym TV, and "the answer confirmed the current
+> behaviour" is a *result*, not a non-event. An open question that is quietly
+> dropped looks identical to one nobody ever asked.
+
+Both fixtures verified to FAIL with the fix reverted (`warmup_trailing_x_duration`
+via the unexplained-facts property test — *"DARK: duration written, NO timer: 6
+min"* — and `station_amrap_nested_in_rotation` via the new order assertion).
+Tests: verify-board **37/0** (all 35 pre-existing goldens byte-for-byte
+unchanged), timer-nav **15/0**. sw v142.
 
 ---
 

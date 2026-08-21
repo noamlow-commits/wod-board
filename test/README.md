@@ -16,6 +16,16 @@ list*, quietly asserting that the detector it is named after does nothing.
 
 - **`expectTimers` / `forbidTimers`** — labels that MUST / MUST NOT appear.
   Give every new fixture one; without it `--update` can bake a wrong result in.
+- **`expectTimerOrder`** — a list of label sequences that must appear **in that
+  relative order within one cell**. Added 2026-08-21 for a bug both assertions
+  above are blind to by construction: every clock in the coach's cell was
+  detected, correctly labelled and correctly timed, and the **wrong one came
+  first**, so ⏱↻ opened on a station's nested clock instead of the block's.
+  `expectTimers` passed on the broken code; `forbidTimers` had nothing to
+  forbid. Index 0 of a cell's config array is the board's default clock, so
+  order is part of the contract — and left to the golden alone, `--update`
+  would have baked the wrong order in silently. **When a contract has a
+  privileged position, assert the position, not just the membership.**
 - **Unexplained-facts property test** — every duration/cap the coach *wrote*
   must reach some clock, or be listed in the fixture's **`ignoreFacts`** as a
   deliberate miss. This is what makes a silent parse failure impossible to ship:

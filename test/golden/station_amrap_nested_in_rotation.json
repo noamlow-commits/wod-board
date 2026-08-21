@@ -1,0 +1,49 @@
+{
+  "data": {
+    "headers": [
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "every 2:30 x",
+              "4 sets (10 min each)",
+              "1# 12 cal+",
+              "max burpee over row",
+              "__SPACER__",
+              "2# amrap 2",
+              "30 d.u",
+              "20 box jump/step up)",
+              "10 push up",
+              "__SPACER__",
+              "3# 300-400 m run",
+              "__SPACER__",
+              "*נשארים בכל תחנה ארבע סטים",
+              "ואז עוברים"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "2",
+      "timers": [
+        {
+          "label": "2:30 ×4",
+          "type": "emom"
+        },
+        {
+          "label": "AMRAP 2′",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}

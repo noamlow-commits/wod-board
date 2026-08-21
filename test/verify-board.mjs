@@ -241,6 +241,16 @@ const FIXTURES = [
     rows: [["", "A", "B"],
            ["", "Snatch For Strength\n(4) Standing Row >\nStanting Row to Over Head >\n(2+3+4+5+7) Hang Power Snatch>\n(Start +1+2) לימוד מעברך ברך\n(Start-7) Snatch",
             "e 1:30 x 7\n1 snatch deadlift\n1 hang squat snatch\n1 ohs\n@70%"]] },
+  { name: "warmup_trailing_x_duration", note: "coach's real sheet (2026-08-21, VERBATIM from getWorkoutSheet, WOD column '1'): the warm-up opens 'WARM UP x 6 min' and produced NO clock — the TV showed the four movements with no timer at all. This is the SAME rule as warmup_header_carries_its_duration ('8 min WARM UP :'), which passes, and the same block, written by the same coach, in the same column of the same sheet — the only difference is that she put the number AFTER the name instead of before it. The leading-duration detector requires the duration at line START (`^(\\d+)\\s*min\\s+(.+)$`), an anchor chosen to keep '20 ring rows' and 'rest 3 min' out, and word order was never the thing it meant to test. So the block duration now has TWO accepted shapes, leading and trailing-behind-an-x, sharing ONE set of guards. ⚠️ The trailing form is the narrower of the two on purpose: it REQUIRES the 'x', preceded by whitespace, and an activity ending in a non-digit. Drop the 'x' and 'A. Deadlift Prog-8 min' (station_labels_with_keywords, ignoreFacts) claims a clock the coach does not want — that is the load-bearing half. Drop the non-digit and the sets×duration spec '3 x 6 min' — a line the interval detectors own — claims one too. The whitespace-before-x keeps the x a standalone MULTIPLIER token rather than a word's last letter, the shape her real 'e2momx' shorthand (e2mom_rotation) would otherwise collide with; verified counterfactually, actIsIntervalSpec rejects that particular string as well, so it is a second independent guard and not the only one. All of these were checked against the built page, not assumed: 'A. Deadlift Prog-8 min' → [], '3 x 6 min' → [], '4 sets x 6 min' → [], '20 min easy row' → [] (pace descriptor intact), 'Row x 6 min' → ['6′ Row']. forbidTimers locks out the two wrong readings that were available here: reading the trailing 'min' as an AMRAP, and leaving the dangling 'x' in the printed label. The '10 m Walking Lunges' is METRES and must stay clockless — the exact ambiguity UNIT_STRICT exists for.",
+    expectTimers: ["6′ WARM UP"],
+    forbidTimers: ["AMRAP 6′", "6′ WARM UP x", "WARM UP x 6′", "10′ m Walking Lunges"],
+    rows: [["", "1"],
+           ["", "WARM UP x 6 min\n10 CAL Row/Bike\n10 Push Press DBs easy\n10 m Walking Lunges \n7 Inchworm"]] },
+  { name: "station_amrap_nested_in_rotation", note: "coach's real sheet (2026-08-21, VERBATIM, CARDIO column '2'): 'every 2:30 x4 sets (10 min each)' over three stations, one of which is '2# amrap 2'. BOTH clocks were detected, both correctly labelled and correctly timed — and the board still gave the wrong instruction, because the AMRAP came FIRST: ⏱↻ opened on 'AMRAP 2′ (1/2)' and the docked bar offered the nested station clock as the block's default, when the 2:30 is what starts and the AMRAP only begins once the athletes reach station 2. The cause was pure source order — the AMRAP scan is written ABOVE the rotation scan inside detectTimers — so a station's own clock always outran the block's. blockClocksFirst is a stable partition (block-scoped first) keyed on whether the AMRAP was declared on a STATION line; it REORDERS and never drops, so the AMRAP is still one ⏱↻ press away (losing a clock is worse than a wrong one). ⚠️ THIS IS WHY expectTimerOrder EXISTS. Presence assertions are blind to this bug by construction: expectTimers passed on the broken code, and forbidTimers had nothing to forbid — every label was right. Index 0 is the board's default clock, so order is part of the contract and needs an assertion of its own instead of living implicitly in the golden, where --update would have baked the wrong order in without a word. ── NEGATIVE CONTROL inside this same fixture: 'ואז עוברים' carries the STAGE_MARKER_RE token 'ואז', and it must NOT suppress anything here — the staged-part rule is scoped to a NUMBERED part's body and this cell has no 'part N' headers at all. Also locks the '(10 min each)' reading: 4 × 2:30 = 10′ per station is HER written total, so the rotation is ×4 and not ×12 (the three stations do not multiply an explicit ×N — see evey_typo_explicit_rounds for that asymmetry).",
+    expectTimers: ["2:30 ×4", "AMRAP 2′"],
+    expectTimerOrder: [["2:30 ×4", "AMRAP 2′"]],
+    rows: [["", "2"],
+           ["", "every 2:30 x4 sets (10 min each)\n1# 12 cal+\nmax burpee over row\n\n2# amrap 2\n30 d.u\n20 box jump/step up)\n10 push up\n\n3# 300-400 m run\n\n*נשארים בכל תחנה ארבע סטים\nואז עוברים"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -515,16 +525,35 @@ for (const fx of FIXTURES) {
     // Optional TRUE correctness assertion (beyond golden change-detection):
     // fixture.expectTimers = labels that MUST be among the detected timers.
     // Guards against --update silently baking a wrong result into the golden.
-    if (fx.expectTimers || fx.forbidTimers) {
+    if (fx.expectTimers || fx.forbidTimers || fx.expectTimerOrder) {
       const allLabels = parsed.timers.flatMap((t) => t.timers.map((x) => x.label));
       const missing = (fx.expectTimers || []).filter((l) => !allLabels.includes(l));
       // forbidTimers = labels that MUST NOT appear (the cross-cell cap-LEAK
       // guard: a cap written for one block must not spawn "(TC N′)" on a sibling).
       const leaked = (fx.forbidTimers || []).filter((l) => allLabels.includes(l));
-      if (missing.length || leaked.length) {
+      // expectTimerOrder = labels that must appear IN THIS RELATIVE ORDER within
+      // one cell. Added 2026-08-21 for a bug that presence assertions are blind
+      // to by construction: both of the coach's clocks were detected, correctly
+      // labelled and correctly timed — the WRONG ONE simply came first, so ⏱↻
+      // opened on the nested station clock instead of the block's. expectTimers
+      // passed on the broken code; only order could fail it. Order is a real part
+      // of the contract (index 0 is the board's default clock), so it needs an
+      // assertion of its own rather than living implicitly in the golden.
+      const misordered = [];
+      for (const want of (fx.expectTimerOrder || [])) {
+        const cell = parsed.timers.find((t) => want.every((l) => t.timers.some((x) => x.label === l)));
+        if (!cell) { misordered.push(`no single cell holds all of [${want.join(" | ")}]`); continue; }
+        const got = cell.timers.map((x) => x.label);
+        const idx = want.map((l) => got.indexOf(l));
+        if (idx.some((v, i) => i > 0 && v < idx[i - 1])) {
+          misordered.push(`want [${want.join(" → ")}], got [${got.join(" → ")}]`);
+        }
+      }
+      if (missing.length || leaked.length || misordered.length) {
         const parts = [];
         if (missing.length) parts.push(`missing: ${missing.join(" | ")}`);
         if (leaked.length) parts.push(`FORBIDDEN present: ${leaked.join(" | ")}`);
+        if (misordered.length) parts.push(`WRONG ORDER — ${misordered.join(" ; ")}`);
         results.push({ name: fx.name, status: "ERROR",
                        error: `${parts.join("; ")} — detected: [${allLabels.join(" | ")}]` });
         continue; // finally still closes the page

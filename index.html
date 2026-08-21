@@ -2445,6 +2445,9 @@
     const STATION_NUM_FIRST  = '\\d+(?:\\s*[+\\-,&]\\s*\\d+)*\\s*#';
     const STATION_BODY       = `(?:${STATION_HASH_FIRST}|${STATION_NUM_FIRST})`;
     const STATION_MERGE_SEP  = /[+\-,&]/;   // splits "2+3" into its two stations
+    // A line that OPENS with a station marker ("1# 12 cal+", "#2 amrap 2").
+    // Built from the shared bodies above, per the 3-place-pattern rule.
+    const STATION_LINE_RE    = new RegExp(`^\\s*${STATION_BODY}`);
 
     // Time units. TWO deliberately different sets — do not merge them:
     //   STRICT = spelled-out words only. Required wherever a bare "m" would be
@@ -2995,6 +2998,33 @@
       return hints;
     }
 
+    // ── A station's own clock is NESTED inside the block that cycles the
+    // stations, so the BLOCK's clock leads the ⏱↻ cycle (coach, 2026-08-21) ──
+    // Her CARDIO cell read "every 2:30 x4 sets (10 min each)" over three
+    // stations, one of which is "2# amrap 2". Both clocks are real and both
+    // must stay — but they are not siblings: the 2:30 runs the block, the 2′
+    // AMRAP runs INSIDE station 2 and only once the athletes reach it.
+    // detectTimers found the AMRAP first purely because the AMRAP scan is
+    // written ABOVE the rotation scan in this file, so ⏱↻ opened on
+    // "AMRAP 2′ (1/2)" and the TV offered the nested clock as the block's
+    // default — "start the AMRAP" where the instruction is "start the 2:30".
+    //
+    // Stable partition, block-scoped first. Deliberately a REORDER and never a
+    // drop: losing a clock is worse than a wrong one, and the nested clock is
+    // still one ⏱↻ press away. A no-op unless the cell holds BOTH kinds, so a
+    // cell of purely station clocks keeps its written order. Same family as the
+    // preamble suppression in extractTimerConfigs — what LEADS the cycle is a
+    // semantic decision and must not be a scan-order accident.
+    //
+    // This is also detectTimers' single exit transform: `_stationScoped` is
+    // stripped here, so the marker can never reach a caller or a golden.
+    function blockClocksFirst(cfgs) {
+      const strip = ({ _stationScoped, ...c }) => c;
+      const nested = cfgs.filter(c => c._stationScoped);
+      if (nested.length === 0 || nested.length === cfgs.length) return cfgs.map(strip);
+      return cfgs.filter(c => !c._stationScoped).concat(nested).map(strip);
+    }
+
     // Detect timer configs from a flat list of workout lines (returns array).
     // Part-unaware — extractTimerConfigs() below wraps this with "part N" splitting.
     // `partCapSeconds` (optional) is the external-cap hint from scanPartCapSeconds:
@@ -3132,7 +3162,7 @@
             rounds, skipLastRest: false,
             label: `×${rounds} · ${fmtDur(workSec)} work / ${fmtDur(restSec)} rest`
           });
-          return results; // the interval line is the timer for this block
+          return blockClocksFirst(results); // the interval line is the timer for this block
         }
       }
 
@@ -3152,15 +3182,23 @@
       let m;
       if (!chained) {
         const amrapRe = /\b(?:([1-9]\d*)\s*(?:min(?:ute)?s?\s+)?AMRAP|AMRAP\s+([1-9]\d*))\s*(?:[x×*]\s*([1-9]\d*))?\s*:?/gi;
+        // WHICH LINE the match sits on, so a station's own clock can be told
+        // apart from the block's (see blockClocksFirst). `text` is `lines`
+        // joined with a newline, so counting them before the match index is
+        // exact — no re-scan, and no second source of truth for the split.
+        const lineOf = idx => text.slice(0, idx).split('\n').length - 1;
         while ((m = amrapRe.exec(text)) !== null) {
           const mins = parseInt(m[1] || m[2]);
           const rounds = m[3] ? parseInt(m[3]) : 1;
+          const onStation = STATION_LINE_RE.test((lines[lineOf(m.index)] || '').trim());
           if (rounds >= 2 && rounds <= 60) {
             const iv = mins * 60;
             results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
-                           label: `AMRAP ×${rounds} · ${mins}′ (${mins * rounds}′)` });
+                           label: `AMRAP ×${rounds} · ${mins}′ (${mins * rounds}′)`,
+                           _stationScoped: onStation });
           } else {
-            results.push({ type: 'amrap', totalSeconds: mins * 60, label: `AMRAP ${mins}′` });
+            results.push({ type: 'amrap', totalSeconds: mins * 60, label: `AMRAP ${mins}′`,
+                           _stationScoped: onStation });
           }
         }
       }
@@ -3652,10 +3690,34 @@
             if (hasTiming(l)) { firstLn = l; break; }   // first TIMED content line
             // an untimed work line ("600 run x 1") does not consume the slot
           }
-          const bm = firstLn ? firstLn.match(/^(\d+)\s*min(?:ute)?s?\s+(.+)$/i) : null;
-          if (bm) {
-            const mins = parseInt(bm[1]);
-            const act = bm[2].trim();
+          // TWO written shapes, ONE rule. The block duration may LEAD the line
+          // ("8 min leg and lat activation") or TRAIL it behind an explicit
+          // multiplier ("WARM UP x 6 min" — her warm-up column, 2026-08-21,
+          // which produced NO clock at all). Both NAME the block and carry its
+          // length; only the word order differs, and word order is hers.
+          // The trailing form is deliberately the narrower of the two:
+          //   · the "x" is REQUIRED. Without it "A. Deadlift Prog-8 min" claims a
+          //     clock — that 8 is how long she expects a progression to TAKE, not
+          //     a clock she wants on the TV (station_labels_with_keywords,
+          //     ignoreFacts). This is the load-bearing half of the guard.
+          //   · the "x" must be preceded by whitespace, so it is a standalone
+          //     MULTIPLIER token and never a word's last letter. Her real
+          //     "e2momx" shorthand (e2mom_rotation) is the shape where the two
+          //     would otherwise collide over one line. Verified counterfactually:
+          //     actIsIntervalSpec below rejects that particular string too, so
+          //     this is a second independent guard, not the only one.
+          //   · the activity must end in a non-digit, so the sets×duration spec
+          //     "3 x 6 min" — a line another detector owns — can never match.
+          // Everything below (the interval-spec guard, the rest-pair guard, the
+          // cap and pace exclusions) is SHARED by both shapes on purpose: a
+          // second shape must not arrive with a second, weaker set of guards.
+          const lead  = firstLn ? firstLn.match(new RegExp(`^(\\d+)\\s*${MIN_WORD}\\s+(.+)$`, 'i')) : null;
+          const trail = (!lead && firstLn)
+            ? firstLn.match(new RegExp(`^(.*[^\\s\\d])\\s+[x×*]\\s*(\\d+)\\s*${MIN_WORD}\\s*[.:]?$`, 'i'))
+            : null;
+          if (lead || trail) {
+            const mins = parseInt(lead ? lead[1] : trail[2]);
+            const act = (lead ? lead[2] : trail[1]).trim();
             // Anti-double-count, replacing the old blanket `results.length === 0`.
             // A block duration names the block and is followed by PROSE ("leg
             // mobility", "leg and lat activation"). If the remainder instead
@@ -3699,7 +3761,7 @@
           }
         }
 
-      return results;
+      return blockClocksFirst(results);
     }
 
     // Recognizes a "part N" block header. Kept as ONE shared literal so the
