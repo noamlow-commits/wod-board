@@ -48,6 +48,13 @@ fs.mkdirSync(GOLDEN_DIR, { recursive: true });
 // To add a case: append here and run with --update to capture its baseline.
 // ─────────────────────────────────────────────────────────────────────────
 const FIXTURES = [
+  // ⚠️ The coach's board, 27.8.2026. A capped For Time followed by a CASHOUT.
+  // Three complaints in one screenshot: the ladder "30 -20 -10" bolds only the 30,
+  // the cashout carries no badge at all, and the clock covers only the capped part.
+  { name: "cashout_after_cap",
+    note: "capped For Time + CASHOUT. Noam 2026-08-27: the TC covers the WHOLE piece — ladder first, then the cashout — so this must stay exactly ONE clock. The CASHOUT badge is a stage divider inside that one capped block, never a second timer. (See BADGE_CHECKS for the badge itself.)",
+    expectTimers: ["TC 13′ · For Time"],
+    rows: [["", "part 3"], ["מטקון", "FOR TIME:\n30 -20 -10\ns2oh\nbox jump\nrx : 40 /30\nRX+ 50/35\n13 min tc\ncashout -\n40 hanging leg raises\n20 biceps curl"]] },
   { name: "amrap_simple", note: "single AMRAP → one countdown timer",
     rows: [["", "אימון"], ["מטקון", "AMRAP 12\n10 Cal Row\n10 Burpees\n15 Wall Balls"]] },
   { name: "emom_fortime_columns", note: "two columns (WOD/CARDIO), each its own timer",
@@ -277,6 +284,11 @@ const BADGE_CHECKS = [
   { line: "1 partner: 12 cal", expect: "group-badge" },           // number-first form, same badge
   { line: "partner 3: plank hold", expect: "group-badge" },       // no colon, still a partner
   { line: "partnership drill", expect: "none" },                  // prose, not a partner (\\b guard)
+  { line: "cashout -", expect: "group-badge" },                  // the work after the reps, INSIDE the cap (Noam 2026-08-27) → CASHOUT divider
+  { line: "Cash Out: 40 hanging leg raises", expect: "group-badge" }, // two words + colon, same block
+  { line: "cash-out", expect: "group-badge" },                    // hyphenated spelling
+  { line: "cashout station drill", expect: "group-badge" },       // still a cashout even with words after it
+  { line: "cash register", expect: "none" },                      // prose: "cash" alone must NOT badge
   { line: "#1", expect: "station" },                              // hash-first station marker (coach's 2026-07-19 sheet)
   { line: "#2", expect: "station" },                              // hash-first station marker
   { line: "1#", expect: "station" },                              // number-first still works

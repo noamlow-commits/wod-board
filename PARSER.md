@@ -29,6 +29,53 @@ Regression-guarded by the `superset_group_cohesion` fixture **and the LAYOUT ass
 ### Per-set lift wave — "Set N" headers (added 2026-07-09)
 A coach's strength wave written one set per line — `Set 1: 5 Reps` / `70% 1RM` / `Set 2: 3 Reps` / `80% 1RM` … — now renders each `Set N` line as a **workout part divider**, since each set *is* a part. `parseLine` detects `^\s*set\s+(\d+)\s*[:.\-)]?\s*(.*)$` and returns a `sub-header` with `isGroupTitle:true`, emitting the cyan **`SET N` group-badge** + `group-line` styling (the same "this is a PART" language as `A.`/`B.` group headers — see Section Colors). The remainder's leading rep count (`5 Reps`) is bolded via `rep-number`; the `%/1RM` line beneath flows under the header as its content. Because the header is a `sub-header`, the lead-in anti-widow guard keeps `SET N` glued to its load line, and balanced column breaks prefer landing *before* a `SET` header (so a wave splits cleanly, e.g. Sets 1–2 | Sets 3–5). **Prose safety:** the rule requires `set` + whitespace + a digit, so `Set up the rig` / `Settle in` never match. Guarded by the `set_wave_lift` fixture (no false timer on the wave) + three `BADGE_CHECKS` in `verify-board.mjs`.
 
+### CASHOUT is a stage divider, never a second clock (added 2026-08-27)
+
+The coach writes `cashout -` and then the exercises done once the reps are
+finished. Until today **the word appeared nowhere** — not in `index.html`, not in
+this file, not in `TIMER_ROADMAP.md` — so the line fell through to the generic
+exercise path: no badge, no boundary. On the board its exercises read as more
+reps of the ladder above them, and the stage boundary the coach wrote was
+invisible.
+
+⭐ **Noam's ruling (2026-08-27) settles the semantics:** *"כל התרגיל אמור להיות 13
+דקות — בהתחלה החזרות, ואחר כך כשמסיימים את החזרות יש את הקאשאאוט, וה-TC אמור
+לכלול את הכל."* The cashout is **inside** the cap. So the clock was never wrong:
+`TC 13′ · For Time` correctly covers the whole cell. **The defect was purely that
+no line was drawn between the two stages of that one capped block.**
+
+⚠️ **Therefore the rule must never spawn a second timer or split the block.** It
+emits a `sub-header` with `isGroupTitle` and the cyan `CASHOUT` group-badge — the
+same part language `SET N` and `PARTNER N` already use (Noam 2026-07-09: a thing
+that IS a part gets part language). Matcher:
+`/^\s*cash[\s\-]?out\b\s*[:.\-–—)]?\s*(.*)$/i` — so `cashout`, `cash out:`,
+`cash-out` and `Cash Out: 40 hanging leg raises` all match, while the `\b` keeps
+prose like `cash register` out.
+
+Guarded by the `cashout_after_cap` fixture — whose `expectTimers` states the
+intent **`["TC 13′ · For Time"]`, exactly one clock** — plus 5 `BADGE_CHECKS`
+(4 spellings + the `cash register` prose negative).
+
+⚠️ **The fixture "passed" on its very first run, while enshrining the bug.** A
+golden captures what the code *does*, not what the fixture *means* — the same
+trap the `activity_interval` note records. Any new fixture for a behaviour you
+are trying to FIX must carry `expectTimers`, or it asserts the defect.
+
+### A rep ladder may be written with spaces (added 2026-08-27)
+
+The ladder highlight required every number to **touch** its separator
+(`/^((?:\d+[\-.]){2,}\d+)/`), so `22-16-10` bolded and the coach's `30 -20 -10`
+did not. What then coloured the `30` was the *generic single-rep* rule further
+down — which is why the board showed **one orange number and two white ones**.
+
+⭐ **Not a missing rule — a rule that half-matched.** A half-match is worse than
+no match: it produces a plausible-looking line, so nobody reads it as a bug. The
+separator now tolerates surrounding whitespace: `/^((?:\d+\s*[\-.]\s*){2,}\d+)(\s|$)/`.
+
+Prose safety is unchanged and verified on 8 cases — `3 sets - 30 min total` and
+`5 - 10 min rest` still do **not** match (they hold 2 numbers, and the rule needs
+3+ separated numbers).
+
 ### A leading station NUMBER keeps its badge and its category (added 2026-08-04)
 The coach's CARDIO rotation numbers its stations `1.` `2.` `3.` `4.`. Three of
 them rendered as red `time-badge` markers on white exercise lines; **`2. amrap :`

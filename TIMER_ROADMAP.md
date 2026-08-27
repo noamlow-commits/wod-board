@@ -23,6 +23,24 @@ asymmetry) applies: **the coach decides semantics, not code consistency.**
 > in mind: the compound clock now fires on **fewer** cells than the day they were
 > written, and this week's live sheet is no longer one of them.
 
+### ✅ ANSWERED 2026-08-27 — a CASHOUT runs INSIDE the cap
+
+**The question:** the coach's board showed `FOR TIME: / 30 -20 -10 / … / 13 min tc
+/ cashout - / 40 hanging leg raises / 20 biceps curl`. Does the cashout sit inside
+the 13-minute cap, or after it?
+
+**Noam:** *"כל התרגיל אמור להיות 13 דקות, כאשר בהתחלה יש חזרות, ואחר כך כשמסיימים
+את החזרות יש את הקאשאאוט של התרגילים האחרים, וה-TC אמור לכלול את הכל."*
+
+⇒ **One cap over both stages. One clock.** `TC 13′ · For Time` was correct all
+along; only the visual boundary was missing (see `PARSER.md`, the CASHOUT rule).
+
+⭐ **Worth recording as a near-miss.** The reported symptom was *"the cashout is
+not marked, and therefore not included in the running timer"* — which reads like
+a timer defect, and the obvious fix would have been a second clock for the
+cashout. That would have been a whole feature, and **wrong**. Asking the one
+semantic question instead of building turned a feature into a badge.
+
 ### Q1 — The compound clock counts part 1 DOWN. Is that acceptable? 🟡 LIVE, but narrower
 
 **Status 2026-08-10:** still unanswered, and now **lower-stakes**. The cell that

@@ -1,0 +1,41 @@
+{
+  "data": {
+    "headers": [
+      "3"
+    ],
+    "rows": [
+      {
+        "label": "מטקון",
+        "cells": [
+          {
+            "header": "3",
+            "lines": [
+              "FOR TIME:",
+              "30 -20 -10",
+              "s2oh",
+              "box jump",
+              "rx : 40 /30",
+              "RX+ 50/35",
+              "13 min tc",
+              "cashout -",
+              "40 hanging leg raises",
+              "20 biceps curl"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "מטקון",
+      "header": "3",
+      "timers": [
+        {
+          "label": "TC 13′ · For Time",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}

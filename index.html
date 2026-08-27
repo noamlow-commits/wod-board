@@ -5691,6 +5691,22 @@
         const badge = pNum ? `PARTNER ${pNum}` : 'PARTNER';
         return { type: 'sub-header', isGroupTitle: true, html: `<span class="group-badge">${badge}</span>${rest ? ' ' + rest : ''}` };
       }
+      // "cashout", "cash out -", "CASHOUT:" — the work done after the reps are
+      // finished, INSIDE the same time cap (Noam 2026-08-27: the TC covers the
+      // whole piece — ladder first, then the cashout). Until today the word was
+      // unknown to the parser (zero occurrences in index.html, PARSER.md and
+      // TIMER_ROADMAP.md), so its exercises rendered as more reps of the ladder
+      // above them and the stage boundary the coach wrote was invisible.
+      // Marked with the part language SET N / PARTNER N use. ⚠️ A DIVIDER ONLY:
+      // it must never spawn a second clock or split the capped block — the cap
+      // is one clock over both stages, and the fixture asserts exactly that.
+      const cashMatch = text.match(/^\s*cash[\s\-]?out\b\s*[:\.\-\u2013\u2014\)]?\s*(.*)$/i);
+      if (cashMatch) {
+        let rest = escapeHtml(cashMatch[1]);
+        rest = rest.replace(/^(\d+)\b/, '<span class="rep-number">$1</span>');
+        return { type: 'sub-header', isGroupTitle: true,
+                 html: `<span class="group-badge">CASHOUT</span>${rest ? ' ' + rest : ''}` };
+      }
       // Detect exercise group headers: "A. Bench press", "B - Kipping > KTE",
       // "B.HSPU" (no space after the dot). Single letter (no digit) + separator
       // → new group = sub-header with badge. Allow zero space after the
@@ -5863,7 +5879,7 @@
 
       // Highlight rep schemes at start of line: "22-16-10", "10-9-8-7-6-5-4-3-2-1"
       // (3+ numbers separated by dashes or dots)
-      html = html.replace(/^((?:\d+[\-\.]){2,}\d+)(\s|$)/, '<span class="rep-number">$1</span>$2');
+      html = html.replace(/^((?:\d+\s*[\-\.]\s*){2,}\d+)(\s|$)/, '<span class="rep-number">$1</span>$2');
 
       // Highlight distance reps with no space before unit: "1000m run", "500m run", "5km".
       // Coach writes both "1000 m run" and "1000m run" — both should bold the digits.

@@ -1,0 +1,23 @@
+# ---- secrets: never commit, in any repo, public or private ----
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+credentials*.json
+client_secret*.json
+*service-account*.json
+token*.json
+.clasprc.json
+
+# ---- local tooling / OS junk ----
+node_modules/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+
+# ---- local scratch: keep working files out of a PUBLIC repo ----
+scratch/
+tmp/
+*.local.*
