@@ -355,6 +355,59 @@ unchanged), timer-nav **15/0**. sw v142.
 
 ---
 
+## 2g. What shipped 2026-08-31 (sw v143) — the chain that never fired, and the beat it would have eaten
+
+Noam, off the live board: *"the timer in part 2 is built of two parts — it can be
+one continuous clock with a three-minute rest in the middle. Five times three
+minutes, three minutes rest, then five times three minutes again."*
+
+Her cell (`Endurance Day`, WOD column `2`): `every 3:00 x5 sets` · `3:00 rest` ·
+`every 3:00x5 sets`. The board showed **two `3:00 ×5` clocks and nothing on the
+written rest**.
+
+| # | Change | Why it mattered |
+|---|---|---|
+| 1 | **`stitchSplitSpecs`** — `buildWorkoutTimeline` rejoins a spec `lineSplitRe` cut in half (`every 3:00 x` \| `5 sets`) | the timeline held **zero** work phases, so the chain could never fire on any `every X:XX ×N` block the coach writes with `N sets` after it |
+| 2 | **A work phase carries the interval the coach wrote** (`intervalSeconds`), and the chain expands it into that many phases | the uniform chain would have flattened `every 3:00 ×5` into one 15′ slab — **ten written interval starts gone** |
+| 3 | **The tick's phase-transition test moved from phase TYPE to phase INDEX** | back-to-back WORK phases were **silent**; detection can be perfect and nine of ten starts still announce nothing |
+
+Result: one clock, `Every 3:00 ×5 · 3′ rest · ×5 (33′)` — 11 phases of 3:00, the
+rest sixth, rounds 1..10, 33:00 total. Full write-up in PARSER.md
+("An interval block inside a chain KEEPS its intervals").
+
+⭐ **Both defects were found by measurement, not by reading.** Defect 1: the
+identical lines fed in UNSPLIT chained immediately — so the matcher was never
+wrong and no amount of staring at the regex would have shown it. Defect 3: the
+real `timerTick` driven across all 33:00 with `TimerAudio` stubbed fires **10**
+boundary cues under the index test and **2** under the type test.
+
+⭐⭐ **This is §2c's blind spot for the third time.** Fixing only detection here
+would have *replaced* a wrong-shaped clock with a silent one, and all 39 goldens
+would have passed on it — the harness has no channel for "the clock made no
+sound". Defect 3 was reachable only by driving the tick.
+
+⚠️ **Answers Q3 for this cell, in the opposite direction to the last one.** On
+2026-08-10 a staged part was ruled *"two clocks, Noam's call"*; here he ruled
+*one continuous clock*. The difference is real and is the predicate already in
+the code: a **staged** part has an unclocked segment whose end the athletes
+decide, so a fixed offset would start the next block while people are still
+running. This cell has no staged segment — every phase is a written duration, so
+the schedule is knowable in advance. **The rule is not "chain" or "don't chain";
+it is whether every transition moment is written.**
+
+⏸ Left open on purpose, one grep away from here:
+- The cell now yields exactly **one** config — `!chained` (~3212) still suppresses
+  the per-block clocks. Long-standing and locked by `chained_amrap`; if she ever
+  needs block 2 alone, that is a decision about the gate, not about this fix.
+- **The tabata branch never plays `last_round`.** ~4457 sets `_lastRoundAnnounced`
+  and stops; the EMOM branch at ~4405 says it. Pre-existing, now visible because
+  a 10-round chain reaches it — round ten announces nothing. Not batched in.
+
+Tests: verify-board **39/0** (all 38 pre-existing goldens byte-for-byte
+unchanged), timer-nav **15/0**. sw v143.
+
+---
+
 ## 3. The detection pipeline, in execution order
 
 Nothing else in the repo shows the whole pipeline at once; every past incident

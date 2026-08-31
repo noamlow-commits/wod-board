@@ -298,6 +298,39 @@ The keyword push now sits **after** the custom block and fires only when nothing
 
 **Round count from `N sets OF <spec>` — same line only.** To get that ×3, a written count is read from `^\s*(\d+)\s*sets?\s+of\b` **on the line carrying the work/rest spec itself**. Deliberately narrow: a bare `N sets` on its **own** line above a station list stays ROTATION semantics (sets × stations — see the `EVERY`/`E2MOM` section and `feedback_rotation_interval_equals_station`), so `superset_group_cohesion` still resolves `warm up : 2 sets` + `30 sec work, 10 rest` + 3 stations to **×3 from the station count**, not ×2. Precedence: explicit `×N` / `N rounds` → same-line `N sets of` → exercise-line heuristic → 5.
 
+### ⭐⭐ An interval block inside a chain KEEPS its intervals (added 2026-08-31, fixture `interval_blocks_chain_keeps_intervals`)
+
+The coach's `Endurance Day` (WOD column `2`, 2026-08-31, verbatim):
+
+```
+every 3:00 x5 sets      ← 5 × 3:00 = 15:00
+300 run / 10 pull up/ring row / 12/10 cal
+                        ← blank line
+3:00 rest
+                        ← blank line
+every 3:00x5 sets       ← 5 × 3:00 = 15:00
+20 wall ball / 10 db snatch
+```
+
+One 33-minute piece. The board showed **two separate `3:00 ×5` clocks and no clock at all on the written `3:00 rest`**. Two independent defects, and fixing only the first would have shipped a *different* wrong clock.
+
+**Defect 1 — the chain never fired, because the spec was cut in half.** `lineSplitRe`'s concat repair (`"press4 clean"` → `"press"` | `"4 clean"`) also splits `every 3:00 x5 sets` into `every 3:00 x` | `5 sets`: the multiplier `x` is a letter and `5 sets` is digits-space-letters, exactly the shape the rule targets. `buildWorkoutTimeline` is the **one line-SCOPED consumer** of that spec, so its `every X:XX ×N` matcher never saw a `×N`, the timeline held **zero** work phases, and `chainFromTimeline` returned null. Every whole-cell TEXT scan is immune by construction — `mmssXmRe`'s `\s*` spans the break — which is precisely why the two per-block clocks looked fine and nothing flagged the miss. **The same family as `cardio_written_total_beats_xN`:** a written value lost because one path reads a line and its sibling reads the cell.
+
+- Fix: `stitchSplitSpecs` rejoins a line ending in a **dangling multiplier that already carries a time token** with the next line when that line **leads with the number it lost**. Nothing is invented — the two halves are re-joined verbatim.
+- ⭐ **Diagnosed counterfactually, not by reading:** the identical lines fed in UNSPLIT chained immediately. Run the un-split control before touching a matcher — the regex was never wrong.
+
+**Defect 2 — the chain that then fired was still wrong.** The uniform builder flattens each `every 3:00 ×5` into **one 15′ slab**, so ten written interval starts disappear. A block whose text says *every 3:00* would announce **nothing on any third minute** — strictly worse than the two clocks it replaced, which at least beeped. A chain must not silently drop the beat of what it chains.
+
+- A timeline WORK phase now carries `intervalSeconds` when the coach **wrote** an interval (`every X:XX ×N`, `EMOM N`, `E<d>MOM N`). AMRAP/TC phases have no internal beat and carry none, so `chained_amrap` is byte-for-byte unchanged.
+- When **every** work phase carries one, the chain emits the explicit `phases` schedule `tabataPhaseAt` already walks (added 2026-08-11 for `12′ → 2′ → 14′`): **11 × 3:00, rest sixth, 33:00, rounds 1..10.**
+- **All-or-nothing.** One work phase without a written interval and it falls back to the flat chain rather than have a beat guessed for it (no-invented-timer-values). Bails to flat above 40 phases too — a schedule nobody can follow on a TV is worse than two clocks.
+- Label spells the sequence in written order, printing only the multiplier when a block repeats the previous spec: **`Every 3:00 ×5 · 3′ rest · ×5 (33′)`**.
+- ⚠️ The cell now yields exactly **one** config: `!chained` still suppresses the per-block clocks (unchanged, long-standing — it is what `chained_amrap` locks). If the coach ever needs block 2 alone, that is a **separate** decision about the `!chained` gate, not a tweak here.
+
+**⭐⭐ The runtime half — a golden cannot see it (roadmap §2c again).** The tick's phase-transition sound keyed on the phase **TYPE**, so two adjacent WORK phases produced **no cue at all**: with detection perfect, nine of the ten starts would have been silent. The test is now the phase **INDEX**. For the legacy uniform cycle the two are the same test — work and rest always alternate, so `phaseIndex` changes iff `phase` does — and every existing clock sounds byte-for-byte as before. A work→work boundary is an **interval** change, so it gets `intervalBeep()` (what an EMOM clock already sounds), not `tabataWork()`: the same workout must not change sound because it gained a rest.
+
+Measured by driving the real `timerTick` across all 33:00 with `TimerAudio` stubbed — 10 boundary cues (4 × `intervalBeep`, `tabataRest`, `tabataWork`, 4 × `intervalBeep`), 9 `work` + 1 `rest`, rounds two…nine. Under the old type test the same walk fires **2**.
+
 ### Rotation blocks — `E2MOM` and `every X:XX` (rewritten 2026-07-13)
 **ONE INTERVAL = ONE STATION.** The block cycles through the `1#/2#/3#` stations for the written number of sets. This is the rule the parser kept getting wrong, in both of its rotation paths, and each time it put a wrong clock on the gym TV:
 - `e2momx / 3 sets (18 min total) / 1# 2# 3#` → **9** intervals of 2:00, not 3.

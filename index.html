@@ -2496,7 +2496,40 @@
     const lineSplitRe = () => new RegExp(
       `(?<=[a-z\\u0590-\\u05FF])(?=\\d+\\s+[a-zA-Z\\u0590-\\u05FF])|(?<=\\s)(?=[1-9]#|#[1-9])`);
 
-    function buildWorkoutTimeline(lines) {
+    // ── Stitch a spec that lineSplitRe cut in half (2026-08-31) ──────────────
+    // Rule 1 above (concat repair, "press4 clean" → "press" | "4 clean") also
+    // cuts an INTERVAL spec in two: the coach's "every 3:00 x5 sets" arrives
+    // here as "every 3:00 x" | "5 sets", because the multiplier "x" is a letter
+    // and "5 sets" is digits-space-letters — the exact shape the rule targets.
+    //
+    // Every whole-cell TEXT scan is blind to this by construction (mmssXmRe,
+    // writtenTotalMin: they see the cell joined, so `\s*` spans the break).
+    // buildWorkoutTimeline is the one line-SCOPED consumer, so the ×N never
+    // reached its own matcher: a cell of two "every 3:00 x5 sets" blocks around
+    // a written "3:00 rest" produced ZERO work phases, the chain returned null,
+    // and the board showed two separate 15′ clocks with the rest on nobody's.
+    // Measured counterfactually, not read: the identical lines UNSPLIT chain
+    // immediately. Same family as cardio_written_total_beats_xN — a written
+    // value that reaches no clock because one path looks at a line and the
+    // other at the cell.
+    //
+    // Deliberately narrow: a line ending in a DANGLING multiplier that already
+    // carries a time token, and only when the next line LEADS with the number
+    // it lost. Nothing is invented — the two halves are re-joined verbatim.
+    const stitchSplitSpecs = (src) => {
+      const out = [];
+      for (let i = 0; i < src.length; i++) {
+        const cur = String(src[i] ?? '').trim();
+        const next = String(src[i + 1] ?? '').trim();
+        const dangling = /[x×*]$/i.test(cur) && /(?:\d+:\d{2}|\d+\s*min(?:ute)?s?)/i.test(cur);
+        if (dangling && /^\d/.test(next)) { out.push(cur + next); i++; continue; }
+        out.push(src[i]);
+      }
+      return out;
+    };
+
+    function buildWorkoutTimeline(rawLines) {
+      const lines = stitchSplitSpecs(rawLines || []);
       // Helper: push only if seconds > 0, warn otherwise. Catches the class
       // of bugs where a regex matches but on a bogus substring (see invariant 3).
       const pushPhase = (arr, phase) => {
@@ -2517,15 +2550,20 @@
         // WORK: AMRAP  (N-minute AMRAP, or AMRAP N-minutes)
         let wm = line.match(/\b(?:([1-9]\d*)\s*(?:min(?:ute)?s?\s+)?AMRAP|AMRAP\s+([1-9]\d*))\b/i);
         if (wm) { const n = parseInt(wm[1]||wm[2]); if (pushPhase(classified, { type:'work', seconds:n*60, label:`AMRAP ${n}′` })) continue; }
+        // `intervalSeconds` on a WORK phase = the coach WROTE an interval inside
+        // this block ("every 3:00 ×5", "EMOM 10"). A chain expands it back into
+        // its own intervals instead of one flat slab — that boundary is the
+        // workout (see chainFromTimeline). Absent on AMRAP / TC phases, which
+        // have no internal beat, so nothing there changes.
         // WORK: E2MOM / E3MOM with total
         wm = line.match(/\bE(\d)MOM\s+(\d+)/i);
-        if (wm) { if (pushPhase(classified, { type:'work', seconds:parseInt(wm[2])*60, label:`E${wm[1]}MOM ${wm[2]}′` })) continue; }
+        if (wm) { if (pushPhase(classified, { type:'work', seconds:parseInt(wm[2])*60, intervalSeconds:parseInt(wm[1])*60, label:`E${wm[1]}MOM ${wm[2]}′` })) continue; }
         // WORK: EMOM N
         wm = line.match(/\bEMOM\s+(\d+)/i);
-        if (wm) { if (pushPhase(classified, { type:'work', seconds:parseInt(wm[1])*60, label:`EMOM ${wm[1]}′` })) continue; }
+        if (wm) { if (pushPhase(classified, { type:'work', seconds:parseInt(wm[1])*60, intervalSeconds:60, label:`EMOM ${wm[1]}′` })) continue; }
         // WORK: every X:XX ×N
         wm = line.match(everyRe('\\s+(\\d+):(\\d{2})\\s*[x×*]\\s*(\\d+)', 'i'));
-        if (wm) { const iv=parseInt(wm[1])*60+parseInt(wm[2]); if (pushPhase(classified, { type:'work', seconds:iv*parseInt(wm[3]), label:`Every ${wm[1]}:${wm[2]} ×${wm[3]}` })) continue; }
+        if (wm) { const iv=parseInt(wm[1])*60+parseInt(wm[2]); if (pushPhase(classified, { type:'work', seconds:iv*parseInt(wm[3]), intervalSeconds:iv, label:`Every ${wm[1]}:${wm[2]} ×${wm[3]}` })) continue; }
         // WORK: "N min work" / "N minute(s) work" — bare time block (no AMRAP/EMOM keyword)
         wm = line.match(/\b(\d+)\s*min(?:ute)?s?\s+work\b/i);
         if (wm) { const n=parseInt(wm[1]); if (pushPhase(classified, { type:'work', seconds:n*60, label:`${n}′ work` })) continue; }
@@ -2634,6 +2672,61 @@
       // would hide that phase 2 is an AMRAP, so the label spells the sequence.
       const names = tlWork.map(p => (p.label || '').trim());
       const uniform = names.every(n => n.split(' ')[0] === names[0].split(' ')[0]);
+
+      // ── An interval block keeps its intervals (2026-08-31) ─────────────────
+      // "every 3:00 x5 sets / 3:00 rest / every 3:00 x5 sets" is ONE 33′ piece,
+      // and the uniform chain above would render it as 15′ work / 3′ rest /
+      // 15′ work — two flat slabs. That is a WRONG clock, not a rougher one:
+      // the coach wrote "every 3:00", so the athletes start a set on every third
+      // minute, and a 15-minute block announces none of those ten starts. The
+      // two separate clocks it replaces at least beeped every 3:00.
+      //
+      // So when the work phases carry a written interval, the chain emits the
+      // explicit `phases` schedule tabataPhaseAt already walks (added 2026-08-11
+      // for 12′→2′→14′): 3:00 ×5 · 3:00 rest · 3:00 ×5 = 11 phases, 33:00, ten
+      // work rounds called 1..10 and the rest visible as its own phase. Nothing
+      // is invented — every phase length and the round count are the coach's own
+      // numbers, only regrouped. All-or-nothing: one work phase without a
+      // written interval and we fall through to the flat chain rather than
+      // guess a beat for it.
+      const expandable = tlWork.every(p => p.intervalSeconds > 0
+                                        && p.seconds % p.intervalSeconds === 0
+                                        && p.seconds / p.intervalSeconds >= 1);
+      if (expandable) {
+        const phases = [];
+        for (const p of timeline) {
+          if (p.type === 'rest') { phases.push({ type: 'rest', seconds: p.seconds }); continue; }
+          const n = p.seconds / p.intervalSeconds;
+          for (let k = 0; k < n; k++) phases.push({ type: 'work', seconds: p.intervalSeconds, label: p.label });
+        }
+        // The session ends on work — same intent as skipLastRest.
+        while (phases.length && phases[phases.length - 1].type === 'rest') phases.pop();
+        const schedSec = phases.reduce((s, p) => s + p.seconds, 0);
+        // A schedule nobody can follow on a TV is worse than two clocks; bail
+        // to the flat chain rather than paint 60 phase changes.
+        if (phases.length <= 40 && schedSec <= 90 * 60) {
+          // Label spells the sequence in written order. A block that repeats the
+          // previous block's spec verbatim prints only its multiplier, so the
+          // badge stays short: "Every 3:00 ×5 · 3′ rest · ×5 (33′)".
+          const segs = [];
+          let prevWork = '';
+          for (const p of timeline) {
+            if (p.type === 'rest') {
+              const rs = (p.seconds % 60 === 0) ? `${p.seconds / 60}′`
+                       : `${Math.floor(p.seconds / 60)}:${String(p.seconds % 60).padStart(2, '0')}`;
+              segs.push(`${rs} rest`);
+              continue;
+            }
+            const lbl = (p.label || '').trim();
+            const tail = lbl.match(/[x×]\s*\d+\s*$/i);
+            segs.push(lbl === prevWork && tail ? tail[0].replace(/\s+/g, '') : lbl);
+            prevWork = lbl;
+          }
+          return { type: 'tabata', phases, rounds: phases.filter(p => p.type === 'work').length,
+                   skipLastRest: true, label: `${segs.join(' · ')} (${Math.round(schedSec / 60)}′)` };
+        }
+      }
+
       const label = uniform
         ? `${names[0].split(' ')[0]} ×${tlWork.length} · ${workMins}′ work / ${restShort} rest`
         : `${names.join(' → ')} · ${restShort} rest`;
@@ -4060,6 +4153,7 @@
       _lastRoundAnnounced = false;
       _lastIntervalRound = 0;
       _lastTabataPhase = '';
+      _lastTabataPhaseIdx = 0;
       _emomTickedSec = 0;
       _tabataTickedSec = 0;
       _mixTickedSec = 0;
@@ -4133,6 +4227,7 @@
       _tenSecAnnounced  = false;
       _lastRoundAnnounced = false;
       _lastTabataPhase = '';
+      _lastTabataPhaseIdx = 0;
       _tabataTickedSec = 0;
       _tabataPhaseHalfwayDone = false;
       _tabataPhaseOneMinDone  = false;
@@ -4265,6 +4360,7 @@
     let _lastWarningBeeped = false;
     let _lastIntervalRound = 0;
     let _lastTabataPhase = '';
+    let _lastTabataPhaseIdx = 0;   // phases-schedule aware: two WORK phases can sit adjacent
     let _lastCountTickSec = 0;
     let _tabataTickedSec = 0;  // tracks 5-4-3-2-1 ticks within tabata phases
     let _emomTickedSec = 0;    // tracks 5-4-3-2-1 ticks before EMOM interval transitions
@@ -4339,10 +4435,23 @@
         const totalRounds = ph.totalRounds;
         timerRound = currentRound;
 
-        // Phase transition sounds
-        if (phase !== _lastTabataPhase && _lastTabataPhase) {
+        // Phase transition sounds.
+        // ⚠️ Keyed on the phase INDEX, not on the phase TYPE (2026-08-31). With
+        // a `phases` schedule two WORK phases can sit back to back — an interval
+        // block expanded into its own intervals ("every 3:00 ×5" = five work
+        // phases in a row) — and a type test is silent on every one of those
+        // boundaries: no beep, no round call, exactly the cue the block exists
+        // for. For the legacy uniform cycle the two tests are the same test:
+        // work and rest always alternate, so phaseIndex changes iff phase does,
+        // and every existing clock sounds byte-for-byte as before.
+        const phaseIdx = ph.phaseIndex;
+        if (phaseIdx !== _lastTabataPhaseIdx && _lastTabataPhaseIdx) {
           if (phase === 'work') {
-            TimerAudio.tabataWork();        // high beep
+            // Work→work is an INTERVAL change, not a phase change — give it the
+            // interval cue the coach already hears from an EMOM clock, so the
+            // same workout does not change sound because it gained a rest.
+            if (phase === _lastTabataPhase) TimerAudio.intervalBeep();
+            else TimerAudio.tabataWork();  // high beep
             TimerAudio.say('work');         // Harry: "WORK!"
             // Round announcement for rounds 2+
             if (currentRound === totalRounds && !_lastRoundAnnounced) {
@@ -4364,6 +4473,7 @@
           _tabataPhaseTenSecDone  = false;
         }
         _lastTabataPhase = phase;
+        _lastTabataPhaseIdx = phaseIdx;
 
         // 5-second warning ticks before each phase transition
         const phaseMs = ph.phaseTotal;

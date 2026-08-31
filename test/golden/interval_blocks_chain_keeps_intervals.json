@@ -1,0 +1,44 @@
+{
+  "data": {
+    "headers": [
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "Endurance Day",
+              "every 3:00 x",
+              "5 sets",
+              "300 run",
+              "10 pull up/ring row",
+              "12/10 cal",
+              "__SPACER__",
+              "3:00 rest",
+              "__SPACER__",
+              "every 3:00x",
+              "5 sets",
+              "20 wall ball",
+              "10 db snatch"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "2",
+      "timers": [
+        {
+          "label": "Every 3:00 ×5 · 3′ rest · ×5 (33′)",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}
