@@ -408,6 +408,65 @@ unchanged), timer-nav **15/0**. sw v143.
 
 ---
 
+## 2h. What shipped 2026-09-03 (sw v144, `7cee54f` + `bd270aa`) — the number the decimal point hid
+
+Noam, off the live board: *"בלוח 2 במצב ממורכז בקטגוריות ווד יש מספור; הספרה 1
+בשורה שאחרי ההוראות אינה ממורקרת בצהוב, כנראה בגלל שיש אחריה נקודה."*
+
+Her cell (WOD column `2`, 3.9): `EVERY 2:30X 4 sets` · `1.5 REPS- 70-75%` ·
+`2- 4 REPS- 77-80%` · `3- 3 REPS- 82-85%` · `4- MAX REPS 70 %`. One reported
+symptom; pulling the thread found **the same decimal point breaking three
+different layers.**
+
+| # | Change | Why it mattered |
+|---|---|---|
+| 1 | `SET_NUM_TIGHT_RE` — a set number written tight against its period | `1.5 REPS` (= set 1 · 5 reps) matched no leading-number rule at all and rendered white between three amber siblings. Amber, not the red `N.` of a station list: **the colour is chosen by the siblings the line sits with.** |
+| 2 | `DUR_NUM` through all 7 duration-badge sites | `2.5 min rest` painted a red **`5 min`** badge — the `\b` in `\b(\d+)` sits between the `.` and the `5`. A **wrong duration on the TV**, not a missing badge. Also `0.5 min` → `5 min`, `t.c 7.5` → `7`. |
+| 3 | `minsToSec`/`secsToSec` + `DUR_NUM` through ~19 detector lexers | Three failures, three severities: `AMRAP 2.5 min` measured **2′** (wrong value), `3 min run / 2.5 min rest ×5` lost its interval clock **entirely**, and `7.5 min tc` produced **no cap at all** — a block running uncapped with nothing on screen looking wrong. |
+
+⭐ **The interval one needed TWO blind spots to line up.** `parseDur` could not
+read `2.5 min`, *and* `restPairRe` — the guard that tells the
+leading-block-duration rule "this cell is the WORK half of an interval, stand
+down" — could not see a decimal rest either, so a ghost `3′ run` count-up won
+the slot `detectActivityInterval` should have had. **Fixing only the first
+would have left the clock missing.** The half-applied-rule failure mode again.
+
+⭐ **Labels moved to `fmtDur`** (from `${mins}′` and `Math.floor(cap/60)`).
+`fmtDur` is byte-identical for whole minutes — `fmtDur(720)` → `12′` — which is
+why **all 40 pre-existing goldens passed with 0 diff**: the change is invisible
+to every integer workout. It also fixed a latent truncation: a `t.c 1:30` cap
+had always printed `TC 1′`.
+
+⭐ **The guard is Noam's, and it is the whole safety argument:** *"רק תשים לב
+שמדובר בציון דקות ולא 2 נקודה וסעיף 5."* A decimal becomes a duration **only
+where a time unit or a format keyword is bound to it** — min · sec · AMRAP ·
+EMOM · t.c · work · rest · on · off · M:SS. That binding is what keeps her set
+numbering out of the clock. **Never widen one of these to accept a bare
+number.** Non-vacuously locked by `set_numbering_is_not_a_duration`: her whole
+wave, not one timing word, golden = an **empty timer list**.
+
+📌 **A correction worth keeping.** The session first reported `7.5 min tc` as
+producing a visible **`TC NaN′`** on the gym TV. False — and false because of
+the PROBE, not the board: an ad-hoc script passed the row's section label where
+`extractTimerConfigs` expects `partCapSeconds` (a number), so
+`Math.floor("מטקון"/60)` made the NaN. The real defect was quieter and worse to
+ship — a cap that silently vanished. **A throwaway probe has no argument
+checking; the harness does. Reproduce in a fixture before believing a
+symptom**, especially a dramatic one.
+
+New guards: `TIME_BADGE_CHECKS` (16 cases on the badged **text** — no golden
+and no `BADGE_CHECKS` can see it; reverting `DUR_NUM` fails 7 of 16), 6 new
+`BADGE_CHECKS`, a third `STATION_CATEGORY_GROUPS` group (with `badge: "rep"`,
+so a group declares which colour it expects), and 5 fixtures —
+`set_wave_bare_numbers`, `decimal_amrap`, `decimal_interval_rest`,
+`decimal_time_cap`, `set_numbering_is_not_a_duration`.
+
+Tests: verify-board **44/0** (all 40 pre-existing goldens byte-for-byte
+unchanged), timer-nav **15/0**. Verified against the LIVE board after deploy.
+sw v144.
+
+---
+
 ## 3. The detection pipeline, in execution order
 
 Nothing else in the repo shows the whole pipeline at once; every past incident
@@ -521,6 +580,25 @@ some, the coach. **These are all *detection* defects — for the runtime ones
   deleting it blind turns working clocks into no-clock. No fixture except the
   deliberate `invented_rounds_fallback` depends on it today, which is
   encouraging but is *fixture* evidence, not *real-sheet* evidence.
+- 🟡 **Two duration readers are still integer-only** (2026-09-03, the deliberate
+  remainder of the decimal fix). Both are *safe* misses, which is why they were
+  left — but they are misses:
+
+  | Reader | Written | Today | Should be |
+  |---|---|---|---|
+  | `writtenTotalMin()` (`(N min total)` override) | `(7.5 min total)` | reads **7** | 7:30 |
+  | `isInstruction` (`^\d+\s*(rounds?\|min\|sec\|sets?)`) | `1.5 min work` | not classified as a timed line at all | a timed line |
+
+  `writtenTotalMin()` returns **minutes** to six call sites that each multiply
+  by 60, so widening it means auditing all six for fractional seconds — and a
+  coach writing a decimal *total* has never been seen. `isInstruction` is
+  missed by the display **and** the detector, so the two agree; widening only
+  the display half would re-create the disagreement documented in PARSER.md
+  ("UNTIMED work may precede the block duration") where the board paints a time
+  nothing detected. **If either is fixed, fix the pair in one commit with its
+  own fixture** — a decimal that reaches a badge but no clock is worse than one
+  that reaches neither.
+
 - 🔴 **Three emit paths still ignore `writtenTotalMin()`** (found 2026-08-20 by
   grepping the helper right after fixing `mmssXmRe`; all three confirmed by
   measurement — the same cell with and without a written total produces
