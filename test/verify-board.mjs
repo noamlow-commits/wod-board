@@ -64,6 +64,30 @@ const FIXTURES = [
     expectTimers: ["2:30 ×4"],
     note: "bare-numbered deadlift wave, set 1 written tight ('1.5 REPS-'). Badge fix guarded by BADGE_CHECKS 'setnum' + the sibling-consistency group; here the guard is that the wave text spawns no extra clock.",
     rows: [["", "2"], ["כוח", "DEADLIFT:\nEVERY 2:30X 4 sets\n1.5 REPS- 70-75%\n2- 4 REPS- 77-80%\n3- 3 REPS- 82-85%\n4- MAX REPS 70 %"]] },
+  // ── Decimal durations (2026-09-03). The coach writes halves; every lexer
+  // read the number with a bare \d+, so the fraction was dropped or the line
+  // was missed outright. Each fixture below FAILED before the fix, differently.
+  { name: "decimal_amrap",
+    note: "'AMRAP 2.5 min' measured AMRAP 2′ — the half was silently truncated, so the class got 30 seconds less than the coach wrote. A wrong VALUE, the hardest kind to notice: the clock looks perfectly normal.",
+    expectTimers: ["AMRAP 2:30"],
+    forbidTimers: ["AMRAP 2′", "AMRAP 5′"],
+    rows: [["", "WOD"], ["מטקון", "AMRAP 2.5 min\n10 burpees\n10 wall balls"]] },
+  { name: "decimal_interval_rest",
+    note: "'3 min run / 2.5 min rest ×5' lost its interval clock ENTIRELY and fell back to a ghost '3′ run' count-up. Two separate blind spots had to line up: parseDur could not read '2.5 min', and restPairRe — the guard that tells the block-duration rule 'this cell is the WORK half of an interval, stand down' — could not see a decimal rest either, so the ghost won the slot. Locked with the integer sibling in activity_interval.",
+    expectTimers: ["3′/2:30 ×5"],
+    forbidTimers: ["3′ run", "3′/5′ ×5"],
+    rows: [["", "CARDIO"], ["ריצה", "5 sets\n3 min run\n2.5 min rest"]] },
+  { name: "decimal_time_cap",
+    note: "'7.5 min tc' produced NO CAP AT ALL — capSecondsFromLine's number-first pattern needed the digits to run straight into 'min', and the '.' broke it. The block ran as an UNCAPPED For Time: nothing on screen looked wrong, which is exactly the silent-miss shape PARSER.md's fact channel exists for.",
+    expectTimers: ["TC 7:30 · For Time"],
+    forbidTimers: ["For Time", "TC 7′ · For Time"],
+    rows: [["", "WOD"], ["מטקון", "FOR TIME:\n21-15-9\nthrusters\npull ups\n7.5 min tc"]] },
+  // ── …and the guard on the other side of the same coin (Noam 2026-09-03):
+  // "רק תשים לב שמדובר בציון דקות ולא 2 נקודה וסעיף 5".
+  { name: "set_numbering_is_not_a_duration",
+    note: "Noam's guard, the counterpart of SET_NUM_TIGHT_RE: '1.5 REPS' is SET 1 · 5 REPS — never a minute and a half. This cell writes a whole wave and NOT ONE timing word, so the only correct answer is an EMPTY timer list; the golden is what asserts it. A decimal may become a duration ONLY where a time unit or a format keyword is bound to it (min · sec · AMRAP · EMOM · t.c · work · rest · on · off · M:SS). If a future widening ever accepts a bare number, this fixture is the one that fails.",
+    expectTimers: [],
+    rows: [["", "2"], ["כוח", "DEADLIFT:\n1.5 REPS- 70-75%\n2- 4 REPS- 77-80%\n3- 3 REPS- 82-85%\n4- MAX REPS 70 %"]] },
   { name: "amrap_simple", note: "single AMRAP → one countdown timer",
     rows: [["", "אימון"], ["מטקון", "AMRAP 12\n10 Cal Row\n10 Burpees\n15 Wall Balls"]] },
   { name: "emom_fortime_columns", note: "two columns (WOD/CARDIO), each its own timer",

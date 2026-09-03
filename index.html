@@ -2493,6 +2493,26 @@
     // tail stays INSIDE the capture group so "12:00" is badged whole.
     const TC_NUM_RE          = new RegExp(`\\b(t\\.?\\s*c[\\-\\s:]*)\\s*(${DUR_NUM}(?::\\d{2})?)`, 'gi');
 
+    // ── Decimal durations: "2.5 min" is two and a half minutes ────────────
+    // The coach writes halves. Every duration lexer read its number with a
+    // bare \d+, so the fraction was dropped or the whole line missed:
+    // "AMRAP 2.5 min" measured 2′, "2.5 min rest" lost the interval clock
+    // entirely, and "7.5 min tc" produced NO cap — a class running uncapped
+    // with nothing on screen looking wrong. These two helpers land every
+    // duration on whole seconds, which is the only unit the clock counts.
+    //
+    // ⚠️ A decimal becomes a DURATION only where a time unit or a format
+    // keyword is BOUND to it — min · sec · AMRAP · EMOM · t.c · work · rest ·
+    // on · off · M:SS. That binding is the guard, and it is the reason the
+    // coach's SET NUMBERING survives: "1.5 REPS- 70-75%" is set 1 · 5 reps
+    // (SET_NUM_TIGHT_RE), and no lexer here can read it as a minute and a
+    // half, because "REPS" is not a time unit. NEVER widen one of these
+    // patterns to accept a bare number — that is what would turn her
+    // numbered sets into clocks.
+    const DUR_NUM_POS = '[1-9]\\d*(?:\\.\\d+)?';   // as DUR_NUM, no leading zero
+    const minsToSec = (n) => Math.round(parseFloat(n) * 60);
+    const secsToSec = (n) => Math.round(parseFloat(n));
+
     // PACE DESCRIPTORS — a duration sitting next to one of these is
     // deliberately clockless ("20 min easy row"): the word modifies HOW the work
     // is done, so the number reads as an intensity target rather than a clock
@@ -2583,25 +2603,25 @@
         if (!line || line === '__SPACER__') continue;
 
         // WORK: AMRAP  (N-minute AMRAP, or AMRAP N-minutes)
-        let wm = line.match(/\b(?:([1-9]\d*)\s*(?:min(?:ute)?s?\s+)?AMRAP|AMRAP\s+([1-9]\d*))\b/i);
-        if (wm) { const n = parseInt(wm[1]||wm[2]); if (pushPhase(classified, { type:'work', seconds:n*60, label:`AMRAP ${n}′` })) continue; }
+        let wm = line.match(new RegExp(`\\b(?:(${DUR_NUM_POS})\\s*(?:${MIN_WORD}\\s+)?AMRAP|AMRAP\\s+(${DUR_NUM_POS}))\\b`, 'i'));
+        if (wm) { const sec = minsToSec(wm[1]||wm[2]); if (pushPhase(classified, { type:'work', seconds:sec, label:`AMRAP ${fmtDur(sec)}` })) continue; }
         // `intervalSeconds` on a WORK phase = the coach WROTE an interval inside
         // this block ("every 3:00 ×5", "EMOM 10"). A chain expands it back into
         // its own intervals instead of one flat slab — that boundary is the
         // workout (see chainFromTimeline). Absent on AMRAP / TC phases, which
         // have no internal beat, so nothing there changes.
         // WORK: E2MOM / E3MOM with total
-        wm = line.match(/\bE(\d)MOM\s+(\d+)/i);
-        if (wm) { if (pushPhase(classified, { type:'work', seconds:parseInt(wm[2])*60, intervalSeconds:parseInt(wm[1])*60, label:`E${wm[1]}MOM ${wm[2]}′` })) continue; }
+        wm = line.match(new RegExp(`\\bE(\\d)MOM\\s+(${DUR_NUM})`, 'i'));
+        if (wm) { const sec = minsToSec(wm[2]); if (pushPhase(classified, { type:'work', seconds:sec, intervalSeconds:parseInt(wm[1])*60, label:`E${wm[1]}MOM ${fmtDur(sec)}` })) continue; }
         // WORK: EMOM N
-        wm = line.match(/\bEMOM\s+(\d+)/i);
-        if (wm) { if (pushPhase(classified, { type:'work', seconds:parseInt(wm[1])*60, intervalSeconds:60, label:`EMOM ${wm[1]}′` })) continue; }
+        wm = line.match(new RegExp(`\\bEMOM\\s+(${DUR_NUM})`, 'i'));
+        if (wm) { const sec = minsToSec(wm[1]); if (pushPhase(classified, { type:'work', seconds:sec, intervalSeconds:60, label:`EMOM ${fmtDur(sec)}` })) continue; }
         // WORK: every X:XX ×N
         wm = line.match(everyRe('\\s+(\\d+):(\\d{2})\\s*[x×*]\\s*(\\d+)', 'i'));
         if (wm) { const iv=parseInt(wm[1])*60+parseInt(wm[2]); if (pushPhase(classified, { type:'work', seconds:iv*parseInt(wm[3]), intervalSeconds:iv, label:`Every ${wm[1]}:${wm[2]} ×${wm[3]}` })) continue; }
         // WORK: "N min work" / "N minute(s) work" — bare time block (no AMRAP/EMOM keyword)
-        wm = line.match(/\b(\d+)\s*min(?:ute)?s?\s+work\b/i);
-        if (wm) { const n=parseInt(wm[1]); if (pushPhase(classified, { type:'work', seconds:n*60, label:`${n}′ work` })) continue; }
+        wm = line.match(new RegExp(`\\b(${DUR_NUM})\\s*${MIN_WORD}\\s+work\\b`, 'i'));
+        if (wm) { const sec=minsToSec(wm[1]); if (pushPhase(classified, { type:'work', seconds:sec, label:`${fmtDur(sec)} work` })) continue; }
         // WORK: "M:SS work" form
         wm = line.match(/(?<![:\d])(\d+):(\d{2})\s+work\b/i);
         if (wm) { if (pushPhase(classified, { type:'work', seconds:parseInt(wm[1])*60+parseInt(wm[2]), label:`${wm[1]}:${wm[2]} work` })) continue; }
@@ -2613,7 +2633,7 @@
         // work phase and the two parts could never chain (2026-08-08).
         // Label starts with "TC" so a uniform chain reads "TC ×2 · 16′ work…".
         const capSec = capSecondsFromLine(line);
-        if (capSec > 0) { if (pushPhase(classified, { type:'work', seconds:capSec, label:`TC ${Math.round(capSec/60)}′` })) continue; }
+        if (capSec > 0) { if (pushPhase(classified, { type:'work', seconds:capSec, label:`TC ${fmtDur(capSec)}` })) continue; }
 
         // ── REST patterns, most-specific first ──
         // (a) Time format, optional "min" between:  "2:00 rest" / "3:00 min rest" / "1:30 minutes rest"
@@ -2627,10 +2647,10 @@
           line.match(/(?<![:\d])(\d+):(\d{2})\s*(?:min(?:ute)?s?\s+)?rest\b/i) ||
           line.match(/\brest\s*(\d+):(\d{2})\b/i);
         if (rm) { if (pushPhase(classified, { type:'rest', seconds:parseInt(rm[1])*60+parseInt(rm[2]) })) continue; }
-        rm = line.match(/(?<![:\d])(\d+)\s*min(?:ute)?s?\s*rest\b/i);
-        if (rm) { if (pushPhase(classified, { type:'rest', seconds:parseInt(rm[1])*60 })) continue; }
-        rm = line.match(/\brest\s*(\d+)\s*min(?:ute)?s?\b/i);
-        if (rm) { if (pushPhase(classified, { type:'rest', seconds:parseInt(rm[1])*60 })) continue; }
+        rm = line.match(new RegExp(`(?<![:\\d.])(${DUR_NUM})\\s*${MIN_WORD}\\s*rest\\b`, 'i'));
+        if (rm) { if (pushPhase(classified, { type:'rest', seconds:minsToSec(rm[1]) })) continue; }
+        rm = line.match(new RegExp(`\\brest\\s*(${DUR_NUM})\\s*${MIN_WORD}\\b`, 'i'));
+        if (rm) { if (pushPhase(classified, { type:'rest', seconds:minsToSec(rm[1]) })) continue; }
 
         // TIME_STANDALONE: "2:00" alone on a line (potential implicit rest).
         // Anchored with ^…$ so it can't false-match inside a longer line.
@@ -2642,10 +2662,10 @@
         // MIN_STANDALONE: bare "16 min" on its own line — promoted to WORK in Pass 3
         // when the cell already has an explicit work block (catches the coach's
         // "16 min tc / ... / 2 min rest / 16 min / ..." continuation pattern).
-        const minOnly = line.match(/^(\d+)\s*min(?:ute)?s?\s*:?\s*$/i);
+        const minOnly = line.match(new RegExp(`^(${DUR_NUM})\\s*${MIN_WORD}\\s*:?\\s*$`, 'i'));
         if (minOnly) {
-          const n = parseInt(minOnly[1]);
-          if (n >= 1 && n <= 60) { classified.push({ type: 'min_standalone', seconds: n*60 }); continue; }
+          const n = parseFloat(minOnly[1]);
+          if (n >= 1 && n <= 60) { classified.push({ type: 'min_standalone', seconds: minsToSec(n) }); continue; }
         }
         // Everything else: exercise text — no timing impact
       }
@@ -2891,11 +2911,11 @@
     function capSecondsFromLine(rawLn) {
       const ln = (rawLn || '').trim();
       if (!ln || ln === '__SPACER__') return 0;
-      let mm = ln.match(/\bt\.?[ \t]*c[\-: \t]*(\d+(?::\d{2})?)\b/i);
-      if (!mm) mm = ln.match(/^(\d+(?::\d{2})?)[ \t]*(?:min(?:ute)?s?[ \t]+)?t\.?[ \t]*c\b/i);
+      let mm = ln.match(new RegExp(`\\bt\\.?[ \\t]*c[\\-: \\t]*(${DUR_NUM}(?::\\d{2})?)\\b`, 'i'));
+      if (!mm) mm = ln.match(new RegExp(`^(${DUR_NUM}(?::\\d{2})?)[ \\t]*(?:${MIN_WORD}[ \\t]+)?t\\.?[ \\t]*c\\b`, 'i'));
       if (!mm) return 0;
       const tv = mm[1];
-      return tv.includes(':') ? parseInt(tv.split(':')[0]) * 60 + parseInt(tv.split(':')[1]) : parseInt(tv) * 60;
+      return tv.includes(':') ? parseInt(tv.split(':')[0]) * 60 + parseInt(tv.split(':')[1]) : minsToSec(tv);
     }
 
     // Part-level time cap (2026-07-27; refined SAME DAY after a coach flag):
@@ -2957,7 +2977,7 @@
         // A duration RANGE ("40-60 sec Plank") yields no timer on purpose:
         // picking an end would be an invented value.
         let m, re;
-        re = new RegExp(`\\b(\\d+)\\s*[-–—]\\s*(\\d+)\\s*${FACT_UNIT}\\b`, 'gi');
+        re = new RegExp(`\\b(${DUR_NUM})\\s*[-–—]\\s*(${DUR_NUM})\\s*${FACT_UNIT}\\b`, 'gi');
         while ((m = re.exec(line)) !== null) {
           if (claim(m.index, m.index + m[0].length)) add('duration', 0, m[0], 'range');
         }
@@ -2968,7 +2988,7 @@
         // the very channel that exists to prove no duration was dropped. See the
         // const's own note: a blacklist inside its own measurement channel can
         // never be measured wrong.
-        re = new RegExp(`\\b(\\d+)\\s*${FACT_UNIT}\\s+${PACE_DESCRIPTOR}\\b`, 'gi');
+        re = new RegExp(`\\b(${DUR_NUM})\\s*${FACT_UNIT}\\s+${PACE_DESCRIPTOR}\\b`, 'gi');
         while ((m = re.exec(line)) !== null) {
           if (claim(m.index, m.index + m[0].length)) add('duration', 0, m[0], 'pace');
         }
@@ -2980,10 +3000,11 @@
 
         // ── A format keyword carrying its own length: "AMRAP 14", "14 min
         // AMRAP", "EMOM 10", "E2MOM 18". These ARE durations. ──
-        re = /\b(?:([1-9]\d*)\s*(?:min(?:ute)?s?\s+)?AMRAP|AMRAP\s+([1-9]\d*)|E\d?MOM\s+([1-9]\d*)|EMOM\s+([1-9]\d*))\b/gi;
+        re = new RegExp(`\\b(?:(${DUR_NUM_POS})\\s*(?:${MIN_WORD}\\s+)?AMRAP|AMRAP\\s+(${DUR_NUM_POS})`
+                      + `|E\\d?MOM\\s+(${DUR_NUM_POS})|EMOM\\s+(${DUR_NUM_POS}))\\b`, 'gi');
         while ((m = re.exec(line)) !== null) {
-          const n = parseInt(m[1] || m[2] || m[3] || m[4]);
-          if (n && claim(m.index, m.index + m[0].length)) add('duration', n * 60, m[0], null);
+          const n = parseFloat(m[1] || m[2] || m[3] || m[4]);
+          if (n && claim(m.index, m.index + m[0].length)) add('duration', minsToSec(n), m[0], null);
         }
 
         // ── M:SS ("2:00 rest", "every 4:00", "1:30"). ──
@@ -2993,11 +3014,10 @@
         }
 
         // ── "N min" / "N seconds", unit REQUIRED. ──
-        re = new RegExp(`\\b(\\d+)\\s*(${FACT_UNIT})\\b`, 'gi');
+        re = new RegExp(`\\b(${DUR_NUM})\\s*(${FACT_UNIT})\\b`, 'gi');
         while ((m = re.exec(line)) !== null) {
           if (!claim(m.index, m.index + m[0].length)) continue;
-          const n = parseInt(m[1]);
-          add('duration', /^min/i.test(m[2]) ? n * 60 : n, m[0], null);
+          add('duration', /^min/i.test(m[2]) ? minsToSec(m[1]) : secsToSec(m[1]), m[0], null);
         }
 
         // ── Counts. Recorded for context; NOT asserted, and deliberately kept
@@ -3249,7 +3269,8 @@
       for (const rawLn of lines) {
         const ln = (rawLn || '').trim();
         if (!ln || ln === '__SPACER__') continue;
-        const wr = ln.match(/(\d+)\s*(min(?:ute)?s?|sec(?:ond)?s?|m|s)\s*(?:of\s+)?work\b[\s,/\-]*(\d+)\s*(min(?:ute)?s?|sec(?:ond)?s?|m|s)\s*(?:of\s+)?rest\b/i);
+        const wr = ln.match(new RegExp(`(${DUR_NUM})\\s*(min(?:ute)?s?|sec(?:ond)?s?|m|s)\\s*(?:of\\s+)?work\\b`
+                                     + `[\\s,/\\-]*(${DUR_NUM})\\s*(min(?:ute)?s?|sec(?:ond)?s?|m|s)\\s*(?:of\\s+)?rest\\b`, 'i'));
         if (!wr) continue;
         const mult = ln.match(/[x×*]\s*(\d+)(?:\s*[\-–]\s*(\d+))?\s*(?:sets?|rounds?)?\b/i)
                   || ln.match(/\b(\d+)(?:\s*[\-–]\s*(\d+))?\s*(?:sets?|rounds?)\b/i);
@@ -3309,23 +3330,23 @@
       // (Without this the ×3 was silently dropped and the TV showed "AMRAP 10′".)
       let m;
       if (!chained) {
-        const amrapRe = /\b(?:([1-9]\d*)\s*(?:min(?:ute)?s?\s+)?AMRAP|AMRAP\s+([1-9]\d*))\s*(?:[x×*]\s*([1-9]\d*))?\s*:?/gi;
+        const amrapRe = new RegExp(`\\b(?:(${DUR_NUM_POS})\\s*(?:${MIN_WORD}\\s+)?AMRAP|AMRAP\\s+(${DUR_NUM_POS}))`
+                                 + `\\s*(?:[x×*]\\s*([1-9]\\d*))?\\s*:?`, 'gi');
         // WHICH LINE the match sits on, so a station's own clock can be told
         // apart from the block's (see blockClocksFirst). `text` is `lines`
         // joined with a newline, so counting them before the match index is
         // exact — no re-scan, and no second source of truth for the split.
         const lineOf = idx => text.slice(0, idx).split('\n').length - 1;
         while ((m = amrapRe.exec(text)) !== null) {
-          const mins = parseInt(m[1] || m[2]);
+          const iv = minsToSec(m[1] || m[2]);
           const rounds = m[3] ? parseInt(m[3]) : 1;
           const onStation = STATION_LINE_RE.test((lines[lineOf(m.index)] || '').trim());
           if (rounds >= 2 && rounds <= 60) {
-            const iv = mins * 60;
             results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
-                           label: `AMRAP ×${rounds} · ${mins}′ (${mins * rounds}′)`,
+                           label: `AMRAP ×${rounds} · ${fmtDur(iv)} (${fmtDur(iv * rounds)})`,
                            _stationScoped: onStation });
           } else {
-            results.push({ type: 'amrap', totalSeconds: mins * 60, label: `AMRAP ${mins}′`,
+            results.push({ type: 'amrap', totalSeconds: iv, label: `AMRAP ${fmtDur(iv)}`,
                            _stationScoped: onStation });
           }
         }
@@ -3382,7 +3403,8 @@
         // (Each optional tail owns its leading spaces — a shared `[^\S\r\n]*`
         // right after MOM would swallow the space and then silently skip the
         // total-minutes group, since an optional group never forces a backtrack.)
-        const eXmomRe = /\bE(\d{1,2})MOM(?:[^\S\r\n]*[x×*][^\S\r\n]*(\d+)?)?(?:[^\S\r\n]+(\d+)[^\S\r\n]*(?:min(?:ute)?s?|′)?(?=[^\S\r\n]*(?:[\r\n]|$)))?/gi;
+        const eXmomRe = new RegExp(`\\bE(\\d{1,2})MOM(?:[^\\S\\r\\n]*[x×*][^\\S\\r\\n]*(\\d+)?)?`
+                                 + `(?:[^\\S\\r\\n]+(${DUR_NUM})[^\\S\\r\\n]*(?:${MIN_WORD}|′)?(?=[^\\S\\r\\n]*(?:[\\r\\n]|$)))?`, 'gi');
         while ((m = eXmomRe.exec(text)) !== null) {
           consume(m);
           const ivMin = parseInt(m[1]);
@@ -3447,7 +3469,7 @@
         // Modeled as an EMOM-style timer so the round transition is announced
         // mid-workout (essential when exercises change between rounds).
         // Sanity bounds rule out reps×weight ("10x5") and silly schedules.
-        const minXmRe = /\b(\d+)\s*min(?:ute)?s?\s*[x×*]\s*(\d+)\b/gi;
+        const minXmRe = new RegExp(`\\b(${DUR_NUM})\\s*${MIN_WORD}\\s*[x×*]\\s*(\\d+)\\b`, 'gi');
         while ((m = minXmRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
@@ -3590,12 +3612,12 @@
       // With on/off, "400 m on the rower" would false-positive.
       if (!results.some(r => r.type === 'tabata')) {
         const ONOFF_UNIT = '(min(?:ute)?s?|sec(?:ond)?s?)?';
-        const unitSecs = (n, u) => parseInt(n) * (/^min/i.test(u || '') ? 60 : 1);
+        const unitSecs = (n, u) => /^min/i.test(u || '') ? minsToSec(n) : secsToSec(n);
         // Pattern A: "N <unit> work ... M <unit> rest" — unit optional on each side
         //   matches "30 sec work, 10 sec rest", "30 work 10 sec rest", "4 min on 1 min off"
         let workSec = null, restSec = null;
         const wr = text.match(new RegExp(
-          `(\\d+)\\s*${ONOFF_UNIT}\\s*(?:of\\s+)?(?:work|on)\\b\\s*[,/\\-]?\\s*(\\d+)\\s*${ONOFF_UNIT}\\s*(?:of\\s+)?(?:rest|off)\\b`, 'i'));
+          `(${DUR_NUM})\\s*${ONOFF_UNIT}\\s*(?:of\\s+)?(?:work|on)\\b\\s*[,/\\-]?\\s*(${DUR_NUM})\\s*${ONOFF_UNIT}\\s*(?:of\\s+)?(?:rest|off)\\b`, 'i'));
         if (wr) {
           workSec = unitSecs(wr[1], wr[2]);
           restSec = unitSecs(wr[3], wr[4]);
@@ -3717,9 +3739,9 @@
         // truncated to "12 RFT (T…" — hiding the one number that says how long
         // the block runs, and leaving a rep COUNT looking like the clock. The
         // duration is what the coach needs at a glance, so it leads.
-        results.push({ type: 'fortime', capSeconds: effCapSeconds, label: effCapSeconds ? `TC ${Math.floor(effCapSeconds/60)}′ · ${roundsLbl}` : roundsLbl });
+        results.push({ type: 'fortime', capSeconds: effCapSeconds, label: effCapSeconds ? `TC ${fmtDur(effCapSeconds)} · ${roundsLbl}` : roundsLbl });
       } else if (capSeconds > 0 && results.length === 0) {
-        results.push({ type: 'fortime', capSeconds: capSeconds, label: `TC ${Math.floor(capSeconds/60)}′` });
+        results.push({ type: 'fortime', capSeconds: capSeconds, label: `TC ${fmtDur(capSeconds)}` });
       }
 
       // Bare "N min work" / "M:SS work" — last-resort fallback for self-paced time
@@ -3728,11 +3750,11 @@
       // detected, so it can't double up with tabata custom intervals (which need
       // a companion "rest"/"off") or chained timelines.
       if (!chained && results.length === 0) {
-        const minWorkRe = /\b(\d+)\s*min(?:ute)?s?\s+work\b/gi;
+        const minWorkRe = new RegExp(`\\b(${DUR_NUM})\\s*${MIN_WORD}\\s+work\\b`, 'gi');
         while ((m = minWorkRe.exec(text)) !== null) {
-          const mins = parseInt(m[1]);
+          const mins = parseFloat(m[1]);
           if (mins >= 1 && mins <= 90) {
-            results.push({ type: 'amrap', totalSeconds: mins * 60, label: `${mins}′ work` });
+            results.push({ type: 'amrap', totalSeconds: minsToSec(mins), label: `${fmtDur(minsToSec(mins))} work` });
           }
         }
         const mmssWorkRe = /(?<![:\d])(\d+):(\d{2})\s+work\b/gi;
@@ -3800,7 +3822,7 @@
         // another detector owns the block and a count-up here would be a ghost.
         if (!chained) {
           const hasTiming = l => /\d{1,2}:\d{2}/.test(l)
-            || new RegExp(`\\d+\\s*${UNIT_STRICT}\\b`, 'i').test(l);
+            || new RegExp(`${DUR_NUM}\\s*${UNIT_STRICT}\\b`, 'i').test(l);
           // A LABEL-ONLY line is skipped so the scan can reach the real duration
           // line beneath it ("warm up tabata" / "warmup:" → "6 min leg
           // mobility"). ⚠️ `!hasTiming` added 2026-08-13: the two shapes were
@@ -3839,12 +3861,12 @@
           // Everything below (the interval-spec guard, the rest-pair guard, the
           // cap and pace exclusions) is SHARED by both shapes on purpose: a
           // second shape must not arrive with a second, weaker set of guards.
-          const lead  = firstLn ? firstLn.match(new RegExp(`^(\\d+)\\s*${MIN_WORD}\\s+(.+)$`, 'i')) : null;
+          const lead  = firstLn ? firstLn.match(new RegExp(`^(${DUR_NUM})\\s*${MIN_WORD}\\s+(.+)$`, 'i')) : null;
           const trail = (!lead && firstLn)
-            ? firstLn.match(new RegExp(`^(.*[^\\s\\d])\\s+[x×*]\\s*(\\d+)\\s*${MIN_WORD}\\s*[.:]?$`, 'i'))
+            ? firstLn.match(new RegExp(`^(.*[^\\s\\d])\\s+[x×*]\\s*(${DUR_NUM})\\s*${MIN_WORD}\\s*[.:]?$`, 'i'))
             : null;
           if (lead || trail) {
-            const mins = parseInt(lead ? lead[1] : trail[2]);
+            const mins = parseFloat(lead ? lead[1] : trail[2]);
             const act = (lead ? lead[2] : trail[1]).trim();
             // Anti-double-count, replacing the old blanket `results.length === 0`.
             // A block duration names the block and is followed by PROSE ("leg
@@ -3858,8 +3880,8 @@
             const actIsIntervalSpec =
               /\b(on|off|work|rest|amrap|e\d*mom|emom|tabata|tbata|for\s*time|rft|rounds?|sets?)\b/i.test(act)
               || /[x×*]\s*\d/i.test(act)
-              || /\d+\s*(?:min(?:ute)?s?|sec(?:ond)?s?)\b/i.test(act);
-            const alreadyHaveThisLong = results.some(r => r.totalSeconds === mins * 60);
+              || new RegExp(`${DUR_NUM}\\s*${UNIT_STRICT}\\b`, 'i').test(act);
+            const alreadyHaveThisLong = results.some(r => r.totalSeconds === minsToSec(mins));
             // Second anti-double-count, forced by the widening above (caught by
             // the harness on its first run, fixture `activity_interval`): with
             // untimed lines no longer consuming the slot, the coach's
@@ -3874,8 +3896,8 @@
             // line, so "6 min leg mobility" above such a spec keeps its clock
             // (leading_duration_behind_labels).
             const restPairRe = new RegExp(
-              `^(?:\\d+\\s*${UNIT_STRICT}|\\d{1,2}:\\d{2})\\s*(?:of\\s+)?rest\\b`
-              + `|^rest\\s*[:\\-]?\\s*(?:\\d+\\s*${UNIT_STRICT}|\\d{1,2}:\\d{2})`, 'i');
+              `^(?:${DUR_NUM}\\s*${UNIT_STRICT}|\\d{1,2}:\\d{2})\\s*(?:of\\s+)?rest\\b`
+              + `|^rest\\s*[:\\-]?\\s*(?:${DUR_NUM}\\s*${UNIT_STRICT}|\\d{1,2}:\\d{2})`, 'i');
             const isWorkHalfOfInterval = lines.some(l => restPairRe.test((l || '').trim()));
             if (mins >= 1 && mins <= 90
                 && !actIsIntervalSpec && !alreadyHaveThisLong && !isWorkHalfOfInterval
@@ -3883,7 +3905,7 @@
                 && !new RegExp(`\\b(?:rest|${PACE_DESCRIPTOR})\\b`, 'i').test(act)) {
               // Trailing punctuation the coach left on a header line ("WARM UP :")
               // is hers to write, not ours to print on a 1080p TV button.
-              results.push({ type: 'amrap', totalSeconds: mins * 60,
+              results.push({ type: 'amrap', totalSeconds: minsToSec(mins),
                              label: `${mins}′ ${act.replace(/[\s:.\-–—]+$/, '')}` });
             }
           }
@@ -3924,8 +3946,8 @@
       str = (str || '').trim();
       let m = str.match(/^(\d+):(\d{2})$/);
       if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
-      m = str.match(/^(\d+)\s*(min(?:ute)?s?|m|sec(?:ond)?s?|s)$/i);
-      if (m) return /^s/i.test(m[2]) ? parseInt(m[1]) : parseInt(m[1]) * 60;
+      m = str.match(new RegExp(`^(${DUR_NUM})\\s*(min(?:ute)?s?|m|sec(?:ond)?s?|s)$`, 'i'));
+      if (m) return /^s/i.test(m[2]) ? secsToSec(m[1]) : minsToSec(m[1]);
       return null;
     }
 
@@ -3961,7 +3983,7 @@
           if (d) { restSec = d; continue; }
         }
         // Work line: "<dur> <activity>" — explicit time unit (or M:SS) required.
-        let wm = l.match(/^(\d+:\d{2}|\d+\s*(?:min(?:ute)?s?|m|sec(?:ond)?s?|s))\s+(.+)$/i);
+        let wm = l.match(new RegExp(`^(\\d+:\\d{2}|${DUR_NUM}\\s*${UNIT_LOOSE})\\s+(.+)$`, 'i'));
         if (wm && !workSec && !/^rest\b/i.test(wm[2].trim())) {
           const d = parseDur(wm[1]);
           if (d) workSec = d;

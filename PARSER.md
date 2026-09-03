@@ -209,22 +209,67 @@ the list too: `3000 m run`, `1.5 pood kb swing` and `1.5 REPS- 70-75%` must
 badge **nothing** (metres are not minutes, a load is not a duration, and the
 set-number fix above stays amber).
 
-⚠️ **The DETECTOR still reads decimals wrong — deliberately left alone.** The
-display layer is now right; the clock is not:
+The detector was fixed the same day — see the next section.
 
-| cell | clock detected | should be |
+### The clock reads decimals too (added 2026-09-03)
+
+The display half above only paints the badge. The DETECTOR had the same bare
+`\d+` in every duration lexer, and it failed three different ways:
+
+| cell | clock was | now |
 |---|---|---|
-| `AMRAP 2.5 min` | `AMRAP 2′` | `AMRAP 2:30` |
-| `5 sets / 3 min run / 2.5 min rest` | `3′ run` (interval lost) | `3′/2:30 ×5` |
-| `FOR TIME … 7.5 min tc` | **`TC NaN′`** | `TC 7:30` |
+| `AMRAP 2.5 min` | `AMRAP 2′` — half silently truncated | `AMRAP 2:30` |
+| `5 sets / 3 min run / 2.5 min rest` | `3′ run` — the interval clock lost entirely | `3′/2:30 ×5` |
+| `FOR TIME … 7.5 min tc` | no cap at all — an UNCAPPED block | `TC 7:30 · For Time` |
 
-`isInstruction`'s `^\d+\s*(rounds?|min|sec…|sets?)` has the same bare `\d+`,
-so `1.5 min work` is not even classified as a timed line. Not folded into this
-fix for two reasons: it changes **clock values** on a live gym TV, which
-TIMER_ROADMAP.md §1 reserves for the coach, and widening only the display half
-would re-create the display/detector disagreement documented at "UNTIMED work
-may precede the block duration" — the board painting a time nothing detected.
-`TC NaN′` is the one that should go first; it is a visible `NaN` on the TV.
+Three shapes, three severities: a wrong value, a lost clock, and a silent
+un-capping where nothing on screen looks wrong.
+
+The middle one needed **two** blind spots to line up. `parseDur` could not read
+`2.5 min`, *and* `restPairRe` — the guard that tells the leading-block-duration
+rule "this cell is the WORK half of an interval, stand down" — could not see a
+decimal rest either. So the ghost `3′ run` count-up won the slot that
+`detectActivityInterval` should have had. Fixing only the first would have left
+the clock missing; this is the "half-applied rule" failure mode again.
+
+Fix: `minsToSec`/`secsToSec` (which also force every duration onto whole
+seconds, the only unit the clock counts), `DUR_NUM`/`DUR_NUM_POS` in ~19
+lexers, and labels through `fmtDur` instead of `${mins}′` /
+`Math.floor(cap/60)`. `fmtDur` is byte-identical for whole minutes
+(`fmtDur(720)` → `12′`), which is why all 40 pre-existing goldens passed with
+**0 diff** — the change is invisible to every integer workout.
+
+⭐ **The guard, and it is Noam's, not a tidiness rule:** *"רק תשים לב שמדובר
+בציון דקות ולא 2 נקודה וסעיף 5"*. A decimal may become a duration **only where
+a time unit or a format keyword is bound to it** — min · sec · AMRAP · EMOM ·
+t.c · work · rest · on · off · M:SS. That binding is what keeps her SET
+NUMBERING out of the clock: `1.5 REPS- 70-75%` is set 1 · 5 reps, and no lexer
+can read it as a minute and a half because "REPS" is not a time unit. **Never
+widen one of these patterns to accept a bare number.** The fixture
+`set_numbering_is_not_a_duration` is the non-vacuous guard: a whole wave, not
+one timing word, golden = an EMPTY timer list.
+
+Guarded by `decimal_amrap`, `decimal_interval_rest`, `decimal_time_cap` (each
+with `expectTimers` **and** `forbidTimers` naming the exact wrong clock it used
+to produce) and `set_numbering_is_not_a_duration`.
+
+⚠️ **Still integer-only, deliberately:** `writtenTotalMin()` — the explicit
+`(40 min total)` override. It returns MINUTES to six call sites that each
+multiply by 60, so widening it means auditing all six for fractional seconds,
+and a coach writing a decimal *total* has never been seen. `isInstruction`'s
+`^\d+\s*(rounds?|min|sec…|sets?)` is also still integer-only, so `1.5 min work`
+is not classified as a timed line — display and detector agree on missing it,
+which is the safe direction (see "UNTIMED work may precede the block duration"
+for what the unsafe direction costs).
+
+📌 **A correction worth keeping.** This section first reported the third row as
+`TC NaN′` — a visible `NaN` on the gym TV. That was wrong, and it was wrong
+because of the PROBE, not the board: the ad-hoc script passed the row's section
+label where `extractTimerConfigs` expects `partCapSeconds` (a number), so
+`Math.floor("מטקון"/60)` produced the NaN. The real defect was quieter and
+worse to ship — a cap that silently vanished. **A throwaway probe has no
+argument checking; the harness does. Reproduce in a fixture before believing a
+symptom**, especially a dramatic one.
 
 ### Section Colors
 - WOD sections: orange gradient `#ea580c → #f97316`

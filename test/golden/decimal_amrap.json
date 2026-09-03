@@ -1,0 +1,34 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "מטקון",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "AMRAP 2.5 min",
+              "10 burpees",
+              "10 wall balls"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "מטקון",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "AMRAP 2:30",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}

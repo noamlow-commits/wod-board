@@ -1,0 +1,36 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "מטקון",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "FOR TIME:",
+              "21-15-9",
+              "thrusters",
+              "pull ups",
+              "7.5 min tc"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "מטקון",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "TC 7:30 · For Time",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}
