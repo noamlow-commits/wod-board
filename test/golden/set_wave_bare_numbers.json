@@ -1,0 +1,37 @@
+{
+  "data": {
+    "headers": [
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "כוח",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "DEADLIFT:",
+              "EVERY 2:30X 4 sets",
+              "1.5 REPS- 70-75%",
+              "2- 4 REPS- 77-80%",
+              "3- 3 REPS- 82-85%",
+              "4- MAX REPS 70 %"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "כוח",
+      "header": "2",
+      "timers": [
+        {
+          "label": "2:30 ×4",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

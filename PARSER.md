@@ -112,6 +112,120 @@ stays `#`-marker-only. Adding numbered lines there would re-rank column breaks
 across every numbered warm-up list in the repo, which is a layout change, not a
 colour one.
 
+### A set number written TIGHT against its period (added 2026-09-03)
+
+The coach's deadlift wave, column `2` of her 3.9.2026 board:
+
+```
+DEADLIFT:
+EVERY 2:30X 4 sets
+1.5 REPS- 70-75%     ← set 1 · 5 reps
+2- 4 REPS- 77-80%
+3- 3 REPS- 82-85%
+4- MAX REPS 70 %
+```
+
+She numbered sets 2-4 with `-` and set 1 with `.`, and left **no space** after
+it. `2-`/`3-`/`4-` are picked up by the generic leading-rep rule
+(`^(\d+[\-x×]?\d*)\s`) and render **amber**; `1.5` matched *nothing* — the
+numbered-list rule needs `.`/`)` **+ whitespace**, the rep rule needs
+whitespace right after the digits — so the whole line rendered plain white
+between three amber siblings. Reported by Noam: *"הספרה 1 בשורה שאחרי ההוראות
+אינה ממורקרת בצהוב, כנראה בגלל שיש אחריה נקודה"*. Same **within-category**
+inconsistency as the 2026-08-04 station-number bug above, and the only kind of
+badge inconsistency that is ever a bug.
+
+Fix: `SET_NUM_TIGHT_RE` (beside the other station-marker consts) —
+`/^\s*(\d+)\.(?=\s*(?:\d+\s*)?reps?\b|\s*max\b)/i` — badges the `1.` and
+emits the space the coach omitted, so the line reads `**1.** 5 REPS- 70-75%`,
+exactly parallel to `**2-** 4 REPS- 77-80%`.
+
+**Amber, not the red `N.` of a numbered station list.** The colour is chosen by
+the siblings the line actually sits with, not by the separator it happens to
+use — that is what "within-category consistency" means here. Sibling groups
+that carry a different badge colour are declared with `badge: "rep"` in
+`STATION_CATEGORY_GROUPS`.
+
+**How the decimal is told apart.** `1.5` is genuinely ambiguous, so the rule
+looks at what FOLLOWS the fraction, not at the number: **nobody performs "1.5
+reps"**, so a rep/max prescription proves the `1.` is an item number, while a
+real decimal is always followed by a **unit** — `1.5 pood`, `1.5 km`,
+`0.5 mile` — which never matches and stays plain. (`1.5/1 pood` returns even
+earlier, as a 💊 weight prescription.) Widening this rule means widening the
+*unit* side of that test; adding a bare `^\d+\.(?=\d)` would mis-badge every
+decimal on the board.
+
+`SET_NUM_TIGHT_RE` is also OR-ed into `isNumberedStation`, per the guard rule
+the 2026-08-04 section states: **the predicate that protects a line from the
+sub-header / instruction rules must be the same pattern that earns its badge.**
+A new badge-earning shape left out of that guard re-creates the exact bug the
+guard exists for.
+
+Guarded by 6 `BADGE_CHECKS` (3 `setnum` + 3 decimal negatives, plus the
+existing `12 Pike Leg Lifts` → `none`, which now also proves the rule does not
+over-match a plain rep count), a third `STATION_CATEGORY_GROUPS` sibling group,
+and the `set_wave_bare_numbers` fixture (the wave must stay ONE clock: `2:30 ×4`).
+
+### A duration badge covers the WHOLE number (added 2026-09-03)
+
+`2.5 min rest` painted a red **`5 min`** badge. Not a missing badge — a
+**wrong duration on the gym TV**, which is worse, because it looks like it
+worked. Every badge site matched the number with `\b(\d+)`, and in `2.5` the
+`\b` sits between the `.` and the `5`, so the badge landed on the *fraction*.
+Seven sites, seven copies of the same fragment, all wrong the same way:
+
+| line | painted | should be |
+|---|---|---|
+| `2.5 min rest` | `5 min` | `2.5 min` |
+| `30.5 sec rest` | `5 sec` | `30.5 sec` |
+| `work: 1.5 min` | `5 min` | `1.5 min` |
+| `hold: 0.5 min` | `5 min` | `0.5 min` |
+| `part 2: 8.5 min total` | `5 min` | `8.5 min` |
+| `t.c 7.5` | `7` | `7.5` |
+| `AMRAP 2.5 min` | `5 min` | `2.5 min` |
+
+Fix: the duration number is now **one shared fragment**, `DUR_NUM` =
+`\d+(?:\.\d+)?` (body only — each site adds its own capture group), and the
+seven regexes are built from it: `MIN_BADGE_TIGHT_RE`, `MIN_BADGE_RE`,
+`SEC_BADGE_TIGHT_RE`, `SEC_BADGE_RE`, `TC_NUM_RE`. This is the
+3-parallel-places rule applied before the drift instead of after it.
+
+**Only the NUMBER was unified.** Each site keeps the unit alias it has always
+used — bare `min`/`sec` in the work/hold path, the fuller
+`min(?:ute)?s?`/`sec(?:ond)?s?` elsewhere. That asymmetry is real and
+untouched: widening an alias is a second change with its own blast radius, and
+nothing in the suite would have caught it (see below).
+
+In `TC_NUM_RE` the `:mm` tail stays **inside** the capture group
+(`(${DUR_NUM}(?::\d{2})?)`), or `tc 12:00` badges `12` and leaves `:00`
+stranded outside the pill.
+
+Guarded by the **`TIME_BADGE_CHECKS` pass** in `verify-board.mjs` — 16 cases
+asserting the badged **text**. This needed a new pass because neither existing
+guard can see it: a golden holds the parse tree, and `BADGE_CHECKS` asks which
+*class* a line got, never what the badge *says*. Verified by reverting
+`DUR_NUM` to `\d+` — 7 of the 16 fail, one per affected site. Negatives are in
+the list too: `3000 m run`, `1.5 pood kb swing` and `1.5 REPS- 70-75%` must
+badge **nothing** (metres are not minutes, a load is not a duration, and the
+set-number fix above stays amber).
+
+⚠️ **The DETECTOR still reads decimals wrong — deliberately left alone.** The
+display layer is now right; the clock is not:
+
+| cell | clock detected | should be |
+|---|---|---|
+| `AMRAP 2.5 min` | `AMRAP 2′` | `AMRAP 2:30` |
+| `5 sets / 3 min run / 2.5 min rest` | `3′ run` (interval lost) | `3′/2:30 ×5` |
+| `FOR TIME … 7.5 min tc` | **`TC NaN′`** | `TC 7:30` |
+
+`isInstruction`'s `^\d+\s*(rounds?|min|sec…|sets?)` has the same bare `\d+`,
+so `1.5 min work` is not even classified as a timed line. Not folded into this
+fix for two reasons: it changes **clock values** on a live gym TV, which
+TIMER_ROADMAP.md §1 reserves for the coach, and widening only the display half
+would re-create the display/detector disagreement documented at "UNTIMED work
+may precede the block duration" — the board painting a time nothing detected.
+`TC NaN′` is the one that should go first; it is a visible `NaN` on the TV.
+
 ### Section Colors
 - WOD sections: orange gradient `#ea580c → #f97316`
 - CARDIO sections: purple gradient (default theme)

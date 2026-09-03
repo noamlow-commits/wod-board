@@ -2448,6 +2448,19 @@
     // A line that OPENS with a station marker ("1# 12 cal+", "#2 amrap 2").
     // Built from the shared bodies above, per the 3-place-pattern rule.
     const STATION_LINE_RE    = new RegExp(`^\\s*${STATION_BODY}`);
+    // A SET NUMBER written TIGHT against its period — the coach's deadlift wave
+    // (2026-09-03): "1.5 REPS- 70-75%" / "2- 4 REPS- 77-80%" / "3- 3 REPS- …".
+    // Set 1 is the only line where she used "." instead of the "-" her other
+    // lines use, and she left no space, so "1.5" reads as a decimal: every
+    // leading-number rule needs a space (or separator+space), so this line got
+    // NO highlight at all while its three siblings were amber (Noam 2026-09-03:
+    // "הספרה 1 … אינה ממורקרת בצהוב, כנראה בגלל שיש אחריה נקודה"). Exactly the
+    // within-category inconsistency PARSER.md calls the only badge bug there is.
+    // Disambiguated by what FOLLOWS the fraction: nobody performs "1.5 reps", so
+    // a rep/max prescription proves the "1." is an item number — while a real
+    // decimal is always followed by a UNIT ("1.5 pood", "1.5 km", "0.5 mile"),
+    // which never matches here and stays plain.
+    const SET_NUM_TIGHT_RE   = /^\s*(\d+)\.(?=\s*(?:\d+\s*)?reps?\b|\s*max\b)/i;
 
     // Time units. TWO deliberately different sets — do not merge them:
     //   STRICT = spelled-out words only. Required wherever a bare "m" would be
@@ -2457,6 +2470,28 @@
     const UNIT_STRICT = '(?:min(?:ute)?s?|sec(?:ond)?s?)';
     const UNIT_LOOSE  = '(?:min(?:ute)?s?|m|sec(?:ond)?s?|s)';
     const MIN_WORD    = 'min(?:ute)?s?';    // matches min · mins · minute · minutes
+
+    // A duration NUMBER as the coach writes it — "12", "2.5", "0.5". The
+    // fraction is PART OF THE NUMBER, and leaving it out was a WRONG duration
+    // painted on the TV, not a missing badge: in "2.5 min rest" a bare
+    // \b(\d+) matched the FRACTION (the \b sits between "." and "5"), so the
+    // board showed a red "5 min" badge over a two-and-a-half-minute rest.
+    // Body only — each site adds its own capture group. Single-sourced because
+    // this fragment is repeated at every badge site below, which is exactly the
+    // drift PARSER.md's 3-parallel-places rule exists for.
+    const DUR_NUM = '\\d+(?:\\.\\d+)?';
+
+    // The duration badge patterns. Each keeps the unit alias ITS OWN site has
+    // always used — bare "min"/"sec" in the work/hold path, the fuller
+    // "min(?:ute)?s?"/"sec(?:ond)?s?" elsewhere. Only the NUMBER is unified
+    // here; widening an alias would be a second, untested change.
+    const MIN_BADGE_TIGHT_RE = new RegExp(`\\b(${DUR_NUM})\\s*min\\b`, 'gi');
+    const MIN_BADGE_RE       = new RegExp(`\\b(${DUR_NUM})\\s*${MIN_WORD}\\b`, 'gi');
+    const SEC_BADGE_TIGHT_RE = new RegExp(`\\b(${DUR_NUM})\\s*sec\\b`, 'gi');
+    const SEC_BADGE_RE       = new RegExp(`\\b(${DUR_NUM})\\s*sec(?:ond)?s?\\b`, 'gi');
+    // Time cap: "t.c 37", "tc 12:00", "t.c- 5", "t. c 42", "t.c 7.5". The `:mm`
+    // tail stays INSIDE the capture group so "12:00" is badged whole.
+    const TC_NUM_RE          = new RegExp(`\\b(t\\.?\\s*c[\\-\\s:]*)\\s*(${DUR_NUM}(?::\\d{2})?)`, 'gi');
 
     // PACE DESCRIPTORS — a duration sitting next to one of these is
     // deliberately clockless ("20 min easy row"): the word modifies HOW the work
@@ -5761,8 +5796,8 @@
         let restHtml = escapeHtml(rest);
         restHtml = restHtml.replace(/^(\d+[\-x×]?\d*)\s/, '<span class="rep-number">$1</span> ');
         restHtml = restHtml.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
-        restHtml = restHtml.replace(/\b(\d+)\s*min\b/gi, '<span class="time-badge">$1 min</span>');
-        restHtml = restHtml.replace(/\b(\d+)\s*sec\b/gi, '<span class="time-badge">$1 sec</span>');
+        restHtml = restHtml.replace(MIN_BADGE_TIGHT_RE, '<span class="time-badge">$1 min</span>');
+        restHtml = restHtml.replace(SEC_BADGE_TIGHT_RE, '<span class="time-badge">$1 sec</span>');
         return {
           type: 'exercise',
           extraClass: kind === 'work' ? 'work-line' : 'hold-line',
@@ -5836,7 +5871,7 @@
       // column layout starts each part at the top of its own column.
       if (PART_HEADER_RE.test(text)) {
         let partHtml = escapeHtml(text);
-        partHtml = partHtml.replace(/\b(\d+)\s*min(?:ute)?s?\b/gi, '<span class="time-badge">$1 min</span>');
+        partHtml = partHtml.replace(MIN_BADGE_RE, '<span class="time-badge">$1 min</span>');
         partHtml = partHtml.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
         return { type: 'sub-header', isPartHeader: true, html: partHtml };
       }
@@ -5852,7 +5887,10 @@
       // "A1. 4 Sets Of:" bug (commit d656ec4).
       // Requires digits + "."/")" + whitespace, so genuine instruction lines
       // like "3 sets", "2 rounds", "18 min amrap" are untouched.
-      const isNumberedStation = /^\s*\d+\s*[\.\)]\s+/.test(text);
+      // SET_NUM_TIGHT_RE joins it per the "the guard must be the same pattern
+      // that earns the badge" rule (PARSER.md 2026-08-04) — a new badge-earning
+      // shape left out of this guard re-creates the very bug that rule exists for.
+      const isNumberedStation = /^\s*\d+\s*[\.\)]\s+/.test(text) || SET_NUM_TIGHT_RE.test(text);
 
       // Detect sub-headers (lines ending with : or all-caps). EXCEPT lines that
       // start with a letter+digit label ("A1. 4 Sets Of:") or a station number
@@ -5936,8 +5974,8 @@
         // Keep time-badge highlighting inside instruction lines
         html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM[x×]?|TABATA|TBATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
         html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
-        html = html.replace(/\b(\d+)\s*min\b/gi, '<span class="time-badge">$1 min</span>');
-        html = html.replace(/\b(\d+)\s*sec(?:ond)?s?\b/gi, '<span class="time-badge">$1 sec</span>');
+        html = html.replace(MIN_BADGE_TIGHT_RE, '<span class="time-badge">$1 min</span>');
+        html = html.replace(SEC_BADGE_RE, '<span class="time-badge">$1 sec</span>');
         return { type: 'sub-header', html };
       }
 
@@ -5974,6 +6012,12 @@
       // Period/paren + whitespace differentiates from leading reps ("5 burpees") which use rep-number.
       html = html.replace(/^(\d+)\s*[\.\)]\s+/, '<span class="time-badge">$1.</span> ');
 
+      // Same list, written tight: "1.5 REPS- 70-75%" → set number "1." + "5 REPS".
+      // Amber rep-number (not the red badge above) so it matches the "2-"/"3-"/"4-"
+      // siblings it sits with in the coach's cell — sibling consistency is the
+      // whole point of the rule; see SET_NUM_TIGHT_RE for the decimal guard.
+      html = html.replace(SET_NUM_TIGHT_RE, '<span class="rep-number">$1.</span> ');
+
       // Leading parenthetical rep complex: "(4)", "(2+3+4)", "(2+3+4+5+7)",
       // "(Start +1+2)", "(Start-7)" — the coach's clean-progression notation.
       // Without this the digits inside the parens stayed plain white while a
@@ -6007,9 +6051,9 @@
       // Highlight time patterns
       html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
       if (!isDescriptiveList) html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM[x×]?|TABATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
-      html = html.replace(/\b(\d+)\s*sec(?:ond)?s?\b/gi, '<span class="time-badge">$1 sec</span>');
-      // Highlight time cap numbers: "t.c 37", "tc 12:00", "t.c- 5", "t. c 42"
-      html = html.replace(/\b(t\.?\s*c[\-\s:]*)\s*(\d+(?::\d{2})?)/gi, '$1<span class="time-badge">$2</span>');
+      html = html.replace(SEC_BADGE_RE, '<span class="time-badge">$1 sec</span>');
+      // Highlight time cap numbers — see TC_NUM_RE for the forms it covers.
+      html = html.replace(TC_NUM_RE, '$1<span class="time-badge">$2</span>');
 
       return { type: 'exercise', html };
     }

@@ -55,6 +55,15 @@ const FIXTURES = [
     note: "capped For Time + CASHOUT. Noam 2026-08-27: the TC covers the WHOLE piece — ladder first, then the cashout — so this must stay exactly ONE clock. The CASHOUT badge is a stage divider inside that one capped block, never a second timer. (See BADGE_CHECKS for the badge itself.)",
     expectTimers: ["TC 13′ · For Time"],
     rows: [["", "part 3"], ["מטקון", "FOR TIME:\n30 -20 -10\ns2oh\nbox jump\nrx : 40 /30\nRX+ 50/35\n13 min tc\ncashout -\n40 hanging leg raises\n20 biceps curl"]] },
+  // ⚠️ The coach's board, 3.9.2026, column "2" (her WOD categories are numbered
+  // 1/2/3 — "לוח 2"). A deadlift wave numbered with BARE numbers: set 1 written
+  // "1.5 REPS" (period, NO space) and sets 2-4 with "-". The tight period made
+  // "1.5" read as a decimal, so the line got NO leading highlight while its three
+  // siblings were amber. The wave must also stay ONE clock (the EVERY 2:30 ×4).
+  { name: "set_wave_bare_numbers",
+    expectTimers: ["2:30 ×4"],
+    note: "bare-numbered deadlift wave, set 1 written tight ('1.5 REPS-'). Badge fix guarded by BADGE_CHECKS 'setnum' + the sibling-consistency group; here the guard is that the wave text spawns no extra clock.",
+    rows: [["", "2"], ["כוח", "DEADLIFT:\nEVERY 2:30X 4 sets\n1.5 REPS- 70-75%\n2- 4 REPS- 77-80%\n3- 3 REPS- 82-85%\n4- MAX REPS 70 %"]] },
   { name: "amrap_simple", note: "single AMRAP → one countdown timer",
     rows: [["", "אימון"], ["מטקון", "AMRAP 12\n10 Cal Row\n10 Burpees\n15 Wall Balls"]] },
   { name: "emom_fortime_columns", note: "two columns (WOD/CARDIO), each its own timer",
@@ -299,10 +308,44 @@ const BADGE_CHECKS = [
   { line: "#2", expect: "station" },                              // hash-first station marker
   { line: "1#", expect: "station" },                              // number-first still works
   { line: "2+3#", expect: "station" },                            // merged station still works
-  { line: "12 Pike Leg Lifts", expect: "none" },                  // a leading rep count is NOT a station (no #)
+  { line: "12 Pike Leg Lifts", expect: "none" },                  // a leading rep count is NOT a station (no #), and not a set number either (no separator)
+  { line: "1.5 REPS- 70-75%", expect: "setnum" },                 // set 1 written tight — the 2026-09-03 fix
+  { line: "2- 4 REPS- 77-80%", expect: "setnum" },                // its sibling, unchanged
+  { line: "4- MAX REPS 70 %", expect: "setnum" },                 // "max reps" form of the same wave
+  { line: "1.5 pood kb swing", expect: "none" },                  // decimal + UNIT stays a decimal
+  { line: "1.5 km run", expect: "none" },                         // …and so does a distance
+  { line: "0.5 mile run", expect: "none" },
   { line: "rx+ 4000 m run", expect: "rx" },                       // inline RX+ scaling marker → blue rx-badge (coach's 2026-07-27 sheet)
   { line: "800 m run rx", expect: "rx" },                         // bare "rx" as a standalone word, any position
   { line: "prx machine work", expect: "none" },                   // "rx" inside a word must NOT badge (\brx\b guard)
+];
+
+// ─────────────────────────────────────────────────────────────────────────
+// Duration badges must cover the WHOLE number, fraction included.
+// Regression fixed 2026-09-03: "2.5 min rest" painted a red "5 min" badge —
+// `\b(\d+)\s*min` matched the FRACTION, because the \b sits between "." and
+// "5". A WRONG duration on the gym TV, not a missing badge. All seven badge
+// sites now build their number from the shared `DUR_NUM`; these checks assert
+// the badged TEXT, which no golden and no BADGE_CHECK can see (both look at
+// which CLASS a line got, never at what the badge says).
+// ─────────────────────────────────────────────────────────────────────────
+const TIME_BADGE_CHECKS = [
+  { line: "2.5 min rest", expect: ["2.5 min"] },        // the fixed case
+  { line: "2 min rest", expect: ["2 min"] },            // integer control
+  { line: "30.5 sec rest", expect: ["30.5 sec"] },      // …same for seconds
+  { line: "45 sec rest", expect: ["45 sec"] },
+  { line: "work: 1.5 min", expect: ["1.5 min"] },       // work/hold path
+  { line: "hold: 0.5 min", expect: ["0.5 min"] },       // leading "0." too
+  { line: "part 2: 8.5 min total", expect: ["8.5 min"] },  // part-header path
+  { line: "part 3: 8 min total", expect: ["8 min"] },
+  { line: "t.c 7.5", expect: ["7.5"] },                 // decimal time cap
+  { line: "t.c 37", expect: ["37"] },
+  { line: "t.c 12:00", expect: ["12:00"] },             // the :mm tail stays whole
+  { line: "AMRAP 2.5 min", expect: ["AMRAP", "2.5 min"] },
+  { line: "18 min amrap", expect: ["18 min", "amrap"] },
+  { line: "3000 m run", expect: [] },                   // METRES are never minutes
+  { line: "1.5 pood kb swing", expect: [] },            // a load is not a duration
+  { line: "1.5 REPS- 70-75%", expect: [] },             // the set-number fix stays amber
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -322,6 +365,13 @@ const STATION_CATEGORY_GROUPS = [
     lines: ["1. 600 m row+", "2. amrap :", "3. 600 run+", "4. 20 v-ups"] },
   { name: "numbered station + trailing colon / format keyword",
     lines: ["1. 400 meter run", "2. for time:", "3) tabata", "4. 30 cal row"] },
+  // Bare-numbered SET wave (coach 2026-09-03). Same within-category rule, other
+  // badge colour: these siblings are amber rep-numbers, not the red "N." of a
+  // station list, because "2-"/"3-"/"4-" have always rendered amber and the
+  // odd-one-out "1.5 REPS-" had to join THEM. `badge: "rep"` says which.
+  { name: "bare-numbered set wave 1./2-/3-/4- (coach 2026-09-03)",
+    badge: "rep",
+    lines: ["1.5 REPS- 70-75%", "2- 4 REPS- 77-80%", "3- 3 REPS- 82-85%", "4- MAX REPS 70 %"] },
 ];
 
 const stable = (o) => JSON.stringify(o, null, 2);
@@ -338,6 +388,7 @@ await context.route("**/*", (r) => (r.request().url().startsWith("file:") ? r.co
 
 // ── Badge assertion pass (correctness guard) ──
 const badgeFails = [];
+const timeBadgeFails = [];
 const stationCatFails = [];
 {
   const page = await context.newPage();
@@ -352,10 +403,27 @@ const stationCatFails = [];
       if (/rep-number">[^<]*#/.test(html)) return { line: c.line, expect: c.expect, actual: "station" };
       // The inline Rx/Rx+ scaling marker gets its own blue rx-badge span.
       if (/rx-badge/.test(html)) return { line: c.line, expect: c.expect, actual: "rx" };
+      // A leading item NUMBER that carries its separator ("1.", "2-") — the set /
+      // station numbering of a numbered list, amber like a rep count. The
+      // separator is what distinguishes it from a plain leading rep count
+      // ("12 Pike Leg Lifts", also rep-number, no separator).
+      if (/^<span class="rep-number">\d+[.\-]<\/span>/.test(html)) return { line: c.line, expect: c.expect, actual: "setnum" };
       const m = html.match(/(group-badge|subgroup-badge)/);
       return { line: c.line, expect: c.expect, actual: m ? m[1] : "none" };
     }), BADGE_CHECKS);
   for (const g of got) if (g.actual !== g.expect) badgeFails.push(g);
+
+  // ── Duration-badge text (the badge must cover the whole number) ──
+  const timeBadgeGot = await page.evaluate((checks) =>
+    checks.map((c) => ({
+      line: c.line,
+      expect: c.expect,
+      actual: [...((window.parseLine(c.line) || {}).html || "")
+        .matchAll(/<span class="time-badge">([^<]*)<\/span>/g)].map((m) => m[1]),
+    })), TIME_BADGE_CHECKS);
+  for (const g of timeBadgeGot)
+    if (JSON.stringify(g.actual) !== JSON.stringify(g.expect))
+      timeBadgeFails.push(`"${g.line}" → badged ${JSON.stringify(g.actual)}, expected ${JSON.stringify(g.expect)}`);
 
   // ── Station-number category consistency (within-category guard) ──
   const catGot = await page.evaluate((groups) =>
@@ -366,8 +434,11 @@ const stationCatFails = [];
         return {
           line,
           type: p.type,
-          // the leading red "N." badge every sibling must carry
-          numBadge: /^<span class="time-badge">\d+\.<\/span>/.test(p.html || ""),
+          // the leading number badge every sibling must carry — red "N." for a
+          // station list, amber "N."/"N-" for a bare-numbered set wave
+          numBadge: (g.badge === "rep"
+            ? /^<span class="rep-number">\d+[.\-]<\/span>/
+            : /^<span class="time-badge">\d+\.<\/span>/).test(p.html || ""),
         };
       }),
     })), STATION_CATEGORY_GROUPS);
@@ -378,7 +449,7 @@ const stationCatFails = [];
         g.rows.map((r) => `"${r.line}"=${r.type}`).join(", "));
     const noBadge = g.rows.filter((r) => !r.numBadge).map((r) => `"${r.line}"`);
     if (noBadge.length)
-      stationCatFails.push(`${g.name}: missing the leading red "N." badge → ${noBadge.join(", ")}`);
+      stationCatFails.push(`${g.name}: missing the leading ${g.badge === "rep" ? "amber" : "red"} "N." badge → ${noBadge.join(", ")}`);
   }
   await page.close();
 }
@@ -627,9 +698,16 @@ if (badgeFails.length === 0) {
     console.log(`❌ "${f.line}"  expected ${f.expect}, got ${f.actual}`);
 }
 
+console.log("\nDuration-badge text");
+if (timeBadgeFails.length === 0) {
+  console.log(`✅ all ${TIME_BADGE_CHECKS.length} duration badges cover the whole number`);
+} else {
+  for (const f of timeBadgeFails) console.log(`❌ ${f}`);
+}
+
 console.log("\nStation-number category consistency");
 if (stationCatFails.length === 0) {
-  console.log(`✅ all ${STATION_CATEGORY_GROUPS.length} sibling groups render in one category with the red "N." badge`);
+  console.log(`✅ all ${STATION_CATEGORY_GROUPS.length} sibling groups render in one category with their leading "N." badge`);
 } else {
   for (const f of stationCatFails) console.log(`❌ ${f}`);
 }
@@ -667,4 +745,4 @@ if (INVENTED.length === 0) {
 }
 
 if (diff) console.log("\nReview each DIFF: if the change was intended, re-run with --update to accept it.");
-process.exit(diff > 0 || badgeFails.length > 0 || stationCatFails.length > 0 || layoutFails.length > 0 || darkPaths.length > 0 || results.some((r) => r.status === "ERROR") ? 1 : 0);
+process.exit(diff > 0 || badgeFails.length > 0 || timeBadgeFails.length > 0 || stationCatFails.length > 0 || layoutFails.length > 0 || darkPaths.length > 0 || results.some((r) => r.status === "ERROR") ? 1 : 0);
