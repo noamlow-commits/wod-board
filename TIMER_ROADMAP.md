@@ -528,6 +528,28 @@ rest 2:00 min
 
 ---
 
+## 2k. Also 2026-09-09 (sw v148) — the phantom reset, and a suite that obeyed production
+
+Noam asked whether the countdown flake had actually been solved. It had not — it had been *characterised* ("a harness flake, not the board") on evidence that only showed it **pre-dated** that day's changes. That is a weaker claim than the one made, and the gap hid a real defect.
+
+**What it actually was.** `resetTimer()` is the only writer of `timerState = 'idle'` in the file, so a countdown that comes back idle was reset by somebody. The somebody:
+
+1. `test/timer-nav.mjs` stubbed nothing, and `index.html` carries the **production** Apps Script URL as a baked-in default — so every run of the suite was polling the live backend.
+2. `handleGetTimerState_` synthesises `{command:'reset', type:'', config:{}, ts:'0'}` whenever the `TimerState` tab is empty. It is. **Measured, not inferred** — the live endpoint returns exactly that today.
+3. `processTimerCommand` runs `resetTimer()` for `cmd === 'reset'`, and the dedup could not stop it: `lastTimerCommandTs` starts `''`, and `'0' !== ''`.
+4. JSONP response time is network-dependent, so the reset landed at a random moment. Inside the countdown block's 1200 ms window ⇒ `'idle'`. ~1 run in 3.
+
+That also explains why it never reproduced in isolation (the response arrives long before that block) and why instrumenting it made it vanish — a 25 ms polling loop moved the timing. A Heisenbug on top of a real bug.
+
+**Two fixes, and the second is the one that matters on the wall:**
+
+- **The harness cuts the network** (`page.route` → abort everything but `file:`). A suite that reads live production state is not a suite: a coach starting a clock at the gym mid-run would have *configured and started* one inside the test, which does not even look like a flake.
+- **The board ignores `ts: '0'`.** It is the backend's sentinel for "no command has ever been issued" — a real command always carries a real timestamp (`handleTimerCommand_`: `data.ts || Date.now()`). Until now every page load applied a phantom `resetTimer()` a second or two in. Harmless while a load only happened when a person pressed F5 on an idle board — **and no longer harmless now that the board reloads itself** (§ CLAUDE.md, Auto-update): reload → coach starts a clock within ~2 s → the phantom lands and kills it. The auto-update feature is what turned a dormant defect into a reachable one.
+
+⭐ **The lesson worth keeping is about the earlier claim, not the bug.** "Pre-existing" was proven; "not the board" was assumed and wrong. A flake that survives every reasonable hypothesis is evidence of a cause nobody has looked at yet — not evidence that the product is fine.
+
+---
+
 ## 3. The detection pipeline, in execution order
 
 Nothing else in the repo shows the whole pipeline at once; every past incident

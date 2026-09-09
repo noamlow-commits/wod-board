@@ -8172,6 +8172,19 @@
         delete window[cb];
         script.remove();
         if (!data || !data.ts) return;
+        // `ts: '0'` is the BACKEND's sentinel for "no command has ever been
+        // issued" — handleGetTimerState_ synthesises {command:'reset', ts:'0'}
+        // when the TimerState tab is empty, and a real command always carries a
+        // real timestamp (handleTimerCommand_: `data.ts || Date.now()`). It is
+        // not a reset she asked for. Until 2026-09-09 it was applied anyway:
+        // lastTimerCommandTs starts '' and '0' !== '', so EVERY page load ran a
+        // phantom resetTimer() a second or two in.
+        //
+        // Harmless while a load only ever happened when someone pressed F5 on
+        // an idle board — and no longer harmless now that the board reloads
+        // ITSELF: reload → coach starts a clock within ~2s → the phantom lands
+        // and kills it. Found via the test flake it was also causing.
+        if (data.ts === '0') return;
         // Only process new commands
         if (data.ts === lastTimerCommandTs) return;
         lastTimerCommandTs = data.ts;
@@ -8249,6 +8262,14 @@
     let _pendingBuild = null;   // a newer build seen, waiting for a quiet moment
     let _lastInteractionAt = 0;
     let _autoUpdateStarted = false;
+    // The two polling intervals, kept so they can be STOPPED. The runtime
+    // harness needs that: with them live, the 30s "is it invisible yet?" tick
+    // can fire between two of a test's own steps and reload the board while it
+    // is still being set up — which is how the auto-update tests themselves
+    // started flaking within hours of being written. Same lesson as the
+    // production-backend poll they were written alongside: a test that shares
+    // a timer with the thing it measures is measuring the timer.
+    let _autoUpdateTimers = [];
     // The view a fresh load SETTLES INTO — captured at the end of the first
     // startApp(), because that is precisely what a reload would reproduce.
     // ⚠️ Hardcoding the declared defaults instead would be a guess about a
@@ -8335,8 +8356,10 @@
       ['keydown', 'pointerdown'].forEach(ev =>
         document.addEventListener(ev, () => { _lastInteractionAt = Date.now(); }, true));
       checkForNewBuild();                              // learn the baseline
-      setInterval(checkForNewBuild, BUILD_POLL_MS);
-      setInterval(applyPendingBuild, BUILD_WAIT_MS);   // "is it invisible yet?"
+      _autoUpdateTimers = [
+        setInterval(checkForNewBuild, BUILD_POLL_MS),
+        setInterval(applyPendingBuild, BUILD_WAIT_MS), // "is it invisible yet?"
+      ];
     }
 
     async function startApp() {

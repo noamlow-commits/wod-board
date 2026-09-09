@@ -80,11 +80,16 @@ that never fires is indistinguishable from a gate that works, and this one would
 simply mean the TV silently never updates. `_doReload` is an indirection so the
 positive case cannot navigate the harness page away.
 
-⚠️ **Known flake in this file:** `startTimer enters countdown321` fails with
-`idle` about one run in three, and it **pre-dates** all of the above (the
-committed HEAD flakes identically). Ruled out by measurement: the nav teardown
-timeout, and the remote timer poll. Re-run once before believing a red line
-*there*; a red line anywhere else is real. Full note at the block itself.
+⚠️ **This file cuts the network, and that is load-bearing.** `index.html`
+carries the production Apps Script URL as a baked-in default, and the board
+polls it for remote timer commands and **obeys** them. Unstubbed, the suite was
+reading live gym state: the backend synthesises `{command:'reset', ts:'0'}` for
+an empty `TimerState` tab, the board ran `resetTimer()` for it, and whichever
+assertion happened to be mid-flight lost — `startTimer enters countdown321`
+failed about one run in three. Every request but `file:` is now aborted. Do not
+remove that route to "test it more realistically": a coach starting a clock at
+the gym mid-run would configure and start one in here, and that does not even
+look like a flake. See TIMER_ROADMAP §2k.
 
 ## Visual screenshots — use LIVE data, not offline fixtures
 

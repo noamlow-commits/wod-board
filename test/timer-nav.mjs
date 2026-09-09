@@ -85,6 +85,26 @@ page.on('pageerror', e => {
   fail++; console.log('❌ pageerror: ' + e.message);
 });
 
+// ⚠️⚠️ CUT THE NETWORK — this is what the "countdown321 → idle" flake was.
+// The board polls its Apps Script backend for remote timer commands and OBEYS
+// them, and nothing here stubbed the URL, so every run of this suite was
+// talking to PRODUCTION. `handleGetTimerState_` synthesises
+// {command:'reset', ts:'0'} whenever the TimerState tab is empty — which it is
+// — and `processTimerCommand` duly called resetTimer() at whatever moment the
+// JSONP response happened to land. Land it inside the countdown block's 1200ms
+// window and `startTimer enters countdown321` reads 'idle'. Network jitter
+// decided, which is why it was ~1 run in 3 and why it never reproduced in
+// isolation (there the response arrives long before that block).
+//
+// Verified, not reasoned: the live row really does return
+// {"command":"reset","type":"","config":{},"ts":"0"} today.
+//
+// A suite that reads live production state is not a suite — a coach starting a
+// clock at the gym mid-run would have configured and STARTED one in here, which
+// does not even look like a flake. Everything but the local files is cut; every
+// test in this file is about LOCAL timer state.
+await page.route('**/*', r => (r.request().url().startsWith('file:') ? r.continue() : r.abort()));
+
 await page.goto(INDEX);
 await page.waitForFunction('typeof navigatePart === "function"');
 
@@ -152,19 +172,11 @@ console.log('\nSame rule on the other stage-changing controls');
     JSON.stringify(after));
 }
 
-// ⚠️ KNOWN FLAKE, pre-existing and still unexplained (2026-09-09).
-// 'startTimer enters countdown321' fails with 'idle' roughly one run in three.
-// What has been RULED OUT, each by measurement, not reasoning:
-//   · the board itself — the committed HEAD flakes identically, with none of
-//     that day's changes present;
-//   · navigatePart's 350ms teardown timeout — a 700ms drain before this block
-//     changed nothing over five runs;
-//   · the 2-second remote timer poll — this exact sequence, run in isolation
-//     with the poll live for 35s first, passed 6/6 and 3/3.
-// So it needs state left by the EARLIER blocks, and the next step is to trace
-// resetTimer inside a failing run rather than guess again. Until then: a red
-// line HERE is not evidence of a regression — re-run once. A red line anywhere
-// ELSE still is.
+// ✅ The flake that used to live here is SOLVED, and it was not this block:
+// the suite was polling the PRODUCTION backend and obeying a synthesised
+// {command:'reset', ts:'0'}, which landed at a random moment. See the
+// page.route note at the top, and TIMER_ROADMAP §2k. If this line ever goes
+// red again, it is real — do not re-run and shrug.
 console.log('\nCountdown landmine (pre-existing; the nav rule made it reachable)');
 {
   await page.evaluate(`(() => { resetTimer(); hideFloatingTimerBar(); ${SEED_PARTS}
@@ -195,6 +207,14 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
 {
   // Reset to the state a fresh load produces, then take that as the baseline —
   // the same thing startAutoUpdate() does at the end of the first startApp().
+  // ⚠️ Stop the live polling first. The 30s "is it invisible yet?" tick fires on
+  // its own, and `arm` deliberately leaves the board idle — so between arm and
+  // a case's setup the real interval could legitimately reload, and the case
+  // then read `__reloads === 1` and failed. Once, in nine runs. Exactly the
+  // shape of the production-poll flake these tests shipped alongside: measure
+  // the gate by CALLING it, never by racing it.
+  await page.evaluate('_autoUpdateTimers.forEach(clearInterval)');
+
   const arm = `(() => {
     resetTimer(); hideFloatingTimerBar();
     displayMode = 'wod'; sectionFilter = 'WOD'; partFocusIndex = null; centerFocus = false;
