@@ -80,6 +80,38 @@ Only delete PIN on an explicit `{ status: "invalid" }` response from the server.
 Emoji and Hebrew text corrupt through the JSONP pipeline.
 Fix: define data client-side in a JS map (e.g., `BADGE_DATA`) keyed by ID, not returned from API.
 
+### Auto-update — the TV picks up a deploy by itself (added 2026-09-09)
+
+Two things refresh, on different clocks, and they are easy to confuse:
+
+| what | how often | since |
+|---|---|---|
+| the **workout** (her sheet → the board) | `settings.refreshInterval`, default **30 s** | always |
+| the **app** (a pushed parser/timer fix) | polls every **5 min**, reloads when idle | 2026-09-09 |
+
+The app version is read from **`sw.js`'s `CACHE_NAME`** — the one place a deploy
+already bumps. **Do not add a build constant to `index.html`**: two places to
+bump is the three-parallel-places trap, and the copy that would silently stop
+being bumped is the one that makes the board believe it is current forever.
+
+**The gate is `boardIsIdle()`, and it is stricter than "safe" — it is
+"invisible".** A self-reload wipes a running clock off the wall in front of a
+class, and it *also* throws away the view she parked the board on
+(`displayMode`, the section filter, the part focus are all in memory). So the
+board updates only when a reload would change nothing anyone can see: clock
+`idle`, no overlay open, the view still exactly what a fresh load produces, and
+nobody on the remote for 60 s. Otherwise it waits and re-asks every 30 s.
+Waiting indefinitely is a fine outcome — key `7` still reloads by hand.
+
+The baseline view is **captured at the end of the first `startApp()`**, not
+hardcoded: that moment *is* what a reload reproduces. No baseline ⇒ no reload,
+so the gate fails closed.
+
+Both directions are asserted in `node test/timer-nav.mjs` (12 negative states +
+the positive + the reload-loop guard). ⚠️ **A gate that never fires looks
+exactly like a gate that works**, which is why the positive case is tested too,
+via the `_doReload` indirection.
+
 ## Target Environment
 
 ### TV (index.html)

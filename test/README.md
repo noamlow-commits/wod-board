@@ -68,6 +68,24 @@ no npm of its own). Chromium is already installed there.
 `test/golden/<fixture>.json` — committed baselines (text, diff-friendly).
 `test/golden/<fixture>.actual.json` — written only on a DIFF, git-ignored.
 
+## `timer-nav.mjs` also guards the AUTO-UPDATE gate (added 2026-09-09)
+
+The board reloads itself when a newer build is deployed, and everything that
+makes that acceptable is one predicate — `boardIsIdle()`. Both directions are
+asserted: twelve states where a reload would be visible (a running/paused/armed/
+finished clock, the 3-2-1 lead-in, either overlay, a non-default view, a section
+filter, a focused part, center-focus, a hand on the remote), the positive case,
+and the reload-loop guard. **The positive case is tested on purpose** — a gate
+that never fires is indistinguishable from a gate that works, and this one would
+simply mean the TV silently never updates. `_doReload` is an indirection so the
+positive case cannot navigate the harness page away.
+
+⚠️ **Known flake in this file:** `startTimer enters countdown321` fails with
+`idle` about one run in three, and it **pre-dates** all of the above (the
+committed HEAD flakes identically). Ruled out by measurement: the nav teardown
+timeout, and the remote timer poll. Re-run once before believing a red line
+*there*; a red line anywhere else is real. Full note at the block itself.
+
 ## Visual screenshots — use LIVE data, not offline fixtures
 
 Headless Chromium **does** render and paint the board correctly — but only when

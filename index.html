@@ -8216,6 +8216,129 @@
       }
     }
 
+    // ════════════════════════════════════════
+    // AUTO-UPDATE — a deploy reaches the TV without anyone pressing F5
+    // ════════════════════════════════════════
+    // The WORKOUT already refreshes itself every `refreshInterval` seconds, so
+    // an edit to her sheet appears on the TV on its own. The APP did not: a
+    // pushed parser/timer fix sat on GitHub Pages until somebody walked over
+    // and reloaded — which on a gym TV means "until the next time anyone
+    // thinks to". Two clock fixes shipped on 2026-09-09 and neither would have
+    // been on the wall for the next class.
+    //
+    // The version is read from **sw.js's `CACHE_NAME`** — the ONE place a
+    // deploy already bumps (see the SW Cache Versioning rule). Deliberately NOT
+    // a second constant in this file: two places to bump is the three-parallel-
+    // places trap, and the copy that would silently stop being bumped is
+    // exactly this one, leaving a board that believes it is current forever.
+    //
+    // ⚠️⚠️ THE RELOAD MUST BE INVISIBLE, which is a stronger test than "safe".
+    // A self-reload wipes a running clock off the wall in front of a class —
+    // strictly worse than being one version behind — but it ALSO throws away
+    // the view she parked the board on: `displayMode`, the section filter and
+    // the part focus all live in memory and come back as whatever a fresh load
+    // produces. So the board updates only when a reload would change NOTHING a
+    // person can see. Otherwise it waits, re-asking every BUILD_WAIT_MS.
+    // Waiting indefinitely is an acceptable outcome; key `7` still reloads by
+    // hand.
+    const APP_BUILD_RE = /cf-gush-v(\d+)/;
+    const BUILD_POLL_MS = 5 * 60 * 1000;   // "is there a newer build?"
+    const BUILD_WAIT_MS = 30 * 1000;       // "is it invisible to update yet?"
+    const BUILD_QUIET_MS = 60 * 1000;      // hands off the remote for this long
+    let _bootBuild = null;      // the build this page booted against
+    let _pendingBuild = null;   // a newer build seen, waiting for a quiet moment
+    let _lastInteractionAt = 0;
+    let _autoUpdateStarted = false;
+    // The view a fresh load SETTLES INTO — captured at the end of the first
+    // startApp(), because that is precisely what a reload would reproduce.
+    // ⚠️ Hardcoding the declared defaults instead would be a guess about a
+    // half-dozen interacting initialisers, and a wrong guess here does not
+    // throw: `boardIsIdle()` would simply never return true and the whole
+    // feature would be a comment. No baseline ⇒ no reload, deliberately.
+    let _bootView = null;
+    // Indirection so the runtime harness can assert WHEN this fires without
+    // navigating the test page (test/timer-nav.mjs).
+    let _doReload = () => location.reload();
+
+    async function fetchDeployedBuild() {
+      try {
+        // ⚠️ NO query-string cache-buster, deliberately. The service worker
+        // treats any `.js` as app shell and `cache.put(event.request, …)`s it
+        // under its FULL url — so `./sw.js?cb=<now>` would add a fresh cache
+        // entry every five minutes, forever, on a screen that is never
+        // reloaded. `cache: 'no-store'` already bypasses the HTTP cache in both
+        // directions and keeps this to ONE entry that is simply overwritten.
+        const r = await fetch('./sw.js', { cache: 'no-store' });
+        if (!r.ok) return null;
+        const m = APP_BUILD_RE.exec(await r.text());
+        return m ? m[1] : null;
+      } catch (e) { return null; }   // offline / flaky — never a reason to reload
+    }
+
+    // "A reload right now would change nothing anyone can see."
+    function boardIsIdle() {
+      // Any clock state but `idle` means a reload destroys something: a running
+      // or paused workout, the 3-2-1 lead-in, a clock armed and about to start,
+      // or a finished one the class is still reading its score off.
+      if (timerState !== 'idle') return false;
+      const open = id => !!document.getElementById(id)?.classList.contains('open');
+      if (open('settingsModal') || open('timerSetupOverlay')) return false;
+      if (!_bootView) return false;
+      if (displayMode !== _bootView.displayMode) return false;
+      if (sectionFilter !== _bootView.sectionFilter) return false;
+      if (partFocusIndex !== _bootView.partFocusIndex) return false;
+      if (centerFocus !== _bootView.centerFocus) return false;
+      if (Date.now() - _lastInteractionAt < BUILD_QUIET_MS) return false;
+      return true;
+    }
+
+    // Returns true if it actually triggered the reload (the harness reads this).
+    function applyPendingBuild() {
+      if (!_pendingBuild || !boardIsIdle()) return false;
+      // ⚠️ Reload-loop guard. If the reload does NOT land the new build — a
+      // stale CDN copy, a cache that refuses to revalidate — the next check
+      // sees the same mismatch and reloads again, forever, on a screen on a
+      // wall. One attempt per build, then stand down and say so in the console.
+      try {
+        if (sessionStorage.getItem('wodboard-build-tried') === _pendingBuild) {
+          console.warn('[AUTO-UPDATE] already reloaded for v' + _pendingBuild
+                     + ' and still on v' + _bootBuild + ' — standing down');
+          _pendingBuild = null;
+          return false;
+        }
+        sessionStorage.setItem('wodboard-build-tried', _pendingBuild);
+      } catch (e) { /* private mode / quota — proceed, but only this once */ }
+      console.log('[AUTO-UPDATE] v' + _bootBuild + ' → v' + _pendingBuild + ' · board idle · reloading');
+      _doReload();
+      return true;
+    }
+
+    async function checkForNewBuild() {
+      const live = await fetchDeployedBuild();
+      if (!live) return;
+      // The first answer is the baseline. ⚠️ It is the DEPLOYED build, not
+      // provably the one this HTML came from — a deploy landing between the
+      // page load and this fetch (a seconds-wide window) would be adopted as
+      // the baseline and that one update skipped. The next deploy corrects it;
+      // stamping the build into this file instead would buy the edge case at
+      // the price of a second place to bump, which is the worse failure.
+      if (_bootBuild === null) { _bootBuild = live; return; }
+      if (live === _bootBuild) { _pendingBuild = null; return; }
+      _pendingBuild = live;
+      applyPendingBuild();
+    }
+
+    function startAutoUpdate() {
+      if (_autoUpdateStarted) return;   // startApp() runs again on key r / 8
+      _autoUpdateStarted = true;
+      _bootView = { displayMode, sectionFilter, partFocusIndex, centerFocus };
+      ['keydown', 'pointerdown'].forEach(ev =>
+        document.addEventListener(ev, () => { _lastInteractionAt = Date.now(); }, true));
+      checkForNewBuild();                              // learn the baseline
+      setInterval(checkForNewBuild, BUILD_POLL_MS);
+      setInterval(applyPendingBuild, BUILD_WAIT_MS);   // "is it invisible yet?"
+    }
+
     async function startApp() {
       applySettings();
       renderTabBar();
@@ -8248,6 +8371,10 @@
 
       // Apply display mode (now runs AFTER data is rendered)
       setDisplayMode(displayMode);
+
+      // LAST: the board is now in exactly the state a reload would reproduce,
+      // which is the baseline the auto-update gate compares against.
+      startAutoUpdate();
     }
 
     // ════════════════════════════════════════

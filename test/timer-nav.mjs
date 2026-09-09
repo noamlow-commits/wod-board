@@ -152,6 +152,19 @@ console.log('\nSame rule on the other stage-changing controls');
     JSON.stringify(after));
 }
 
+// ⚠️ KNOWN FLAKE, pre-existing and still unexplained (2026-09-09).
+// 'startTimer enters countdown321' fails with 'idle' roughly one run in three.
+// What has been RULED OUT, each by measurement, not reasoning:
+//   · the board itself — the committed HEAD flakes identically, with none of
+//     that day's changes present;
+//   · navigatePart's 350ms teardown timeout — a 700ms drain before this block
+//     changed nothing over five runs;
+//   · the 2-second remote timer poll — this exact sequence, run in isolation
+//     with the poll live for 35s first, passed 6/6 and 3/3.
+// So it needs state left by the EARLIER blocks, and the next step is to trace
+// resetTimer inside a failing run rather than guess again. Until then: a red
+// line HERE is not evidence of a regression — re-run once. A red line anywhere
+// ELSE still is.
 console.log('\nCountdown landmine (pre-existing; the nav rule made it reachable)');
 {
   await page.evaluate(`(() => { resetTimer(); hideFloatingTimerBar(); ${SEED_PARTS}
@@ -167,6 +180,85 @@ console.log('\nCountdown landmine (pre-existing; the nav rule made it reachable)
   const end = await page.evaluate(snapshot);
   ok('reset mid-countdown does NOT resurrect a ghost running clock',
     end.state === 'idle' && !end.barShown, JSON.stringify(end));
+}
+
+// ── Auto-update gate (added 2026-09-09) ──────────────────────────────────
+// The board reloads ITSELF when a newer build is deployed. Everything that
+// makes that acceptable lives in ONE predicate, `boardIsIdle()` — and a gate
+// that never fires and a gate that fires at the wrong moment both look like a
+// working board until the day they don't. So the predicate is driven directly,
+// with `_doReload` stubbed so a positive case cannot navigate this page away.
+//
+// The negative cases are the ones that matter: each is a state where a reload
+// would wipe something off a screen on a wall in front of a class.
+console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
+{
+  // Reset to the state a fresh load produces, then take that as the baseline —
+  // the same thing startAutoUpdate() does at the end of the first startApp().
+  const arm = `(() => {
+    resetTimer(); hideFloatingTimerBar();
+    displayMode = 'wod'; sectionFilter = 'WOD'; partFocusIndex = null; centerFocus = false;
+    document.getElementById('settingsModal').classList.remove('open');
+    document.getElementById('timerSetupOverlay')?.classList.remove('open');
+    _bootView = { displayMode, sectionFilter, partFocusIndex, centerFocus };
+    _lastInteractionAt = 0;
+    _bootBuild = '1'; _pendingBuild = '2';
+    window.__reloads = 0; _doReload = () => { window.__reloads++; };
+    try { sessionStorage.removeItem('wodboard-build-tried'); } catch (e) {}
+  })()`;
+
+  await page.evaluate(arm);
+  ok('a resting board IS idle', await page.evaluate('boardIsIdle()'));
+
+  // POSITIVE: a pending build on a resting board reloads exactly once.
+  ok('pending build reloads the resting board',
+    (await page.evaluate('applyPendingBuild()')) === true
+    && (await page.evaluate('window.__reloads')) === 1);
+
+  // …and only once, even if the check runs again before the page goes away.
+  ok('a second attempt for the SAME build stands down (no reload loop)',
+    (await page.evaluate('applyPendingBuild()')) === false
+    && (await page.evaluate('window.__reloads')) === 1);
+
+  // NEGATIVES — every state where the reload would be visible.
+  for (const [name, setup] of [
+    ['a RUNNING clock', `configureTimer('amrap',{totalSeconds:720}); timerState='running'`],
+    ['a PAUSED clock', `configureTimer('amrap',{totalSeconds:720}); timerState='paused'`],
+    ['the 3-2-1 countdown', `configureTimer('amrap',{totalSeconds:720}); timerState='countdown321'`],
+    ['an ARMED clock (configured, not started)', `configureTimer('amrap',{totalSeconds:720})`],
+    ['a FINISHED clock still on screen', `configureTimer('amrap',{totalSeconds:720}); timerState='finished'`],
+    ['the settings modal open', `document.getElementById('settingsModal').classList.add('open')`],
+    ['the timer-setup overlay open', `document.getElementById('timerSetupOverlay').classList.add('open')`],
+    ['a non-default display mode', `displayMode = 'pr'`],
+    ['a section filter applied', `sectionFilter = null`],
+    ['a part focused', `partFocusIndex = 1`],
+    ['center-focus on', `centerFocus = true`],
+    ['someone touching the remote', `_lastInteractionAt = Date.now()`],
+  ]) {
+    await page.evaluate(arm);
+    await page.evaluate(`(() => { ${setup}; })()`);
+    const idle = await page.evaluate('boardIsIdle()');
+    const fired = await page.evaluate('applyPendingBuild()');
+    const reloads = await page.evaluate('window.__reloads');
+    ok(`does NOT reload with ${name}`, idle === false && fired === false && reloads === 0);
+  }
+
+  // No baseline ⇒ no reload. The gate fails CLOSED, which is what makes it safe
+  // to leave the capture inside startApp rather than hardcode the defaults.
+  await page.evaluate(arm);
+  await page.evaluate('_bootView = null');
+  ok('no captured baseline ⇒ never reloads',
+    (await page.evaluate('boardIsIdle()')) === false
+    && (await page.evaluate('applyPendingBuild()')) === false);
+
+  // And with nothing pending, a resting board sits still.
+  await page.evaluate(arm);
+  await page.evaluate('_pendingBuild = null');
+  ok('no pending build ⇒ no reload',
+    (await page.evaluate('applyPendingBuild()')) === false
+    && (await page.evaluate('window.__reloads')) === 0);
+
+  await page.evaluate(`(() => { _pendingBuild = null; _doReload = () => location.reload(); })()`);
 }
 
 await browser.close();
