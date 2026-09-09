@@ -1,0 +1,39 @@
+{
+  "data": {
+    "headers": [
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "min 12",
+              "BACK SQUAT: 1 and half",
+              "4 reps",
+              "75-80%",
+              "לשמור על איכות- לא להגיע לכשל",
+              "(גרג)",
+              "__SPACER__",
+              "rest 2:00 min"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": [
+        {
+          "label": "TC 12′ · 2′ rest (14′)",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

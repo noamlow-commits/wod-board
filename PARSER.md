@@ -527,6 +527,41 @@ Guards, each with a fixture:
 
 **The round is the SET, not the work phase.** A minute map puts several work phases in one set, so `tabataPhaseAt`'s "how many work phases have started" would read `ROUND 5/6` while the class is in set 3. A phase may now declare its `round` and the schedule's own numbering wins; with none, the work-phase count is unchanged byte-for-byte, so every chained clock is untouched. The voice call also fires on a round **change** rather than on every work phase — without that, the clock said "round three" again at 13:00, mid-set.
 
+### ⭐ A line that is nothing but a duration (added 2026-09-09, fixture `bare_block_duration_then_rest`)
+
+Her column `2`, the same board as the minute map:
+
+```
+ min 12
+BACK SQUAT: 1 and half
+4 reps @ 75-80%
+לשמור על איכות- לא להגיע לכשל
+(גרג)
+
+rest 2:00 min
+```
+
+Twelve minutes for the squat block, then two minutes rest — and the board put **no clock on any of it**.
+
+**Why every existing rule missed it.** They all want the number next to *something*: an activity (`8 min leg and lat activation`), a format keyword (AMRAP/EMOM), a multiplier (`WARM UP x 6 min`), the word `work`, a `t.c`. A line that is **only** a duration matched none of them. And the unit-first order (`min 12`, not `12 min`) put it out of reach of the leading-duration rule even in principle.
+
+**Why claiming it is safe, where Q6's `WARM UP 6 min` is not.** Q6 is unanswerable by pattern because the number there might be how long she *expects* the block to take — a note, not a clock. A line that is nothing but a duration has **no second meaning available to it**. Both word orders count; the order is hers.
+
+**The rest beneath it belongs to it.** Noam, 2026-09-09: *"את ה-12 מעל הבק סקווט בחלק השני צריך לעשות כ-for time"* + *"ואז 2 דקות מנוחה"* — and, asked directly, he chose **one button with an automatic transition** over a literal count-up plus a second clock:
+
+| written | clock | why |
+|---|---|---|
+| bare duration **+** one written rest | `TC 12′ · 2′ rest (14′)` — 12:00 → beep → 2:00 | one button, auto transition |
+| bare duration **alone** | `TC 12′ · For Time` — count-up, stops at the cap | no sequence, nothing to trade |
+
+⚠️ **The compound form counts the 12 DOWN, and that is the engine's constraint, not a decision about what a block duration means.** `fortime` is the only count-up type and a sequence cannot mix directions (roadmap §5 — a queue engine, not a patch). Noam took that trade knowingly. `bare_block_duration_alone` is the fixture that records what the compound form *should* be if a queue engine ever lands.
+
+Guards:
+- **Last resort by construction** — `results.length === 0`. If any other detector produced a clock for the cell, it owns the block and this would be a ghost beside it (`bare_block_duration_is_last_resort`).
+- **It must LEAD the block** — the first content line, pure label lines skipped. A bare duration further down a list is a note about one movement; claiming it would put clocks all over her sheet (`bare_block_duration_must_lead`).
+- The rest is read through **`buildWorkoutTimeline`**, not a second rest matcher, so `rest 2:00 min` / `2:00 rest` / `rest 3 min` are the one thing they are. Exactly one rest and no work phase of its own, or the rule declines.
+- `isLabelOnly` / `hasTiming` were **hoisted** out of the leading-duration block rather than copied, so "what counts as a label" cannot drift between the two rules.
+
 ### Rotation blocks — `E2MOM` and `every X:XX` (rewritten 2026-07-13)
 **ONE INTERVAL = ONE STATION.** The block cycles through the `1#/2#/3#` stations for the written number of sets. This is the rule the parser kept getting wrong, in both of its rotation paths, and each time it put a wrong clock on the gym TV:
 - `e2momx / 3 sets (18 min total) / 1# 2# 3#` → **9** intervals of 2:00, not 3.

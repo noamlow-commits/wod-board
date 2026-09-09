@@ -1,0 +1,35 @@
+{
+  "data": {
+    "headers": [
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "min 12",
+              "BACK SQUAT: 1 and half",
+              "4 reps",
+              "75-80%"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": [
+        {
+          "label": "TC 12′ · For Time",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}

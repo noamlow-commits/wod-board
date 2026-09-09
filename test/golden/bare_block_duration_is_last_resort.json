@@ -1,0 +1,37 @@
+{
+  "data": {
+    "headers": [
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "min 12",
+              "BACK SQUAT: 1 and half",
+              "every 2:00 x",
+              "5 sets",
+              "4 reps",
+              "75-80%"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": [
+        {
+          "label": "2:00 ×5",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

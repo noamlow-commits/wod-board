@@ -3965,19 +3965,24 @@
         // Scanning STOPS at the first timed line even when that line yields no
         // config (a rest line, an interval spec) — once timing has appeared,
         // another detector owns the block and a count-up here would be a ghost.
+      // Hoisted out of the leading-duration block 2026-09-09 so the bare-block
+      // rule at the bottom of this function skips exactly the same label lines
+      // — two copies of "what counts as a label" is the drift the 3-parallel-
+      // places rule exists to stop.
+      const hasTiming = l => /\d{1,2}:\d{2}/.test(l)
+        || new RegExp(`${DUR_NUM}\\s*${UNIT_STRICT}\\b`, 'i').test(l);
+      // A LABEL-ONLY line is skipped so the scan can reach the real duration
+      // line beneath it ("warm up tabata" / "warmup:" → "6 min leg
+      // mobility"). ⚠️ `!hasTiming` added 2026-08-13: the two shapes were
+      // tested independently, so a line that is BOTH — the coach's
+      // `8 min WARM UP :`, a label that carries its own duration — was
+      // skipped as if it were empty, and the block got no clock. The trailing
+      // ":" is a proxy for "no content of its own", and a written duration IS
+      // content; a line that carries timing is never label-only.
+      const isLabelOnly = l => !hasTiming(l)
+        && (/:\s*$/.test(l) || /^warm[\s-]?up\b/i.test(l));
+
         if (!chained) {
-          const hasTiming = l => /\d{1,2}:\d{2}/.test(l)
-            || new RegExp(`${DUR_NUM}\\s*${UNIT_STRICT}\\b`, 'i').test(l);
-          // A LABEL-ONLY line is skipped so the scan can reach the real duration
-          // line beneath it ("warm up tabata" / "warmup:" → "6 min leg
-          // mobility"). ⚠️ `!hasTiming` added 2026-08-13: the two shapes were
-          // tested independently, so a line that is BOTH — the coach's
-          // `8 min WARM UP :`, a label that carries its own duration — was
-          // skipped as if it were empty, and the block got no clock. The trailing
-          // ":" is a proxy for "no content of its own", and a written duration IS
-          // content; a line that carries timing is never label-only.
-          const isLabelOnly = l => !hasTiming(l)
-            && (/:\s*$/.test(l) || /^warm[\s-]?up\b/i.test(l));
           let firstLn = null;
           for (const raw of lines) {
             const l = (raw || '').trim();
@@ -4055,6 +4060,67 @@
             }
           }
         }
+
+      // ── A line that is NOTHING BUT a duration, heading the block ──────────
+      // Her column `2`, 2026-09-09: ` min 12` / `BACK SQUAT: 1 and half` /
+      // `4 reps @ 75-80%` / … / `rest 2:00 min`. Twelve minutes for the squat
+      // block and then two minutes rest — and the board put NO clock on any of
+      // it, in the column right beside the one this same session fixed.
+      //
+      // Every other duration rule needs the number to sit next to SOMETHING: an
+      // activity ("8 min leg and lat activation"), a format keyword, a
+      // multiplier ("WARM UP x 6 min"), the word `work`, a `t.c`. A line that is
+      // ONLY a duration matched none of them — and it is the one shape with no
+      // second meaning available to it. That is exactly what makes it safe where
+      // roadmap Q6's `WARM UP 6 min` is not: there the number might be how long
+      // she expects the block to TAKE, a note rather than a clock; here there is
+      // nothing else it could be. Both word orders, because the order is hers —
+      // `min 12` as readily as `12 min` (Noam, 2026-09-09: "צריך לעשות כ-for
+      // time").
+      //
+      // ⭐ A rest written beneath it BELONGS to it. "ואז 2 דקות מנוחה" — one
+      // button, 12:00 → beep → 2:00 rest, not a clock she has to start twice.
+      // That costs the count-up: `fortime` is the only count-up type and a
+      // sequence cannot mix directions (§5 of TIMER_ROADMAP — a queue engine,
+      // not a patch), so the compound form counts the 12 DOWN. Noam chose it
+      // knowing that. With no rest written there is no sequence and nothing to
+      // trade, so a bare block stays a true count-up For Time. The asymmetry is
+      // the engine's, not a judgement — see the roadmap note.
+      //
+      // Last resort BY CONSTRUCTION (`results.length === 0`): if anything else
+      // in this cell produced a clock, that detector owns the block and this
+      // would be a ghost beside it.
+      if (!chained && results.length === 0) {
+        let firstContent = null;
+        for (const raw of lines) {
+          const l = (raw || '').trim();
+          if (!l || l === '__SPACER__' || isLabelOnly(l)) continue;
+          firstContent = l; break;
+        }
+        const bare = firstContent && firstContent.match(new RegExp(
+          `^(?:(${DUR_NUM_POS})[^\\S\\r\\n]*${MIN_WORD}|${MIN_WORD}[^\\S\\r\\n]*(${DUR_NUM_POS}))[^\\S\\r\\n]*[:.]?$`, 'i'));
+        const blockSec = bare ? minsToSec(bare[1] || bare[2]) : 0;
+        if (blockSec >= 60 && blockSec <= 90 * 60) {
+          // The rest underneath is read through the SHARED timeline classifier,
+          // so "rest 2:00 min" / "2:00 rest" / "rest 3 min" are all the one
+          // thing they are — a second rest matcher here is the drift the
+          // shared-helper rule exists to prevent. Exactly ONE rest and NO work
+          // phase of its own: a work phase means this is some other shape and
+          // the block duration is not the whole story.
+          const tl = buildWorkoutTimeline(lines);
+          const rests = tl.filter(p => p.type === 'rest');
+          if (tl.length === 1 && rests.length === 1) {
+            const restSec = rests[0].seconds;
+            results.push({ type: 'tabata', rounds: 1, skipLastRest: false,
+                           phases: [{ type: 'work', seconds: blockSec, label: `TC ${fmtDur(blockSec)}` },
+                                    { type: 'rest', seconds: restSec }],
+                           label: `TC ${fmtDur(blockSec)} · ${fmtDur(restSec)} rest (${fmtDur(blockSec + restSec)})` });
+          } else if (tl.length === 0) {
+            results.push({ type: 'fortime', capSeconds: blockSec,
+                           label: `TC ${fmtDur(blockSec)} · For Time` });
+          }
+        }
+      }
 
       return blockClocksFirst(results);
     }

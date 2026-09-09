@@ -492,7 +492,7 @@ min 5: rest
 - A phase may now carry its own `round`. Without it the engine counts **work phases**, which is right for a chain (one interval = one round) and wrong for a minute map (a set holds several). The board would have read `ROUND 5/6` in set 3.
 - The round voice call now fires on a round **change**, not on every work phase. It previously re-called "round three" at 13:00, mid-set. On a uniform chain the two tests are identical, so nothing else moved.
 
-### 🟡 NOT fixed, and deliberately — her column `2` on the same board
+### ✅ CLOSED the same day — her column `2` on the same board (see §2j)
 
 ```
  min 12
@@ -502,7 +502,29 @@ BACK SQUAT: 1 and half
 rest 2:00 min
 ```
 
-`min 12` is **twelve minutes**, unit-first — and that block gets **no clock at all** today. It is the mirror of Q6: a block duration with no multiplier, written here as `min 12` instead of `12 min`. The minute map deliberately does not claim it (a separator after the number is required, or `min 12` would be read as *minute 12*), and the leading-duration rule does not either. **Ask her before widening:** *when a strength block runs for a set time, do you want a clock on it — and is `min 12` your way of writing twelve minutes?* Answering that also answers Q6.
+`min 12` is **twelve minutes**, unit-first — and that block gets **no clock at all** today. It is the mirror of Q6: a block duration with no multiplier, written here as `min 12` instead of `12 min`. The minute map deliberately does not claim it (a separator after the number is required, or `min 12` would be read as *minute 12*), and the leading-duration rule does not either. **Answered by Noam the same session** — yes to both, plus "ואז 2 דקות מנוחה". Shipped in §2j; a line that is *nothing but* a duration now carries the block, and the rest written under it joins it. **Q6 itself stays open**: `WARM UP 6 min` has a second possible meaning that `min 12` does not.
+
+---
+
+## 2j. Also 2026-09-09 (sw v146) — the twelve minutes over the back squat
+
+The column beside the minute map, flagged as **not fixed** in §2i two hours earlier and then decided by Noam in the same session:
+
+> *"את ה-12 מעל הבק סקווט בחלק השני צריך לעשות כ-for time"* … *"ואז 2 דקות מנוחה"*
+
+```
+ min 12
+BACK SQUAT: 1 and half
+4 reps @ 75-80%
+…
+rest 2:00 min
+```
+
+**No clock at all**, on either the twelve minutes or the rest. Rule, guards and the count-up trade: `PARSER.md`, "A line that is nothing but a duration". Fixtures `bare_block_duration_then_rest` / `_alone` / `_is_last_resort` / `_must_lead`.
+
+**The one thing worth re-reading before touching this.** Asked whether he wanted the literal For Time (count-up, stopping at 12:00) plus a hand-started rest, or one button with an automatic transition, Noam chose the **one button** — and therefore a 12 that counts **down**. That is the §5 direction constraint surfacing as a product decision, not a bug: `fortime` is the only count-up type. If a queue engine is ever built, `bare_block_duration_alone` records what the compound form should become. **Do not "fix" the countdown by splitting the clock in two — that is the option he declined.**
+
+⚠️ This also narrows **Q6**, which asked about `WARM UP 6 min`. Q6 stays open: its number might be how long she expects a progression to *take*. A line that is nothing but a duration has no such second meaning, which is why this one could be answered by pattern and Q6 still cannot.
 
 ---
 
@@ -611,6 +633,17 @@ some, the coach. **These are all *detection* defects — for the runtime ones
 - ✅ ~~**The unit alias written two ways**~~ — **CLOSED 2026-08-08**. 18 sites
   rejected the coach's `mins`, 11 accepted it. Normalized. Fixture
   `plural_mins_alias`.
+- 🔴 **A bare number binds to the NEXT line's `amrap`** (found 2026-09-09,
+  writing a negative control; **not** introduced by that day's changes). `amrapRe`
+  joins its number and the keyword with `\s*`, which crosses newlines, so a cell
+  reading `4 sets of 12` / `amrap 8` produces **`AMRAP 12′`** — and only that
+  one, because the global regex has already consumed the `amrap` by the time it
+  reaches the real 8. A wrong VALUE with nothing on screen looking wrong, the
+  hardest kind. **Not fixed here on purpose:** narrowing it to horizontal
+  whitespace would also stop `amrap` on one line from binding to a duration on
+  the next, which some cells may rely on today. Measure first (which real cells
+  match `\d\s*\n\s*amrap`), then decide — same discipline as the invented
+  `|| 5` below. Same family as the `tc\n800` bug `capSecondsFromLine` documents.
 - 🟡 **`rounds = exerciseLines.length || 5` — the last surviving invented
   value.** **Instrumented 2026-08-08, deliberately not deleted.** Every firing
   is recorded to `localStorage['wodboard-invented']` on the live board and the
