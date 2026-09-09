@@ -1,0 +1,36 @@
+{
+  "data": {
+    "headers": [
+      "3"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "3",
+            "lines": [
+              "every 5 min x",
+              "3 sets",
+              "min 12",
+              "12 wall ball",
+              "12 alt db snatch"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "3",
+      "timers": [
+        {
+          "label": "5′ ×3 (15′ total)",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

@@ -467,6 +467,45 @@ sw v144.
 
 ---
 
+## 2i. What shipped 2026-09-09 (sw v145) — the minutes inside the window
+
+**Reported (Noam):** *"הינס לחלק השלישי. לא הבנת שם את הטיימר. צריך חמש דקות של אמראפ. מתוכם 3 דקות עושים מספר תרגילים. בדקה הרביעית תרגיל אחר ובדקה החמישית תרגיל נוסף. שים לב לעשות ביפ ברגעי החילוף."*
+
+Her cell (VERBATIM, column `3`, fetched from `getWorkoutSheet`):
+
+```
+every 5 min x3 sets
+3 min amrap:
+12 wall ball
+12 alt db snatch
+min 4:max burpee over db
+min 5: rest
+```
+
+**What the board did.** Two clocks, and **neither described the workout**: `AMRAP 3′` — index 0, so the ⏱↻ **default** — beside `5′ ×3 (15′ total)`. The first ends at 3:00 of a fifteen-minute piece; the second is the right length but beeps once every five minutes. The two moments the class needs called, **3:00 and 4:00 of every window**, were silent in both. Nothing on screen looked broken, which is the shape §2c keeps describing.
+
+**Fixed** — one `tabata` with an explicit 9-phase schedule (`3′ work · 1′ work · 1′ rest`) ×3 = 15:00, so a cue lands on every written minute boundary. Full rule, guards and negative controls in `PARSER.md`, "The minute map". Fixtures: `minute_map_window`, `minute_map_written_range`, `minute_map_contradiction_left_alone`, `minute_map_needs_a_separator`.
+
+**Verified at runtime, not just in detection** (§2c's own lesson): driving `tabataPhaseAt` across all 15:00 gives boundaries at **3:00 · 4:00 · 5:00 · 8:00 · 9:00 · 10:00 · 13:00 · 14:00**, ending at 15:00, with the cue each one gets — work→work `intervalBeep`, work→rest `tabataRest`, rest→work `tabataWork` — and `ROUND 1/3 → 2/3 → 3/3`.
+
+**Two runtime notes worth keeping:**
+- A phase may now carry its own `round`. Without it the engine counts **work phases**, which is right for a chain (one interval = one round) and wrong for a minute map (a set holds several). The board would have read `ROUND 5/6` in set 3.
+- The round voice call now fires on a round **change**, not on every work phase. It previously re-called "round three" at 13:00, mid-set. On a uniform chain the two tests are identical, so nothing else moved.
+
+### 🟡 NOT fixed, and deliberately — her column `2` on the same board
+
+```
+ min 12
+BACK SQUAT: 1 and half
+4 reps @ 75-80%
+…
+rest 2:00 min
+```
+
+`min 12` is **twelve minutes**, unit-first — and that block gets **no clock at all** today. It is the mirror of Q6: a block duration with no multiplier, written here as `min 12` instead of `12 min`. The minute map deliberately does not claim it (a separator after the number is required, or `min 12` would be read as *minute 12*), and the leading-duration rule does not either. **Ask her before widening:** *when a strength block runs for a set time, do you want a clock on it — and is `min 12` your way of writing twelve minutes?* Answering that also answers Q6.
+
+---
+
 ## 3. The detection pipeline, in execution order
 
 Nothing else in the repo shows the whole pipeline at once; every past incident

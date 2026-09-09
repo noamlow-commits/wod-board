@@ -1,0 +1,41 @@
+{
+  "data": {
+    "headers": [
+      "3"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "3",
+            "lines": [
+              "every 5 min x",
+              "3 sets",
+              "4 min amrap:",
+              "12 wall ball",
+              "min 4:max burpee over db",
+              "min 5: rest"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "3",
+      "timers": [
+        {
+          "label": "AMRAP 4′",
+          "type": "amrap"
+        },
+        {
+          "label": "5′ ×3 (15′ total)",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

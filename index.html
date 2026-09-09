@@ -2273,6 +2273,7 @@
     let _oneMinAnnounced  = false;
     let _tenSecAnnounced  = false;
     let _lastRoundAnnounced = false;
+    let _lastAnnouncedRound = 0;   // the round the clock last CALLED (see the tabata tick)
 
     // Audio system — Web Audio API synthesized sounds
     const TimerAudio = {
@@ -3037,7 +3038,8 @@
     function configSeconds(configs) {
       const vals = new Set();
       for (const c of (configs || [])) {
-        for (const k of ['workSeconds', 'restSeconds', 'capSeconds', 'totalSeconds', 'intervalSeconds']) {
+        for (const k of ['workSeconds', 'restSeconds', 'capSeconds', 'totalSeconds', 'intervalSeconds',
+                         'windowSeconds']) {
           if (c[k]) vals.add(c[k]);
         }
         // An explicit (possibly non-uniform) schedule — see tabataPhaseAt. Each
@@ -3258,6 +3260,149 @@
         const exerciseLines = lines.filter(isExerciseLine);
         return exerciseLines.length >= 2 ? exerciseLines.length : 0;
       };
+
+      // ── Minute-map inside a repeating window ─────────────────────────────
+      // Her board, 2026-09-09:
+      //     every 5 min x3 sets
+      //     3 min amrap:
+      //     12 wall ball
+      //     12 alt db snatch
+      //     min 4:max burpee over db
+      //     min 5: rest
+      // The header declares a repeating five-minute WINDOW ×3; the body then
+      // assigns the minutes INSIDE that window to different work — 1-3 an
+      // AMRAP, 4 a single movement, 5 rest. Read as two independent facts,
+      // neither half describes the workout: the TV showed `AMRAP 3′` (the
+      // opening line, and the ⏱↻ DEFAULT) beside `5′ ×3 (15′ total)`, an EMOM
+      // that beeps once every FIVE minutes. The transitions the class actually
+      // needs called — 3:00 and 4:00 of every window — were silent in both.
+      //
+      // Safe under no-invented-timer-values because EVERY boundary is WRITTEN:
+      // "min 4:" states that the fourth minute begins, i.e. a boundary at 3:00;
+      // "min 5:" one at 4:00; the window closes the last one. Nothing is
+      // derived from the number of exercise lines. The opening segment is
+      // bounded by the FIRST marker, and when she also writes its length
+      // ("3 min amrap:") the two must AGREE — a contradiction is left alone
+      // rather than silently resolved.
+      //
+      // Emitted as ONE `tabata` config with an explicit `phases` schedule (the
+      // engine the compound clock already runs on), so every boundary gets the
+      // interval cue + the five-second ticks, and ⏭ הבא can skip a segment.
+      // ⚠️ The trailing rest is NOT popped the way a chain pops its own: here
+      // the last minute is a written minute of a written 5:00 window, so
+      // dropping it would contradict her "every 5 min x3" = 15:00.
+      const minuteMapCfg = (() => {
+        // (1) The marker lines. A separator AFTER the number is REQUIRED — her
+        // "min 12" heading a back-squat column is a block DURATION, not minute
+        // 12 of anything, and that column sits one cell away on this same board.
+        const markRe = new RegExp(`^${MIN_WORD}[^\\S\\r\\n]*(\\d+)`
+                                + `(?:[^\\S\\r\\n]*[-–][^\\S\\r\\n]*(\\d+))?`
+                                + `[^\\S\\r\\n]*[:.\\-–)][^\\S\\r\\n]*(.*)$`, 'i');
+        const marks = [];
+        lines.forEach((rawLn, li) => {
+          const ln = (rawLn || '').trim();
+          if (!ln || ln === '__SPACER__') return;
+          const mm = ln.match(markRe);
+          if (mm) marks.push({ minute: parseInt(mm[1]), endMinute: mm[2] ? parseInt(mm[2]) : 0,
+                               body: (mm[3] || '').trim(), line: li });
+        });
+        if (!marks.length) return null;
+
+        // (2) The window: "every 5 min x3 sets" / "every 5:00 x3" / "5 min x3".
+        // Scanned PER LINE, and the multiplier is read from the NEXT line when
+        // it isn't on this one — because parseAppsScriptData really does split
+        // her line into "every 5 min x" | "3 sets" (the (?<=letter)(?=\d+\s+letter)
+        // rule ~4746). A `\s*` widened across the newline instead would be the
+        // "tc\n800" bug again; the next line must also SAY sets/rounds, so an
+        // exercise line ("12 wall ball") can never supply the count.
+        const winRe = new RegExp(`\\b(?:${EVERY_WORD}[^\\S\\r\\n]*)?`
+                               + `(?:(\\d+):(\\d{2})|(${DUR_NUM})[^\\S\\r\\n]*${MIN_WORD})`
+                               + `[^\\S\\r\\n]*[x×*][^\\S\\r\\n]*(\\d*)`, 'i');
+        let winSec = 0, sets = 0;
+        const winLines = new Set();
+        for (let li = 0; li < lines.length && !winSec; li++) {
+          const ln = (lines[li] || '').trim();
+          if (!ln || ln === '__SPACER__') continue;
+          const wm = ln.match(winRe);
+          if (!wm) continue;
+          const sec = wm[1] ? parseInt(wm[1]) * 60 + parseInt(wm[2]) : minsToSec(wm[3]);
+          let n = wm[4] ? parseInt(wm[4]) : 0;
+          const used = [li];
+          if (!n) {
+            for (let lj = li + 1; lj < lines.length; lj++) {
+              const nx = (lines[lj] || '').trim();
+              if (!nx || nx === '__SPACER__') continue;
+              const nm = nx.match(/^(\d+)\s*(?:sets?|rounds?)\b/i);
+              if (nm) { n = parseInt(nm[1]); used.push(lj); }
+              break;
+            }
+          }
+          if (sec > 0 && n > 0) { winSec = sec; sets = n; used.forEach(x => winLines.add(x)); }
+        }
+        if (!winSec || !sets) return null;
+        if (winSec < 120 || winSec > 30 * 60) return null;   // a window must hold 2+ minutes
+        if (sets < 1 || sets > 15) return null;
+        if (winSec * sets > 90 * 60) return null;
+
+        // (3) Markers must sit inside the window, in order, one per minute.
+        for (let i = 0; i < marks.length; i++) {
+          if (marks[i].minute < 1 || (marks[i].minute - 1) * 60 >= winSec) return null;
+          if (i && marks[i].minute <= marks[i - 1].minute) return null;
+        }
+
+        // (4) The opening segment's OWN written length, when she wrote one.
+        // Cross-check + label only — the boundary comes from the first marker.
+        // The window line is skipped explicitly: written "5 min x3 sets" with
+        // no "every", it leads with a duration that is the WINDOW, not the
+        // opening, and would fail its own cross-check.
+        let openLabel = '', openWritten = 0;
+        for (let li = 0; li < marks[0].line; li++) {
+          const ln = (lines[li] || '').trim();
+          if (!ln || ln === '__SPACER__' || winLines.has(li)) continue;
+          const am = ln.match(new RegExp(`\\b(?:(${DUR_NUM_POS})[^\\S\\r\\n]*(?:${MIN_WORD}[^\\S\\r\\n]+)?AMRAP`
+                                       + `|AMRAP[^\\S\\r\\n]+(${DUR_NUM_POS}))\\b`, 'i'));
+          if (am) { openWritten = minsToSec(am[1] || am[2]); openLabel = `AMRAP ${fmtDur(openWritten)}`; break; }
+          const dm = ln.match(new RegExp(`^(${DUR_NUM_POS})[^\\S\\r\\n]*${MIN_WORD}\\b`, 'i'));
+          if (dm) { openWritten = minsToSec(dm[1]); openLabel = fmtDur(openWritten); break; }
+        }
+
+        // (5) Segments — contiguous, covering the whole window.
+        const segs = [];
+        const firstStart = (marks[0].minute - 1) * 60;
+        if (firstStart > 0) {
+          if (openWritten && openWritten !== firstStart) return null;   // she contradicted herself
+          segs.push({ seconds: firstStart, body: '', label: openLabel || fmtDur(firstStart) });
+        }
+        for (let i = 0; i < marks.length; i++) {
+          const start = (marks[i].minute - 1) * 60;
+          const end = i + 1 < marks.length ? (marks[i + 1].minute - 1) * 60 : winSec;
+          if (end <= start) return null;
+          // A written range ("min 1-3: amrap") must agree with the next marker.
+          if (marks[i].endMinute && marks[i].endMinute * 60 !== end) return null;
+          segs.push({ seconds: end - start, body: marks[i].body,
+                      label: marks[i].body.slice(0, 40) || fmtDur(end - start) });
+        }
+        if (segs.length < 2) return null;   // one segment per window is just an EMOM
+
+        const isRestBody = (b) => /^(?:rest|recovery|מנוחה)\b/i.test((b || '').trim());
+        const phases = [];
+        for (let r = 1; r <= sets; r++) {
+          for (const sg of segs) {
+            phases.push({ type: isRestBody(sg.body) ? 'rest' : 'work',
+                          seconds: sg.seconds, label: sg.label, round: r });
+          }
+        }
+        const shape = segs.map(sg => fmtDur(sg.seconds)).join('/');
+        return { type: 'tabata', phases, rounds: sets, skipLastRest: false,
+                 // The window itself is a duration she WROTE; the fact channel
+                 // must be able to see it accounted for (configSeconds).
+                 windowSeconds: winSec,
+                 label: `${fmtDur(winSec)} ×${sets} · ${shape} (${fmtDur(winSec * sets)})` };
+      })();
+      if (minuteMapCfg) {
+        results.push(minuteMapCfg);
+        return blockClocksFirst(results);   // the minute map IS this block's clock
+      }
 
       // ── Single-line interval: "N min work, M min rest ×K sets" ──
       // Work duration, rest duration AND the round count all on ONE line. The
@@ -4208,6 +4353,7 @@
       _oneMinAnnounced  = false;
       _tenSecAnnounced  = false;
       _lastRoundAnnounced = false;
+      _lastAnnouncedRound = 0;
       _lastIntervalRound = 0;
       _lastTabataPhase = '';
       _lastTabataPhaseIdx = 0;
@@ -4283,6 +4429,7 @@
       _oneMinAnnounced  = false;
       _tenSecAnnounced  = false;
       _lastRoundAnnounced = false;
+      _lastAnnouncedRound = 0;
       _lastTabataPhase = '';
       _lastTabataPhaseIdx = 0;
       _tabataTickedSec = 0;
@@ -4359,9 +4506,21 @@
       if (sched) {
         const durs = sched.map(p => Math.max(0, p.seconds || 0) * 1000);
         const totalPhases = sched.length;
-        const totalRounds = sched.filter(p => p.type === 'work').length || 1;
+        // A phase may declare the ROUND it belongs to (the minute-map clock,
+        // 2026-09-09). One SET there holds several work phases — a 3′ AMRAP,
+        // then a 1′ movement — so "how many work phases have started" is NOT
+        // the round the coach counts: her 5′ ×3 block would read ROUND 5/6
+        // while the class is in set 3. When any phase carries a round, the
+        // schedule's own numbering wins; with none, this is the original
+        // work-phase count byte-for-byte, so every chained clock is untouched.
+        const explicitRounds = sched.some(p => p.round);
+        const totalRounds = explicitRounds
+          ? sched.reduce((mx, p) => Math.max(mx, p.round || 0), 0)
+          : (sched.filter(p => p.type === 'work').length || 1);
         // How many WORK phases have started by index i (1-based "round").
-        const workRoundAt = (i) => sched.slice(0, i + 1).filter(p => p.type === 'work').length;
+        const workRoundAt = (i) => explicitRounds
+          ? (sched[i].round || 1)
+          : sched.slice(0, i + 1).filter(p => p.type === 'work').length;
         if (totalMs > 0 && totalElapsed >= totalMs) {
           const last = totalPhases - 1;
           return { phase: sched[last].type || 'work', phaseTotal: durs[last],
@@ -4510,14 +4669,21 @@
             if (phase === _lastTabataPhase) TimerAudio.intervalBeep();
             else TimerAudio.tabataWork();  // high beep
             TimerAudio.say('work');         // Harry: "WORK!"
-            // Round announcement for rounds 2+
-            if (currentRound === totalRounds && !_lastRoundAnnounced) {
-              _lastRoundAnnounced = true;
-            } else if (currentRound >= 2 && currentRound <= 15) {
-              const roundKeys = ['', '', 'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight','round_nine','round_ten','round_eleven','round_twelve','round_thirteen','round_fourteen','round_fifteen'];
-              // Play round after a short delay so it doesn't overlap "WORK!"
-              const at = TimerAudio.ctx ? TimerAudio.ctx.currentTime + 0.6 : undefined;
-              TimerAudio.say(roundKeys[currentRound], at);
+            // Round announcement for rounds 2+, and ONLY when the round has
+            // actually CHANGED. On a uniform chain every work phase is a new
+            // round, so this guard is a no-op there. On a minute-map schedule
+            // one set holds several work phases, and without it the clock
+            // called the round again mid-set ("round three" at 13:00 of 5′ ×3).
+            if (currentRound !== _lastAnnouncedRound) {
+              _lastAnnouncedRound = currentRound;
+              if (currentRound === totalRounds && !_lastRoundAnnounced) {
+                _lastRoundAnnounced = true;
+              } else if (currentRound >= 2 && currentRound <= 15) {
+                const roundKeys = ['', '', 'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight','round_nine','round_ten','round_eleven','round_twelve','round_thirteen','round_fourteen','round_fifteen'];
+                // Play round after a short delay so it doesn't overlap "WORK!"
+                const at = TimerAudio.ctx ? TimerAudio.ctx.currentTime + 0.6 : undefined;
+                TimerAudio.say(roundKeys[currentRound], at);
+              }
             }
           } else {
             TimerAudio.tabataRest();        // low beep

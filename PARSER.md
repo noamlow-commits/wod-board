@@ -490,6 +490,43 @@ One 33-minute piece. The board showed **two separate `3:00 ×5` clocks and no cl
 
 Measured by driving the real `timerTick` across all 33:00 with `TimerAudio` stubbed — 10 boundary cues (4 × `intervalBeep`, `tabataRest`, `tabataWork`, 4 × `intervalBeep`), 9 `work` + 1 `rest`, rounds two…nine. Under the old type test the same walk fires **2**.
 
+### ⭐⭐ The minute map — work assigned to minutes INSIDE a repeating window (added 2026-09-09, fixture `minute_map_window`)
+
+Her WOD cell, verbatim from the sheet:
+
+```
+every 5 min x3 sets
+3 min amrap:
+12 wall ball
+12 alt db snatch
+min 4:max burpee over db
+min 5: rest
+```
+
+The header declares a repeating **five-minute window ×3**; the body then assigns the minutes **inside** that window to different work — 1-3 an AMRAP of two movements, 4 a single movement, 5 rest. The board read the two halves independently and **neither described the workout**:
+
+| what the TV offered | what it actually does |
+|---|---|
+| `AMRAP 3′` — index 0, i.e. the ⏱↻ **default** | ends at 3:00 of a 15:00 piece |
+| `5′ ×3 (15′ total)` | right length, beeps **once every five minutes** |
+
+So whichever clock she started was wrong, and the two transitions the class actually needs called — **3:00 and 4:00 of every window** — were silent in both. This is the `parallel_parsers_complementary_gaps` shape again, one level up: each detector was individually correct about its own line and the workout fell through the gap between them.
+
+**The rule.** A cell that writes both (a) a window with a multiplier and (b) at least one `min N:` marker resolves to **one** `tabata` config carrying an explicit `phases` schedule — here 9 phases, `3′ work · 1′ work · 1′ rest` ×3 = **15:00** — on the same engine the compound clock runs. Every boundary then gets its cue, its five-second ticks and `⏭ הבא`.
+
+**Why this is safe under no-invented-timer-values: every boundary is WRITTEN.** `min 4:` *states* that the fourth minute begins — that is a boundary at 3:00. `min 5:` is one at 4:00. The window closes the last. Nothing is derived from the number of exercise lines, which is the guess that put `Every 4:00 ×4` on a 35-minute For Time.
+
+Guards, each with a fixture:
+- **A separator after the number is required** (`:` `.` `-` `)`). Her column *2* on the same board heads a back-squat block with a bare `min 12`, meaning **twelve minutes** — not minute 12 of anything (`minute_map_needs_a_separator`).
+- **The opening's own written length must AGREE with the first marker.** `4 min amrap:` above a `min 4:` is a contradiction; the minute map declines and the cell falls back to the old detectors rather than pick a side (`minute_map_contradiction_left_alone`). A written range (`min 1-3:`) is checked the same way against the next marker (`minute_map_written_range`).
+- **The multiplier is read from the NEXT line when it is not on this one.** `parseAppsScriptData` really does split her line into `every 5 min x` | `3 sets` (the `(?<=letter)(?=\d+\s+letter)` rule), so the count genuinely lives one line down — but the next line must also *say* sets/rounds, so an exercise line (`12 wall ball`) can never supply it. Widening a `\s*` across the newline instead would be the `tc\n800` bug again.
+- **The window line is excluded from the opening cross-check.** Written without `every` (`5 min x3 sets`), it leads with a duration that is the *window*, not the opening, and would fail its own check.
+- Sanity: window 2-30 min, sets 1-15, total ≤ 90 min, ≥2 segments (one segment per window is just an EMOM).
+
+⚠️ **The trailing rest is NOT popped** the way `chainFromTimeline` pops its own. There the last rest is an artefact of chaining; here it is a **written minute of a written 5:00 window**, and dropping it would contradict her `every 5 min x3` = 15:00.
+
+**The round is the SET, not the work phase.** A minute map puts several work phases in one set, so `tabataPhaseAt`'s "how many work phases have started" would read `ROUND 5/6` while the class is in set 3. A phase may now declare its `round` and the schedule's own numbering wins; with none, the work-phase count is unchanged byte-for-byte, so every chained clock is untouched. The voice call also fires on a round **change** rather than on every work phase — without that, the clock said "round three" again at 13:00, mid-set.
+
 ### Rotation blocks — `E2MOM` and `every X:XX` (rewritten 2026-07-13)
 **ONE INTERVAL = ONE STATION.** The block cycles through the `1#/2#/3#` stations for the written number of sets. This is the rule the parser kept getting wrong, in both of its rotation paths, and each time it put a wrong clock on the gym TV:
 - `e2momx / 3 sets (18 min total) / 1# 2# 3#` → **9** intervals of 2:00, not 3.
