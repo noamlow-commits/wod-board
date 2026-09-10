@@ -1,0 +1,93 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3"
+    ],
+    "rows": [
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "skill:",
+              "d.u",
+              "__SPACER__",
+              "A - Double unders:",
+              "A1. Ankle mobility",
+              "A2. High vertical jumps",
+              "A3. High rope jumps",
+              "A4. High jumps with double clap",
+              "A5. Double unders practice",
+              "30 sec work/20 sec rest X8 sets"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "9 min work, 1:00 rest",
+              "emom 9:",
+              "1# 100 run",
+              "2# 45 sec bike",
+              "3#  45 sec burpee",
+              "__SPACER__",
+              "after 9 min:",
+              "1:00 rest",
+              "__SPACER__",
+              "emom 9",
+              "1# 20 squat jump",
+              "2# 40-30 d.u",
+              "3# 45 sec plank",
+              "__SPACER__",
+              "after 9 min:",
+              "1:00 rest"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "10 min amrap",
+              "10 s. run",
+              "10 push up",
+              "250 row"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "CARDIO",
+      "header": "1",
+      "timers": [
+        {
+          "label": "×8 · 30″ work / 20″ rest",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "CARDIO",
+      "header": "2",
+      "timers": [
+        {
+          "label": "9′ work → EMOM 9′ → EMOM 9′ · 1′ rest",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "CARDIO",
+      "header": "3",
+      "timers": [
+        {
+          "label": "AMRAP 10′",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}

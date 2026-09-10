@@ -4125,6 +4125,19 @@
       return blockClocksFirst(results);
     }
 
+    // "d.u" = DOUBLE UNDERS — the coach's own abbreviation, NOT group "D".
+    // The letter+separator group rule ("A. Bench press", "B-HSPU") read a bare
+    // "d.u" line as group D whose content is "u": it badged the D *and* opened a
+    // group boundary, so the splitter handed that single line a column of its own
+    // beside the whole A group (coach's CARDIO cell "skill: / d.u", 2026-09-10 —
+    // Noam: these are initials, they need no badge, and the division changes the
+    // layout). Kept as ONE shared literal because BOTH owners of the group
+    // pattern must agree — the line parser (the badge) and the column layout (the
+    // division). Same shape as the "t.c" guard that sits beside each of them.
+    // The \b after the "u" is what keeps a REAL group header safe: "D. Upper
+    // body" has a word char after the u, so it still reads as group D.
+    const DU_ABBR_RE = /^\s*d\s*[\.\-]?\s*u\b\.?(?:['’]s)?/i;
+
     // Recognizes a "part N" block header. Kept as ONE shared literal so the
     // line parser, the warm-up reset, the column layout and the timer splitter
     // all agree on what a part header is (see the 3-place-pattern rule).
@@ -6113,7 +6126,7 @@
       // as letter+dot.
       // Allow an empty trailing group ("A-" / "B-" / "C-" alone on a line) so a
       // bare part-letter divider still gets emphasized as a group header.
-      const groupMatch = !/^\s*t\.?\s*c[\-\s:]/i.test(text)
+      const groupMatch = !/^\s*t\.?\s*c[\-\s:]/i.test(text) && !DU_ABBR_RE.test(text)
         && text.match(/^([A-Z])\s*[\.\-\)]\s*(.*)/i);
       if (groupMatch) {
         const label = groupMatch[1].toUpperCase();
@@ -6376,7 +6389,7 @@
           const allItems = [];
           let currentSection = '';
           const cellTimerConfigs = {}; // map section → extracted timer config
-          const isGrpLine = l => /^[A-Z]\s*[\.\-\)]/i.test(l) && !/^\s*t\.?\s*c[\-\s:]/i.test(l);
+          const isGrpLine = l => /^[A-Z]\s*[\.\-\)]/i.test(l) && !/^\s*t\.?\s*c[\-\s:]/i.test(l) && !DU_ABBR_RE.test(l);
           // Part-level cap (2026-07-27; refined SAME DAY after a coach flag):
           // a "t.c N" the coach writes for ONE block must NOT leak onto a
           // sibling block in the same part. partCapHints() returns a PER-CELL
@@ -6603,7 +6616,26 @@
               }
               const independentBlocks = segLetters.size + nonGroupRuns;
               let numCols = Math.max(1, Math.ceil(colSize / MAX_PER_COL));
+              // A structured section divides in two on the wide TV even when it
+              // would fit in one column.
               if (numCols === 1 && independentBlocks >= 2 && segReal >= 6) numCols = 2;
+              // "≥3 real lines per side, never one line beside nine" — the
+              // documented balance rule, which the 2026-07-02 splitter rewrite
+              // never actually implemented (the floor below was 1).
+              // The floor applies only while the split is OPTIONAL — the REAL
+              // content still fits one column, so a lopsided break buys nothing
+              // and only empties a column. Measured in real lines on purpose:
+              // `colSize` counts the section header and the coach's blank-line
+              // spacers too, and those two items alone pushed the CARDIO cell
+              // (9 real lines, cap 9) over the cap — a spacer spawning the very
+              // ghost column the balance rule above exists to prevent.
+              // Once the real content genuinely overflows, we must break
+              // somewhere and the floor drops back to 1.
+              // Coach's CARDIO cell 2026-09-10: the "skill: / d.u" head (2 lines)
+              // stood in its own column beside the whole 7-line A group, which is
+              // atomic — so 2|7 was the ONLY break group cohesion allowed, and
+              // one column is the right answer (Noam's call).
+              const minSide = segReal <= MAX_PER_COL ? 3 : 1;
               const target = segReal / numCols; // real lines per column
               for (let s = 1; s < numCols; s++) {
                 const prevBreak = breaks[breaks.length - 1];
@@ -6612,8 +6644,8 @@
                 for (let i = prevBreak + 1; i < end; i++) {
                   const r = boundaryRank(i);
                   if (r < 0) continue;                       // don't start on a blank
-                  if (realLines(prevBreak, i) < 1) continue; // no empty left column
-                  if (realLines(i, end) < 1) continue;       // no empty right column
+                  if (realLines(prevBreak, i) < minSide) continue; // left column too thin
+                  if (realLines(i, end) < minSide) continue;       // right column too thin
                   // Group cohesion: never break INSIDE a group. Siblings A1|A2 and
                   // their detail lines stay together; a column may only start at a
                   // group boundary (new letter / independent block), never between

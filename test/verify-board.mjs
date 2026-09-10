@@ -348,6 +348,23 @@ const FIXTURES = [
     ignoreFacts: ["12 min"],
     rows: [["", "2"],
            ["WOD", "BACK SQUAT: 1 and half\n4 reps @ 75-80%\n12 min"]] },
+  // ⚠️ The coach's board, 10.9.2026, CARDIO column "1" (VERBATIM). Two defects
+  // in one cell, and the second is invisible from a badge check alone.
+  { name: "du_is_not_group_d",
+    note: "'d.u' is DOUBLE UNDERS — the coach's initials, not group 'D'. The letter+separator group rule read it as group D whose content is 'u', which (1) badged the D, splitting the initials on the TV, and (2) opened a group boundary. Noam 2026-09-10: 'these are specific initials, they need no badge — and this division matters because it changes the layout.' The badge half is locked by BADGE_CHECKS ('d.u' → none, with 'D. Upper body' as the control that a REAL group D still wins); the LAYOUT half is locked in the layout assertions, because the section must render as ONE column — the A group is atomic, so the only break group cohesion allows is the 2-line head beside the 7-line group, i.e. exactly the 'one line beside nine' shape the balance rule exists to prevent. Timer-wise the cell must be untouched: her written 30/20 ×8 still yields its one clock. ⚠️ All THREE of her cells are here on purpose and must not be trimmed: MAX_PER_COL is derived from the whole board's item count (max(8, ceil(total/4)) = 9 here), so dropping a sibling cell lowers the cap, makes the 9 real lines a genuine overflow, and the section legitimately splits again — the assertion would then fail for a reason that has nothing to do with this bug.",
+    expectTimers: ["×8 · 30″ work / 20″ rest", "AMRAP 10′"],
+    forbidTimers: [],
+    // INTENDED miss, cell "2": inside "emom 9:" the "45 sec bike / 45 sec burpee
+    // / 45 sec plank" are how much of each MINUTE the athlete works — the minute
+    // is the clock, the 45 sec is the prescription inside it. An EMOM that also
+    // spawned a 45″ clock would be the bug. Listed rather than left silent so the
+    // property test stays armed for every OTHER number in this cell.
+    ignoreFacts: ["45 sec"],
+    rows: [["", "1", "2", "3"],
+           ["CARDIO",
+            "\n skill:\nd.u\n\nA - Double unders:\nA1. Ankle mobility\nA2. High vertical jumps\nA3. High rope jumps\nA4. High jumps with double clap\nA5. Double unders practice\n30 sec work/20 sec rest X8 sets\n",
+            "9 min work, 1:00 rest\nemom 9:\n1# 100 run\n2# 45 sec bike\n3#  45 sec burpee\n\nafter 9 min:\n1:00 rest\n\nemom 9\n1# 20 squat jump\n2# 40-30 d.u\n3# 45 sec plank\n\n\nafter 9 min:\n1:00 rest\n\n\n",
+            "\n10 min amrap\n10 s. run\n10 push up\n250 row\n"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -393,6 +410,12 @@ const BADGE_CHECKS = [
   { line: "rx+ 4000 m run", expect: "rx" },                       // inline RX+ scaling marker → blue rx-badge (coach's 2026-07-27 sheet)
   { line: "800 m run rx", expect: "rx" },                         // bare "rx" as a standalone word, any position
   { line: "prx machine work", expect: "none" },                   // "rx" inside a word must NOT badge (\brx\b guard)
+  { line: "d.u", expect: "none" },                                // DOUBLE UNDERS initials — not group "D" (coach's 2026-09-10 CARDIO cell)
+  { line: "d.u.", expect: "none" },                               // …trailing period too
+  { line: "d.u's", expect: "none" },                              // …and the plural she sometimes writes
+  { line: "D-U", expect: "none" },                                // …hyphen spelling
+  { line: "D. Upper body", expect: "group-badge" },               // ⚠️ CONTROL: a REAL group D still wins (the \b after the "u" is what draws the line)
+  { line: "D. Ukemi drills", expect: "group-badge" },             // …control 2: "U" starting a word is not the abbreviation
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -571,6 +594,55 @@ const layoutFails = [];
     if (flat.some((l) => l.trim() === "75%")) layoutFails.push("'75%' split onto its own line — inline @load torn");
     if (!flat.some((l) => /6 reps @?75%/.test(l))) layoutFails.push("'x 6 reps @75%' not kept as one line");
   }
+
+  // ── "≥3 real lines per side, never one line beside nine" ──
+  // The coach's 2026-09-10 CARDIO cell. The A group is atomic (group cohesion),
+  // so the ONLY break available splits a 2-line head off a 7-line group. That
+  // shape is the thing the balance rule exists to prevent, so the section must
+  // render as ONE column. A badge check cannot see this: the D badge could come
+  // back and this would still pass, and the split could come back with the badge
+  // gone — the two halves of the fix need two assertions.
+  // The floor is deliberately conditional on `segReal <= MAX_PER_COL`; a segment
+  // whose REAL content genuinely overflows must still break, however lopsidedly.
+  const duRows = FIXTURES.find((f) => f.name === "du_is_not_group_d").rows;
+  const page2 = await context.newPage();
+  await page2.goto(INDEX, { waitUntil: "domcontentloaded" });
+  await page2.waitForFunction(
+    () => typeof window.parseAppsScriptData === "function" && typeof window.renderWorkout === "function",
+    { timeout: 8000 }
+  );
+  const du = await page2.evaluate((rows) => {
+    window.renderWorkout(window.parseAppsScriptData(rows));
+    const area = document.getElementById("wodArea");
+    const txt = (el) => (el.textContent || "").replace(/\s+/g, " ").trim();
+    // Section "1" specifically — a single-column section renders AS a
+    // .flow-col.part-block (no nested .flow-col children), hence `|| 1`.
+    const block = [...area.querySelectorAll(".flow-span, .flow-col.part-block")].find((b) => {
+      const h = b.querySelector(".flow-section-header");
+      return h && txt(h) === "1";
+    });
+    if (!block) return { nCols: -1, lines: [] };
+    return {
+      nCols: block.querySelectorAll(".flow-col").length || 1,
+      lines: [...block.querySelectorAll(".exercise-line")].map((l) => ({
+        t: txt(l), grp: /group-badge/.test(l.innerHTML),
+      })),
+    };
+  }, duRows);
+  await page2.close();
+
+  // Name the REAL reason: with the bug present the section header is not "1" at
+  // all — "skill:" gets promoted into it (the promotion needs ≥2 group lines, and
+  // the phantom group D was the second), so the block lookup misses entirely.
+  // Reporting that as "split into -1 columns" would send the next reader hunting
+  // in the splitter for a bug that lives in the group rule.
+  if (du.nCols === -1) layoutFails.push('section "1" not found — its header was renamed (the "skill:" promotion needs 2 group lines; a phantom group D is the classic second)');
+  else if (du.nCols !== 1) layoutFails.push(`"skill:/d.u" cell split into ${du.nCols} columns — 2 lines beside 7`);
+  const duLine = du.lines.find((l) => /^d\.?\s*u$/i.test(l.t.replace(/\s+/g, "")));
+  if (!duLine) layoutFails.push('"d.u" line not rendered at all');
+  else if (duLine.grp) layoutFails.push('"d.u" carries a group badge — the D was split off the initials again');
+  if (!du.lines.some((l) => l.grp && /Double unders/i.test(l.t)))
+    layoutFails.push('the REAL group header "A - Double unders:" lost its badge');
 }
 
 // Detection-branch coverage, accumulated across every fixture.
@@ -789,7 +861,7 @@ if (stationCatFails.length === 0) {
 
 console.log("\nLayout assertions (group cohesion)");
 if (layoutFails.length === 0) {
-  console.log("✅ superset stays one atomic column; inline @load intact");
+  console.log("✅ superset stays one atomic column; inline @load intact; d.u neither badged nor split off");
 } else {
   for (const f of layoutFails) console.log(`❌ ${f}`);
 }
