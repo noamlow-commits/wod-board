@@ -2312,7 +2312,7 @@
         this.init();
         if (!this.ctx) return Promise.resolve();
         const keys = [
-          'three','two','one','go',
+          'five','four','three','two','one','go',
           'ten_seconds','one_minute_remaining','halfway','last_round','time',
           'work','rest',
           'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight',
@@ -4795,6 +4795,10 @@
           const secLeft = Math.ceil(emomRemaining / 1000);
           if (secLeft !== _emomTickedSec && secLeft >= 1 && secLeft <= 5) {
             TimerAudio.beep(660, 0.12, 1);
+            // A short EMOM (≤ 1 min) COUNTS the last five out loud — "five,
+            // four, three, two, one" — in place of a "ten seconds" call it
+            // doesn't get (Noam 2026-09-27). Longer intervals keep beeps only.
+            if (ivMs <= 60000) TimerAudio.say(['', 'one', 'two', 'three', 'four', 'five'][secLeft]);
             _emomTickedSec = secLeft;
           }
         } else if (emomRemaining > 5500) {

@@ -287,7 +287,7 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
 // final interval's call is the workout-end cue, never a second copy of it.
 // Drives timerTick over a fake clock in 100ms steps and records the voice.
 {
-  const cues = (iv, total) => page.evaluate(([iv, total]) => {
+  const cues = (iv, total, pick = /ten_seconds/) => page.evaluate(([iv, total, pick]) => {
     const said = [], keep = { ...TimerAudio }, raf = window.requestAnimationFrame;
     TimerAudio.say = (k) => said.push(k);
     for (const f of ['beep', 'intervalBeep', 'warningBeep', 'finishSound']) TimerAudio[f] = () => {};
@@ -300,11 +300,18 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
       for (let i = n; i < said.length; i++) said[i] = `${ms / 1000}:${said[i]}`;
     }
     Object.assign(TimerAudio, keep); window.requestAnimationFrame = raf; resetTimer();
-    return said.filter((s) => /ten_seconds/.test(s));
-  }, [iv, total]);
+    return said.filter((s) => new RegExp(pick).test(s));
+  }, [iv, total, pick.source]);
   const one = await cues(60, 360), two = await cues(120, 360);
   ok('1-min EMOM: "ten seconds" only before the workout ends', JSON.stringify(one) === '["350:ten_seconds"]', JSON.stringify(one));
   ok('2-min EMOM: "ten seconds" before every interval, once at the end', JSON.stringify(two) === '["110:ten_seconds","230:ten_seconds","350:ten_seconds"]', JSON.stringify(two));
+  // Noam 2026-09-27: a 1-min EMOM COUNTS the last five out loud, every minute.
+  const COUNT = /:(five|four|three|two|one)$/;
+  const cnt1 = await cues(60, 180, COUNT), cnt2 = await cues(120, 240, COUNT);
+  const minute = (m) => ['five', 'four', 'three', 'two', 'one'].map((w, k) => `${m * 60 - 5 + k}:${w}`);
+  const want1 = [...minute(1), ...minute(2), ...minute(3)];
+  ok('1-min EMOM: counts five…one out loud before every minute', JSON.stringify(cnt1) === JSON.stringify(want1), JSON.stringify(cnt1));
+  ok('2-min EMOM: no spoken count (beeps only)', cnt2.length === 0, JSON.stringify(cnt2));
 }
 
 await browser.close();

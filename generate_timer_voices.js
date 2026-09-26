@@ -34,6 +34,8 @@ if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
 // ═══════════════════════════════════════════════════════════════════
 const CUES = [
   // Countdown to start
+  { key: 'five',                 text: 'Five!' },
+  { key: 'four',                 text: 'Four!' },
   { key: 'three',                text: 'Three!' },
   { key: 'two',                  text: 'Two!' },
   { key: 'one',                  text: 'One!' },
