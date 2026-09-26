@@ -2290,7 +2290,8 @@
     let _halfwayAnnounced = false;
     let _oneMinAnnounced  = false;
     let _tenSecAnnounced  = false;
-    let _emomTenSecRound  = 0;     // EMOM round whose "ten seconds" was already called
+    let _cueTenId         = null;  // interval whose "ten seconds" was already called
+    let _curIntervalShort = false; // the interval now running is ≤ 1 min (gates the total-end call)
     let _lastRoundAnnounced = false;
     let _lastAnnouncedRound = 0;   // the round the clock last CALLED (see the tabata tick)
 
@@ -4509,7 +4510,8 @@
       _halfwayAnnounced = false;
       _oneMinAnnounced  = false;
       _tenSecAnnounced  = false;
-      _emomTenSecRound  = 0;
+      _cueTenId         = null;
+      _curIntervalShort = false;
       _lastRoundAnnounced = false;
       _lastAnnouncedRound = 0;
       _lastIntervalRound = 0;
@@ -4520,7 +4522,6 @@
       _mixTickedSec = 0;
       _tabataPhaseHalfwayDone = false;
       _tabataPhaseOneMinDone  = false;
-      _tabataPhaseTenSecDone  = false;
       _lastWarningBeeped = false;
       renderTimerDisplay();
       // Soft tick for the first mark (10)
@@ -4586,7 +4587,8 @@
       _halfwayAnnounced = false;
       _oneMinAnnounced  = false;
       _tenSecAnnounced  = false;
-      _emomTenSecRound  = 0;
+      _cueTenId         = null;
+      _curIntervalShort = false;
       _lastRoundAnnounced = false;
       _lastAnnouncedRound = 0;
       _lastTabataPhase = '';
@@ -4594,7 +4596,6 @@
       _tabataTickedSec = 0;
       _tabataPhaseHalfwayDone = false;
       _tabataPhaseOneMinDone  = false;
-      _tabataPhaseTenSecDone  = false;
       renderTimerDisplay();
     }
 
@@ -4743,7 +4744,27 @@
     // Per-phase mid-workout cue flags (reset on every phase transition)
     let _tabataPhaseHalfwayDone = false;
     let _tabataPhaseOneMinDone = false;
-    let _tabataPhaseTenSecDone = false;
+
+    // ── ONE countdown rule for every interval clock (Noam 2026-09-27) ──
+    // An interval of ≤ 1 min: Harry COUNTS "five … one" on the 5-4-3-2-1 beeps.
+    // An interval  > 1 min: one "Ten seconds!" call, then the beeps alone.
+    // EMOM, work/rest (tabata) and MIX all call these two — before EVERY change,
+    // rest→work included — so the same length of interval always sounds the
+    // same, whatever format she wrote it in. A 1-min EMOM, a "1 min on/1 min off"
+    // and a MIX minute are one rule, not three.
+    const SHORT_INTERVAL_MS = 60000;
+    const COUNT_KEYS = ['', 'one', 'two', 'three', 'four', 'five'];
+    // At a 5-4-3-2-1 beep (secLeft 1-5).
+    function sayIntervalCount(intervalMs, secLeft) {
+      if (intervalMs <= SHORT_INTERVAL_MS && COUNT_KEYS[secLeft]) TimerAudio.say(COUNT_KEYS[secLeft]);
+    }
+    // Every tick. `id` names the interval so each is called once.
+    function sayIntervalTen(intervalMs, remainingMs, id) {
+      if (intervalMs > SHORT_INTERVAL_MS && _cueTenId !== id && remainingMs <= 10000 && remainingMs > 9000) {
+        TimerAudio.say('ten_seconds');
+        _cueTenId = id;
+      }
+    }
 
     function timerTick() {
       if (timerState !== 'running') return;
@@ -4795,24 +4816,16 @@
           const secLeft = Math.ceil(emomRemaining / 1000);
           if (secLeft !== _emomTickedSec && secLeft >= 1 && secLeft <= 5) {
             TimerAudio.beep(660, 0.12, 1);
-            // A short EMOM (≤ 1 min) COUNTS the last five out loud — "five,
-            // four, three, two, one" — in place of a "ten seconds" call it
-            // doesn't get (Noam 2026-09-27). Longer intervals keep beeps only.
-            if (ivMs <= 60000) TimerAudio.say(['', 'one', 'two', 'three', 'four', 'five'][secLeft]);
+            sayIntervalCount(ivMs, secLeft);
             _emomTickedSec = secLeft;
           }
         } else if (emomRemaining > 5500) {
           _emomTickedSec = 0;
         }
-        // "Ten seconds!" before each interval change — only when the interval is
-        // LONGER than a minute (Noam 2026-09-26: a 1-min EMOM keeps just the
-        // 5-4-3-2-1 ticks above). The last interval is skipped: its end is the
-        // workout's end, which the total-remaining cue below already calls.
-        if (ivMs > 60000 && currentRound < totalRounds && _emomTenSecRound !== currentRound
-            && emomRemaining <= 10000 && emomRemaining > 9000) {
-          TimerAudio.say('ten_seconds');
-          _emomTenSecRound = currentRound;
-        }
+        // The last interval's end IS the workout's end — the total-remaining
+        // cue below makes that call, so it is not made twice.
+        if (currentRound < totalRounds) sayIntervalTen(ivMs, emomRemaining, 'e' + currentRound);
+        _curIntervalShort = ivMs <= SHORT_INTERVAL_MS;
       }
 
       // ── Tabata / custom interval phase tracking ──
@@ -4862,10 +4875,9 @@
             TimerAudio.say('rest');          // Harry: "Rest"
           }
           _tabataTickedSec = 0; // reset tick tracker on phase change
-          // Reset per-phase mid-workout cues so the next phase gets its own halfway/1min/10sec
+          // Reset per-phase mid-workout cues so the next phase gets its own halfway/1min
           _tabataPhaseHalfwayDone = false;
           _tabataPhaseOneMinDone  = false;
-          _tabataPhaseTenSecDone  = false;
         }
         _lastTabataPhase = phase;
         _lastTabataPhaseIdx = phaseIdx;
@@ -4878,11 +4890,16 @@
           const secLeft = Math.ceil(phaseRemaining / 1000);
           if (secLeft !== _tabataTickedSec && secLeft >= 1 && secLeft <= 5) {
             TimerAudio.beep(660, 0.12, 1);
+            sayIntervalCount(phaseMs, secLeft);
             _tabataTickedSec = secLeft;
           }
         } else if (phaseRemaining > 5500) {
           _tabataTickedSec = 0;
         }
+        // Work AND rest phases. (Was: work only, phases ≥ 45s — so a 1-min work
+        // phase said "ten seconds" while a 1-min EMOM counted from five.) The
+        // total-remaining block skips 'tabata', so the last phase is called here.
+        sayIntervalTen(phaseMs, phaseRemaining, 't' + phaseIdx);
 
         // ── Per-phase mid-workout cues for LONG work phases ──
         // Only fire during WORK (athletes don't need cues mid-rest) and only when
@@ -4899,12 +4916,6 @@
               && phaseRemaining <= 60000 && phaseRemaining > 58000) {
             TimerAudio.say('one_minute_remaining');
             _tabataPhaseOneMinDone = true;
-          }
-          // Ten seconds remaining — phases ≥ 45 sec (avoid double-firing on short tabata)
-          if (!_tabataPhaseTenSecDone && phaseMs >= 45000
-              && phaseRemaining <= 10000 && phaseRemaining > 9000) {
-            TimerAudio.say('ten_seconds');
-            _tabataPhaseTenSecDone = true;
           }
         }
       }
@@ -4927,15 +4938,21 @@
               timerInterval = i;
               // 5-second warning ticks before next interval
               const mixRemaining = acc - inRound;
+              const ivMs = (intervals[i].seconds || 0) * 1000;
               if (mixRemaining <= 5500 && mixRemaining > 200) {
                 const secLeft = Math.ceil(mixRemaining / 1000);
                 if (secLeft !== _mixTickedSec && secLeft >= 1 && secLeft <= 5) {
                   TimerAudio.beep(660, 0.12, 1);
+                  sayIntervalCount(ivMs, secLeft);
                   _mixTickedSec = secLeft;
                 }
               } else if (mixRemaining > 5500) {
                 _mixTickedSec = 0;
               }
+              // As EMOM: the very last interval's end is the workout end.
+              const isLastIv = timerRound >= (timerConfig.rounds || 1) && i === intervals.length - 1;
+              if (!isLastIv) sayIntervalTen(ivMs, mixRemaining, 'm' + timerRound + ':' + i);
+              _curIntervalShort = ivMs <= SHORT_INTERVAL_MS;
               break;
             }
           }
@@ -4968,7 +4985,8 @@
         // Ten-second warning — voice + beep
         if (remaining <= 10000 && remaining > 9500 && !_lastWarningBeeped) {
           TimerAudio.warningBeep();
-          if (!_tenSecAnnounced) {
+          // An EMOM/MIX whose last interval is ≤ 1 min counts from five instead.
+          if (!_tenSecAnnounced && !((timerType === 'emom' || timerType === 'mix') && _curIntervalShort)) {
             TimerAudio.say('ten_seconds');
             _tenSecAnnounced = true;
           }
@@ -7721,7 +7739,6 @@
       // or the new phase inherits "already announced" and goes silent.
       _tabataPhaseHalfwayDone = false;
       _tabataPhaseOneMinDone  = false;
-      _tabataPhaseTenSecDone  = false;
       _tabataTickedSec = 0;
       _emomTickedSec   = 0;
       renderTimerDisplay();

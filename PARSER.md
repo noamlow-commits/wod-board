@@ -898,7 +898,7 @@ Same logic adapted for compact horizontal bar. `borderColor` and `boxShadow` fli
 Flags `_tabataPhaseHalfwayDone` / `_tabataPhaseOneMinDone` / `_tabataPhaseTenSecDone` reset on every phase transition (not just timer start). Triggers only during WORK phase:
 - `halfway` at 50% of a WORK phase ≥ 4 min (e.g. 5:00 into each AMRAP 10)
 - `one_minute_remaining` at T-60 of a WORK phase ≥ 3 min (e.g. 9:00 into each AMRAP 10)
-- `ten_seconds` at T-10 of a WORK phase ≥ 45s
+- `ten_seconds` — see the ONE countdown rule below (was: WORK phases ≥ 45s only, until 2026-09-27)
 
 **IMPORTANT:** The total-time-based mid-workout cue block (line ~2320) is gated with `timerType !== 'tabata'` to prevent double-firing. Final 5-4-3-2-1 tick beeps still run off total remaining (no voice, just beeps).
 
@@ -908,8 +908,13 @@ Flags `_tabataPhaseHalfwayDone` / `_tabataPhaseOneMinDone` / `_tabataPhaseTenSec
 - 3-2-1 warning ticks (660Hz) before every phase transition
 - **Start countdown + GO (`TimerAudio.countdown`)** — 3/2/1 ticks lengthened to 0.30s (660Hz) each; **GO** is the original bright 990Hz sine `beep`, lengthened 0.5s → **1.3s** so it carries across the gym (plus the Harry `say('go')` voice). (A sawtooth-fanfare `goSound()` was tried 2026-07-09 and reverted — Noam preferred the original tone, just longer.)
 - EMOM interval warning ticks (added 2026-04-13)
-- **EMOM "ten seconds" per interval (added 2026-09-26)** — only when the interval is **> 60s**; a 1-min EMOM keeps just its 5-4-3-2-1 ticks (Noam's call — fifteen "ten seconds" in an EMOM 15 is noise). The final interval is skipped, because its end is the workout end, which the total-remaining cue already calls. Flag `_emomTenSecRound`. Guarded in `timer-nav.mjs`.
-- **EMOM ≤ 1 min COUNTS the last five out loud (added 2026-09-27)** — Harry says "five, four, three, two, one" on the existing 5-4-3-2-1 ticks, every interval including the last (Noam). `five.mp3`/`four.mp3` generated via `generate_timer_voices.js` (idempotent — only new files). Longer intervals: beeps only + their "ten seconds". Guarded in `timer-nav.mjs`.
+- ⭐ **ONE countdown rule for every interval clock (2026-09-27, Noam; supersedes the two EMOM-only entries of 26-27.9).** `sayIntervalCount` / `sayIntervalTen`, called by EMOM, work/rest (tabata) AND MIX, before **every** change, rest→work included:
+  - interval **≤ 1 min** → Harry **counts** "five…one" on the 5-4-3-2-1 beeps; no "ten seconds".
+  - interval **> 1 min** → **one** "Ten seconds!", then beeps only.
+  - Why one rule: before it, `1:00 on / 1:00 off` said "ten" on work phases only, while a 1-min EMOM counted from five. The same length of interval sounded different depending on how she wrote it.
+  - The last interval's end is the workout end. For EMOM/MIX the total-remaining block makes the "ten" call there (per-interval call skipped), and it is suppressed when that last interval is short (`_curIntervalShort`). Tabata is excluded from that block, so its last phase is called per-phase.
+  - Deliberately **not** a spoken 10→1: one call + beeps is enough in a loud room (Noam took the recommendation and will ask the coach). `five.mp3`/`four.mp3` via `generate_timer_voices.js` (idempotent).
+  - Guarded by five cases in `timer-nav.mjs` (1-min / 2-min EMOM, 1:00 on/off, 2:00/0:30, MIX 1:30+0:30); four of them fail on the pre-rule code.
 
 ### SW Cache Versioning
 **Critical:** bump `CACHE_NAME` in `sw.js` on every code change (`sw.js` is the source of truth — currently **v139**; this number drifts, always read `sw.js`). **The SW is NETWORK-FIRST for the app shell** (navigations + `.html`/`.js`) since 2026-07-26 — a deploy shows up on the next normal F5, no cache-clearing needed. (It was cache-first, which served the STALE app for a load after every push and cost hours of "my fix isn't showing" debugging.) Static assets (images/MP3s) stay stale-while-revalidate. To break a client already stuck on the OLD cache-first SW, run once in its console: `navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))).then(()=>caches.keys()).then(ks=>Promise.all(ks.map(k=>caches.delete(k)))).then(()=>location.reload())`.

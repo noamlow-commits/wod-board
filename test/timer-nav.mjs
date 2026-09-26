@@ -281,37 +281,53 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
   await page.evaluate(`(() => { _pendingBuild = null; _doReload = () => location.reload(); })()`);
 }
 
-// ── "Ten seconds!" on an EMOM (coach 2026-09-22: "it doesn't say ten seconds
-// any more — that was great"; Noam 2026-09-26: a 1-min EMOM keeps only the
-// 5-4-3-2-1 beeps). Longer intervals call it before EVERY interval change; the
-// final interval's call is the workout-end cue, never a second copy of it.
-// Drives timerTick over a fake clock in 100ms steps and records the voice.
+// ── ONE countdown rule for every interval clock (coach 2026-09-22: "it doesn't
+// say ten seconds any more — that was great"; Noam 2026-09-27: an interval of
+// ≤ 1 min COUNTS "five…one" out loud, a longer one gets a single "Ten seconds!").
+// Same rule for EMOM, work/rest and MIX, before every change incl. rest→work.
+// The last interval's call is the workout-end call, never a second copy of it.
+// Drives timerTick over a fake clock in 100ms steps and records the voice,
+// collapsed to "<second>:ten" / "<second>:count" (a count = the five words
+// five…one on five consecutive seconds, checked in order).
 {
-  const cues = (iv, total, pick = /ten_seconds/) => page.evaluate(([iv, total, pick]) => {
+  const voice = (type, cfg) => page.evaluate(([type, cfg]) => {
     const said = [], keep = { ...TimerAudio }, raf = window.requestAnimationFrame;
     TimerAudio.say = (k) => said.push(k);
-    for (const f of ['beep', 'intervalBeep', 'warningBeep', 'finishSound']) TimerAudio[f] = () => {};
+    for (const f of ['beep', 'intervalBeep', 'warningBeep', 'finishSound', 'tabataWork', 'tabataRest']) TimerAudio[f] = () => {};
     window.requestAnimationFrame = () => 0;
-    resetTimer(); configureTimer('emom', { intervalSeconds: iv, totalSeconds: total });
+    resetTimer(); configureTimer(type, cfg);
+    const total = getTimerTotalMs();
     timerState = 'running'; timerElapsed = 0;
-    for (let ms = 0; ms <= total * 1000 + 200 && timerState === 'running'; ms += 100) {
+    const log = [];
+    for (let ms = 0; ms <= total + 200 && timerState === 'running'; ms += 100) {
       timerStartedAt = performance.now() - ms;
       const n = said.length; timerTick();
-      for (let i = n; i < said.length; i++) said[i] = `${ms / 1000}:${said[i]}`;
+      for (let i = n; i < said.length; i++) log.push([ms / 1000, said[i]]);
     }
     Object.assign(TimerAudio, keep); window.requestAnimationFrame = raf; resetTimer();
-    return said.filter((s) => new RegExp(pick).test(s));
-  }, [iv, total, pick.source]);
-  const one = await cues(60, 360), two = await cues(120, 360);
-  ok('1-min EMOM: "ten seconds" only before the workout ends', JSON.stringify(one) === '["350:ten_seconds"]', JSON.stringify(one));
-  ok('2-min EMOM: "ten seconds" before every interval, once at the end', JSON.stringify(two) === '["110:ten_seconds","230:ten_seconds","350:ten_seconds"]', JSON.stringify(two));
-  // Noam 2026-09-27: a 1-min EMOM COUNTS the last five out loud, every minute.
-  const COUNT = /:(five|four|three|two|one)$/;
-  const cnt1 = await cues(60, 180, COUNT), cnt2 = await cues(120, 240, COUNT);
-  const minute = (m) => ['five', 'four', 'three', 'two', 'one'].map((w, k) => `${m * 60 - 5 + k}:${w}`);
-  const want1 = [...minute(1), ...minute(2), ...minute(3)];
-  ok('1-min EMOM: counts five…one out loud before every minute', JSON.stringify(cnt1) === JSON.stringify(want1), JSON.stringify(cnt1));
-  ok('2-min EMOM: no spoken count (beeps only)', cnt2.length === 0, JSON.stringify(cnt2));
+    const out = [], W = ['five', 'four', 'three', 'two', 'one'];
+    for (let i = 0; i < log.length; i++) {
+      const [t, k] = log[i];
+      if (k === 'ten_seconds') out.push(`${t}:ten`);
+      else if (k === 'five') {
+        const run = log.slice(i, i + 5);
+        const good = run.length === 5 && run.every(([tt, kk], j) => kk === W[j] && tt === t + j);
+        out.push(`${t}:${good ? 'count' : 'BROKEN-count'}`);
+      } else if (W.includes(k) && !(i > 0 && W.includes(log[i - 1][1]))) out.push(`${t}:stray-${k}`);
+    }
+    return out.join(' ');
+  }, [type, cfg]);
+  const cases = [
+    ['1-min EMOM ×3: counts from five every minute, never "ten"', 'emom', { intervalSeconds: 60, totalSeconds: 180 }, '55:count 115:count 175:count'],
+    ['2-min EMOM ×2: "ten" before every change, no count', 'emom', { intervalSeconds: 120, totalSeconds: 240 }, '110:ten 230:ten'],
+    ['1:00 on / 1:00 off ×2: counts before every change (rest→work too)', 'tabata', { workSeconds: 60, restSeconds: 60, rounds: 2 }, '55:count 115:count 175:count 235:count'],
+    ['2:00 work / 0:30 rest ×2: "ten" on work, count on rest', 'tabata', { workSeconds: 120, restSeconds: 30, rounds: 2 }, '110:ten 145:count 260:ten 295:count'],
+    ['MIX 1:30 + 0:30 ×2: per interval length, last one counts', 'mix', { intervals: [{ name: 'A', seconds: 90 }, { name: 'B', seconds: 30 }], rounds: 2 }, '80:ten 115:count 200:ten 235:count'],
+  ];
+  for (const [name, type, cfg, want] of cases) {
+    const got = await voice(type, cfg);
+    ok(name, got === want, `got "${got}"`);
+  }
 }
 
 await browser.close();
