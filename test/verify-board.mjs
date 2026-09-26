@@ -374,6 +374,20 @@ const FIXTURES = [
             "emom 15:\n1# 8-10 cal\n2# 7 pull up+ max wall ball\n3# max burpee box jump/burpee box step up\n4# rest\n\n\n*המטרה לצבור כמה שיותר ברפיז! לספור!",
             "for time:\nRX 22.5/15\n1000-800-600-400-200\nrow/ run  (אפשר לשלב)\nt.c 20\n20 wall ball (rx 9/6)\n50 d.u",
             "Part 1\n3 rounds:\n30 Deadlift\n20 Wall Ball\n\nPart 2- מחליפים אחרי סיבוב שלם!\n10 rounds\n20m Shuttle Run\n\nTC: 35 min"]] },
+  { name: "leadin_never_ends_column",
+    note: "coach's LIVE sheet 2026-09-27, verbatim (both rows). Noam: 'CARDIO stage 1 in center focus is split illogically — because of the SKILL header'. CARDIO '1' has 10 real lines against MAX_PER_COL 8, a GENUINE overflow, so the ≥3-per-side floor dropped to 1 — and group A is atomic, so the only break cohesion allowed was right after 'skill:': one label beside nine lines. Same session, same cause in WOD '2': a legal 3|3 split put 'Part 1 / 3 rounds:' in one column and its three exercises in the next. The lead-in anti-widow ('never strand a header at a column bottom') was DOCUMENTED since 2026-07 and never implemented. Now endsOnLeadIn() rejects any break whose previous column ends on a lead-in (label ending ':', part header, group header, bare 'A1.'); with no legal break the section stays one column and autoFit shrinks. ⚠️ Both rows must stay whole: MAX_PER_COL is per row (max(8, ceil(items/4))) — trimming a cell changes the cap and the reason the split happened. Layout asserted in the layout pass.",
+    expectTimers: ["TC 35′ · For Time"],
+    forbidTimers: [],
+    // KNOWN GAP, not intended forever: CARDIO '1' ('A1. 2 Rounds Of:' four
+    // '1 Min' stations + 'A2. 7 Min Double Unders Work') gets NO clock today.
+    // Whether it is an 8-minute EMOM-style rotation, 2×(4×1′), plus a 7′ block,
+    // is a semantics question for the coach (TIMER_ROADMAP §1) — surfaced to
+    // Noam 2026-09-27. Listed so this fixture guards LAYOUT without pretending
+    // the silence is right; remove the entry when her answer is implemented.
+    ignoreFacts: ["1 Min", "7 Min"],
+    rows: [["", "1", "2", "3"],
+           ["WOD", "warm up: 2 sets\n10/12 cal\n10 deadlift\n10 air squat\n10 thrusters with ball", "🔥 Friday Partner WOD\n\nPart 1\n3 rounds:\n30 Deadlift\n20 Wall Ball\n10 Wall Walk\n\nPart 2- מחליפים אחרי סיבוב שלם!\n10 rounds\n20m Shuttle Run\n20m Farmer Carry\n\nPart 3\n3 rounds\n30 Wall Ball\n20 DB Snatch\n10 Wall Walk\n\nTC: 35 min", ""],
+           ["CARDIO", "\n skill:\n\nA - \nJumping Rope :\n\nA1. \n2 Rounds Of:\n1 Min max Single Unders\n1 Min Max Single Unders Alternating legs\n1 Min Single Unders + Cross Over \n1 Min Rest \n\nA2. 7 Min Double Unders Work", "for time:\n1000-800-600-400-200\nrow/ run  (אפשר לשלב)\n20 rower pike ups/ 20 sit ups\n50 d.u\n\n\n\nt.c 35", "cash out: 2-3 sets\n20 biceps curl\n20 skull crushers\n20 db sit\n\n\n\n\n\n"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -702,6 +716,36 @@ const layoutFails = [];
   expectWork(flow, /^for time:/, "flow");
   expectNote(single, /^RX 22\.5/, "single-cell", { start: true, after: [/^50 d\.u/] });
   expectWork(single, /^row\/ run/, "single-cell");
+
+  // ── A lead-in never ends a column (coach's live sheet 2026-09-27) ──
+  const leadRows = FIXTURES.find((f) => f.name === "leadin_never_ends_column").rows;
+  const page4 = await context.newPage();
+  await page4.goto(INDEX, { waitUntil: "domcontentloaded" });
+  await page4.waitForFunction(
+    () => typeof window.parseAppsScriptData === "function" && typeof window.renderWorkout === "function",
+    { timeout: 8000 }
+  );
+  const cols = await page4.evaluate((rows) => {
+    window.renderWorkout(window.parseAppsScriptData(rows));
+    const txt = (el) => (el.textContent || "").replace(/\s+/g, " ").trim();
+    // Every rendered column, as its list of non-empty line texts.
+    return [...document.querySelectorAll("#wodArea .flow-col")]
+      .map((c) => [...c.querySelectorAll(".exercise-line")].map(txt).filter(Boolean));
+  }, leadRows);
+  await page4.close();
+  const colOf = (re) => cols.findIndex((c) => c.some((t) => re.test(t)));
+  const sameCol = (a, b, why) => {
+    const i = colOf(a), j = colOf(b);
+    if (i < 0 || j < 0) layoutFails.push(`lead-in: ${i < 0 ? a : b} not rendered`);
+    else if (i !== j) layoutFails.push(`lead-in: ${why} — "${a.source}" and "${b.source}" in different columns`);
+  };
+  sameCol(/^skill:$/, /^Jumping Rope/, 'CARDIO 1: "skill:" stranded beside its section');
+  sameCol(/^3 rounds:$/, /^30 Deadlift$/, 'WOD 2: "3 rounds:" torn from its exercises');
+  sameCol(/^Part 1$/, /^30 Deadlift$/, 'WOD 2: "Part 1" torn from its exercises');
+  for (const c of cols) {
+    const last = c[c.length - 1];
+    if (last && /:\s*$/.test(last)) layoutFails.push(`lead-in: a column ends on "${last}"`);
+  }
 }
 
 // Detection-branch coverage, accumulated across every fixture.

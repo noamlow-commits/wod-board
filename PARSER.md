@@ -300,6 +300,26 @@ A note is: a bare cap (`TC: 35 min`, `t.c 20`, NOT `for time (tc 20)`), a
 - Three render paths were wired separately (flow / spread card / short card).
   The layout pass asserts both the flow path and a single-cell row.
 
+### ⭐ A lead-in never ends a column (added 2026-09-27, fixture `leadin_never_ends_column`)
+
+The anti-widow rule ("never strand a header at a column bottom") was
+**documented since 2026-07 and never implemented**. The same thing happened with the ≥3 floor. Her live
+CARDIO `1` showed it: 10 real lines against `MAX_PER_COL` 8 is a *genuine*
+overflow, so the floor drops to 1. Group A is atomic, so the only legal break
+was right after `skill:`, leaving one label beside nine lines. The same cause hit WOD `2`, where a legal
+3|3 split tore `Part 1 / 3 rounds:` from its three exercises.
+
+`endsOnLeadIn(i)` rejects a break whose previous column would end (spacers
+skipped) on a **lead-in**: a line ending `:`, a part header, a group header
+(`A -`), or a bare sub-group label (`A1.`). It is applied in both the balanced
+split and the whole-group split. **A lead-in is never worth a break, even under
+overflow.** With no legal break the section stays one column and autoFit
+shrinks it, and one column is the right answer for a section that is one unit.
+The layout pass asserts it on her verbatim sheet, and it fails on the old code.
+
+⚠️ The same fixture surfaced a **timer gap**, left open for the coach: CARDIO `1`
+(`2 Rounds Of:` four `1 Min` + `A2. 7 Min`) gets no clock (`ignoreFacts`).
+
 ### Section Colors
 - WOD sections: orange gradient `#ea580c → #f97316`
 - CARDIO sections: purple gradient (default theme)

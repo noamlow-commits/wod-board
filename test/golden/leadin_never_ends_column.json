@@ -1,0 +1,132 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "warm up: 2 sets",
+              "10/12 cal",
+              "10 deadlift",
+              "10 air squat",
+              "10 thrusters with ball"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "🔥 Friday Partner WOD",
+              "__SPACER__",
+              "Part 1",
+              "3 rounds:",
+              "30 Deadlift",
+              "20 Wall Ball",
+              "10 Wall Walk",
+              "__SPACER__",
+              "Part 2- מחליפים אחרי סיבוב שלם!",
+              "10 rounds",
+              "20m Shuttle Run",
+              "20m Farmer Carry",
+              "__SPACER__",
+              "Part 3",
+              "3 rounds",
+              "30 Wall Ball",
+              "20 DB Snatch",
+              "10 Wall Walk",
+              "__SPACER__",
+              "TC: 35 min"
+            ]
+          }
+        ]
+      },
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "skill:",
+              "__SPACER__",
+              "A -",
+              "Jumping Rope :",
+              "__SPACER__",
+              "A1.",
+              "2 Rounds Of:",
+              "1 Min max Single Unders",
+              "1 Min Max Single Unders Alternating legs",
+              "1 Min Single Unders + Cross Over",
+              "1 Min Rest",
+              "__SPACER__",
+              "A2. 7 Min Double Unders Work"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "for time:",
+              "1000-800-600-400-200",
+              "row/ run  (אפשר לשלב)",
+              "20 rower pike ups/ 20 sit ups",
+              "50 d.u",
+              "__SPACER__",
+              "t.c 35"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "cash out: 2-3 sets",
+              "20 biceps curl",
+              "20 skull crushers",
+              "20 db sit"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "1",
+      "timers": []
+    },
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": [
+        {
+          "label": "P3 · TC 35′",
+          "type": "fortime"
+        }
+      ]
+    },
+    {
+      "section": "CARDIO",
+      "header": "1",
+      "timers": []
+    },
+    {
+      "section": "CARDIO",
+      "header": "2",
+      "timers": [
+        {
+          "label": "TC 35′ · For Time",
+          "type": "fortime"
+        }
+      ]
+    },
+    {
+      "section": "CARDIO",
+      "header": "3",
+      "timers": []
+    }
+  ]
+}
