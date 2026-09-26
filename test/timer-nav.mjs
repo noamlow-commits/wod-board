@@ -281,6 +281,32 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
   await page.evaluate(`(() => { _pendingBuild = null; _doReload = () => location.reload(); })()`);
 }
 
+// ── "Ten seconds!" on an EMOM (coach 2026-09-22: "it doesn't say ten seconds
+// any more — that was great"; Noam 2026-09-26: a 1-min EMOM keeps only the
+// 5-4-3-2-1 beeps). Longer intervals call it before EVERY interval change; the
+// final interval's call is the workout-end cue, never a second copy of it.
+// Drives timerTick over a fake clock in 100ms steps and records the voice.
+{
+  const cues = (iv, total) => page.evaluate(([iv, total]) => {
+    const said = [], keep = { ...TimerAudio }, raf = window.requestAnimationFrame;
+    TimerAudio.say = (k) => said.push(k);
+    for (const f of ['beep', 'intervalBeep', 'warningBeep', 'finishSound']) TimerAudio[f] = () => {};
+    window.requestAnimationFrame = () => 0;
+    resetTimer(); configureTimer('emom', { intervalSeconds: iv, totalSeconds: total });
+    timerState = 'running'; timerElapsed = 0;
+    for (let ms = 0; ms <= total * 1000 + 200 && timerState === 'running'; ms += 100) {
+      timerStartedAt = performance.now() - ms;
+      const n = said.length; timerTick();
+      for (let i = n; i < said.length; i++) said[i] = `${ms / 1000}:${said[i]}`;
+    }
+    Object.assign(TimerAudio, keep); window.requestAnimationFrame = raf; resetTimer();
+    return said.filter((s) => /ten_seconds/.test(s));
+  }, [iv, total]);
+  const one = await cues(60, 360), two = await cues(120, 360);
+  ok('1-min EMOM: "ten seconds" only before the workout ends', JSON.stringify(one) === '["350:ten_seconds"]', JSON.stringify(one));
+  ok('2-min EMOM: "ten seconds" before every interval, once at the end', JSON.stringify(two) === '["110:ten_seconds","230:ten_seconds","350:ten_seconds"]', JSON.stringify(two));
+}
+
 await browser.close();
 console.log(`\n──────────────────────────────────────────────\n${pass} pass · ${fail} fail`);
 process.exit(fail ? 1 : 0);

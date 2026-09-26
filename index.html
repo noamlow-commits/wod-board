@@ -248,8 +248,8 @@
       font-size: 2vw;
     }
     .main-content.timer-docked:not(.mode-split) .timer-dock #ftbRound {
-      font-size: 2.3vw;   /* enlarged 2026-07-27 (coach) so the round # reads from across the room, "within" the stage */
-      font-weight: 700;
+      font-size: 3.4vw;   /* 2.3vw 2026-07-27 → 3.4vw 2026-09-26 (coach: "small grey" — must read from across the room) */
+      font-weight: 800;
     }
     .main-content.timer-docked:not(.mode-split) .timer-dock #ftbStopBtn {
       font-size: 1.3vw;
@@ -268,8 +268,11 @@
       letter-spacing: 0.15em;
     }
     .timer-dock #ftbRound {
-      color: #aaa;
-      font-size: 1.2vw;
+      /* Sky blue: bold beside the white digits + orange frame, and free of the
+         green=WORK / red=REST meaning the phase label already carries. */
+      color: #38bdf8;
+      font-weight: 700;
+      font-size: 1.6vw;
       text-align: center;
     }
     .timer-dock #ftbProgress {
@@ -723,6 +726,21 @@
       padding-inline-start: 0.55rem;
     }
 
+    /* Coach notes (T.C, RX/weights, "*" notes, Hebrew explanations) — floated
+       below their block by orderNotesLast() so the exercises read as one unit
+       (coach 2026-09-22). Smaller and quieter than the work, still legible. */
+    .exercise-line.note-line {
+      font-size: calc(0.92rem * var(--font-scale));
+      font-weight: 500;
+      color: #b6c2d4;
+      border-bottom: none;
+      line-height: 1.5;
+    }
+    .exercise-line.note-line.notes-start {
+      margin-top: 0.45em;
+      padding-top: 0.4em;
+      border-top: 2px dashed rgba(182, 194, 212, 0.35);
+    }
     .exercise-line.spacer {
       height: 1.1em;
       min-height: 0.9rem;
@@ -2272,6 +2290,7 @@
     let _halfwayAnnounced = false;
     let _oneMinAnnounced  = false;
     let _tenSecAnnounced  = false;
+    let _emomTenSecRound  = 0;     // EMOM round whose "ten seconds" was already called
     let _lastRoundAnnounced = false;
     let _lastAnnouncedRound = 0;   // the round the clock last CALLED (see the tabata tick)
 
@@ -3105,19 +3124,78 @@
       };
     }
 
+    // ── Note lines: what the coach writes ABOUT the workout, not the workout ──
+    // (coach 2026-09-22: "T.C, time cap and RX as part of the notes … the
+    // workout itself one unit, the weights below"). ONE rule, two consumers:
+    // the display floats these below their block (orderNotesLast), and
+    // partCapHints counts them as annotation when deciding if a cap is orphaned.
+    // She writes exercises in English; a line that is mostly Hebrew is her
+    // explanation ("*המטרה לצבור כמה שיותר ברפיז!").
+    // A parenthetical aside doesn't vote: "row/ run  (אפשר לשלב)" — her live
+    // sheet 2026-09-26 — has more Hebrew letters than Latin, and is an exercise.
+    function isHebrewDominant(t) {
+      t = t.replace(/\([^)]*\)/g, ' ');
+      const he = (t.match(/[א-ת]/g) || []).length;
+      const la = (t.match(/[A-Za-z]/g) || []).length;
+      return he > 0 && he > la;
+    }
+    const NOTE_FORMAT_RE = new RegExp(`\\b(amrap|emom|for\\s*time|tabata|tbata|${EVERY_WORD}|e\\d*mom[x×]?|rft|rounds?\\s+for\\s+time)\\b`, 'i');
+    function isNoteLine(l, opts) {
+      const t = (l || '').trim();
+      if (!t || t === '__SPACER__') return false;
+      if (PART_HEADER_RE.test(t)) return false;             // "Part 2- מחליפים…" is a header, stays put
+      if (/^\*/.test(t)) return true;                        // "*"-note
+      if (/\bgoal\b/i.test(t) || /מטרה/.test(t)) return true; // goal line
+      if (/^\W*rx\b/i.test(t)) return true;                  // LEADING rx/rx+ scaling ("RX 15", "rx+ 4000 m run") — never "20 wall ball (rx 9/6)"
+      if (/^\W*(weights?|scal(e|ing))\b/i.test(t)) return true;
+      if (capSecondsFromLine(t) && !NOTE_FORMAT_RE.test(t)) return true; // a bare cap ("TC: 35 min"), not "for time (tc 20)"
+      // Hebrew explanation — but not a numbered/station line, and not inside a
+      // warm-up, where Hebrew lines can be the exercises themselves.
+      if (isHebrewDominant(t) && !/^\s*[\d#]/.test(t) && !(opts && opts.inWarmup)) return true;
+      return false;
+    }
+    // Display order of a cell's lines: each block's notes move to the END of
+    // that block (a block = the lines between "part N" headers), so the
+    // exercises read as one uninterrupted unit. Order among the work lines and
+    // among the notes is hers, untouched; nothing is rewritten. A block that is
+    // ALL notes (or has none) renders exactly as written.
+    // Returns [{ line, idx, isNote, firstNote }].
+    function orderNotesLast(lines, inWarmupAt) {
+      const out = [];
+      let seg = [];
+      const isBlank = l => !l || !l.trim() || l === '__SPACER__';
+      const flush = () => {
+        const work = seg.filter(x => !x.isNote);
+        const notes = seg.filter(x => x.isNote);
+        if (!notes.length || !work.some(x => !isBlank(x.line))) {
+          seg.forEach(x => out.push({ ...x, isNote: false }));
+        } else {
+          while (work.length && isBlank(work[work.length - 1].line)) work.pop(); // the gap now sits above the notes divider
+          notes.forEach((n, k) => { n.firstNote = k === 0; });
+          out.push(...work, ...notes);
+        }
+        seg = [];
+      };
+      (lines || []).forEach((line, idx) => {
+        if (PART_HEADER_RE.test(line) && seg.length) flush();
+        seg.push({ line, idx, isNote: isNoteLine(line, { inWarmup: !!(inWarmupAt && inWarmupAt(idx)) }), firstNote: false });
+      });
+      flush();
+      return out;
+    }
+
     function partCapHints(cells) {
       cells = cells || [];
       const hints = cells.map(() => 0);
       // A line that annotates rather than prescribes work: blank/spacer, the
-      // cap itself, an rx/rx+ scaling marker, a "*"-note, a goal line.
+      // cap itself, an rx/rx+ scaling marker anywhere on the line, or any
+      // note line (the shared display rule above).
       const isAnnotation = (l) => {
         const t = (l || '').trim();
         if (!t || t === '__SPACER__') return true;
         if (capSecondsFromLine(t)) return true;
         if (/\brx\b\+?/i.test(t)) return true;
-        if (/^\*/.test(t)) return true;
-        if (/\bgoal\b/i.test(t) || /מטרה/.test(t)) return true;
-        return false;
+        return isNoteLine(t);
       };
       const cellCap = (c) => {
         let cap = capSecondsFromLine(c.header);
@@ -4431,6 +4509,7 @@
       _halfwayAnnounced = false;
       _oneMinAnnounced  = false;
       _tenSecAnnounced  = false;
+      _emomTenSecRound  = 0;
       _lastRoundAnnounced = false;
       _lastAnnouncedRound = 0;
       _lastIntervalRound = 0;
@@ -4507,6 +4586,7 @@
       _halfwayAnnounced = false;
       _oneMinAnnounced  = false;
       _tenSecAnnounced  = false;
+      _emomTenSecRound  = 0;
       _lastRoundAnnounced = false;
       _lastAnnouncedRound = 0;
       _lastTabataPhase = '';
@@ -4719,6 +4799,15 @@
           }
         } else if (emomRemaining > 5500) {
           _emomTickedSec = 0;
+        }
+        // "Ten seconds!" before each interval change — only when the interval is
+        // LONGER than a minute (Noam 2026-09-26: a 1-min EMOM keeps just the
+        // 5-4-3-2-1 ticks above). The last interval is skipped: its end is the
+        // workout's end, which the total-remaining cue below already calls.
+        if (ivMs > 60000 && currentRound < totalRounds && _emomTenSecRound !== currentRound
+            && emomRemaining <= 10000 && emomRemaining > 9000) {
+          TimerAudio.say('ten_seconds');
+          _emomTenSecRound = currentRound;
         }
       }
 
@@ -6343,6 +6432,16 @@
       return /^rx\s*[:\/]/.test(first) || (cell.lines.length <= 3 && cell.lines.some(l => /^rx\s*[:\/]/i.test(l.trim())));
     }
 
+    // One exercise line → HTML. A '__NOTE__'/'__NOTE1__' prefix (from
+    // orderNotesLast) renders the line as a note; NOTE1 opens the notes block.
+    function renderLineHTML(line) {
+      let note = '';
+      if (line.startsWith('__NOTE1__')) { note = ' note-line notes-start'; line = line.slice(9); }
+      else if (line.startsWith('__NOTE__')) { note = ' note-line'; line = line.slice(8); }
+      const parsed = parseLine(line);
+      return `<div class="exercise-line ${parsed.type}${note}${parsed.extraClass ? ' ' + parsed.extraClass : ''}" dir="auto">${parsed.html}</div>`;
+    }
+
     function renderWorkout(data) {
       const container = document.getElementById('wodArea');
 
@@ -6438,15 +6537,30 @@
               allItems.push({ type: 'header', section: currentSection, html: escapeHtml(promotedTitle || cell.header) });
             }
 
-            let inWarmup = isUntitledWarmup;
+            // Warm-up zone per line, in WRITTEN order (display order below
+            // moves notes, and must not change which lines are warm-up).
+            const warmAt = [];
+            {
+              let w = isUntitledWarmup;
+              cell.lines.forEach((line, k) => {
+                if (/warm\s*up/i.test(line)) w = true;
+                else if (PART_HEADER_RE.test(line) || /\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom|\b\d+\s*min(?:ute)?s?\s*[x×*]\s*\d+\b|\bteams?\s+of\s+\d/i.test(line)) w = false;
+                warmAt[k] = w;
+              });
+            }
             let curGroupLetter = null; // active letter-group (A/B/C) for cohesion tagging
-            for (let li = 0; li < cell.lines.length; li++) {
+            for (const { line, idx: li, isNote, firstNote } of orderNotesLast(cell.lines, k => warmAt[k])) {
               if (li === promotedIdx) continue; // lifted into the section header
-              const line = cell.lines[li];
-              if (/warm\s*up/i.test(line)) inWarmup = true;
-              else if (PART_HEADER_RE.test(line) || /\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom|\b\d+\s*min(?:ute)?s?\s*[x×*]\s*\d+\b|\bteams?\s+of\s+\d/i.test(line)) inWarmup = false;
+              const inWarmup = warmAt[li];
               const parsed = parseLine(line);
               const ec = parsed.extraClass ? ' ' + parsed.extraClass : '';
+              if (isNote) {
+                // Below its block, outside every group, and never the first line
+                // of a column (boundaryRank) — it hangs under the work it annotates.
+                allItems.push({ type: 'line', section: currentSection, isNote: true, groupLetter: null,
+                  html: `<div class="exercise-line ${parsed.type} note-line${firstNote ? ' notes-start' : ''}${ec}" dir="auto">${parsed.html}</div>` });
+                continue;
+              }
               const grpCls = parsed.isGroupTitle ? ' group-line' : '';
               const isGrpHdr = isGrpLine(line);
               const isStation = new RegExp(`^\\s*${STATION_BODY}`).test(line); // shared STATION_BODY — clean break points
@@ -6545,6 +6659,7 @@
           const boundaryRank = i => {
             const it = allItems[i];
             if (!it || it.type !== 'line' || it.isSpacer) return -1; // never start on a blank
+            if (it.isNote) return -1;                                // notes stay under their work
             const prev = allItems[i - 1];
             if (prev && prev.isSpacer) return 3;                     // start of a new block
             if (it.isGroupHeader) return 2;                          // A./B./C. group
@@ -6766,7 +6881,9 @@
             if (contentCells.length > 1 && cell.lines.length > 0) {
               allLines.push('__SUBHEADER__' + cell.header);
             }
-            allLines.push(...cell.lines);
+            // Notes float below their block (orderNotesLast), tagged so the
+            // renderer can style them; the split below sees them as lines.
+            for (const o of orderNotesLast(cell.lines)) allLines.push(o.isNote ? (o.firstNote ? '__NOTE1__' : '__NOTE__') + o.line : o.line);
           }
 
           const allText = allLines.join(' ');
@@ -6803,8 +6920,7 @@
                 const hdrText = escapeHtml(line.replace('__SUBHEADER__', ''));
                 return `<div class="exercise-line merged-section-header" dir="auto">${hdrText}</div>`;
               }
-              const parsed = parseLine(line);
-              return `<div class="exercise-line ${parsed.type}${parsed.extraClass ? ' ' + parsed.extraClass : ''}" dir="auto">${parsed.html}</div>`;
+              return renderLineHTML(line);
             }).join('');
             colsHTML += `<div class="spread-col${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>`;
           }
@@ -6858,10 +6974,8 @@
                   <div class="card-body-col">${renderCol(col2Lines)}</div>
                 </div>`;
               } else {
-                const linesHTML = cell.lines.map(line => {
-                  const parsed = parseLine(line);
-                  return `<div class="exercise-line ${parsed.type}${parsed.extraClass ? ' ' + parsed.extraClass : ''}" dir="auto">${parsed.html}</div>`;
-                }).join('');
+                const linesHTML = (safety ? cell.lines.map(line => ({ line })) : orderNotesLast(cell.lines))
+                  .map(o => renderLineHTML(o.isNote ? (o.firstNote ? '__NOTE1__' : '__NOTE__') + o.line : o.line)).join('');
                 bodyHTML = `<div class="card-body${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>`;
               }
 

@@ -1,0 +1,87 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "emom 15:",
+              "1# 8-10 cal",
+              "2# 7 pull up+ max wall ball",
+              "3# max burpee box jump/burpee box step up",
+              "4# rest",
+              "__SPACER__",
+              "*המטרה לצבור כמה שיותר ברפיז! לספור!"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "for time:",
+              "RX 22.5/15",
+              "1000-800-600-400-200",
+              "row/ run  (אפשר לשלב)",
+              "t.c 20",
+              "20 wall ball (rx 9/6)",
+              "50 d.u"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "Part 1",
+              "3 rounds:",
+              "30 Deadlift",
+              "20 Wall Ball",
+              "__SPACER__",
+              "Part 2- מחליפים אחרי סיבוב שלם!",
+              "10 rounds",
+              "20m Shuttle Run",
+              "__SPACER__",
+              "TC: 35 min"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "1",
+      "timers": [
+        {
+          "label": "EMOM 15′",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": [
+        {
+          "label": "TC 20′ · For Time",
+          "type": "fortime"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "3",
+      "timers": [
+        {
+          "label": "P2 · TC 35′",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}

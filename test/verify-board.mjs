@@ -365,6 +365,15 @@ const FIXTURES = [
             "\n skill:\nd.u\n\nA - Double unders:\nA1. Ankle mobility\nA2. High vertical jumps\nA3. High rope jumps\nA4. High jumps with double clap\nA5. Double unders practice\n30 sec work/20 sec rest X8 sets\n",
             "9 min work, 1:00 rest\nemom 9:\n1# 100 run\n2# 45 sec bike\n3#  45 sec burpee\n\nafter 9 min:\n1:00 rest\n\nemom 9\n1# 20 squat jump\n2# 40-30 d.u\n3# 45 sec plank\n\n\nafter 9 min:\n1:00 rest\n\n\n",
             "\n10 min amrap\n10 s. run\n10 push up\n250 row\n"]] },
+  { name: "notes_below_workout",
+    note: "coach 2026-09-22 (email + voice note + photo): 'identify T.C, time cap and RX as part of the NOTES … the workout itself one unit, the weights below or to the side'. Display-only: orderNotesLast() floats each block's note lines (bare cap, leading RX/weights, '*'-note, goal/מטרה, mostly-Hebrew explanation) to the END of that block (block = lines between 'part N' headers), styled .note-line. Cell 1 is her photo verbatim (EMOM 15 over 4 stations + a '*' Hebrew goal). Cell 2 puts RX and t.c in the MIDDLE on purpose, so the move is exercised, and carries the two look-alikes that must STAY exercises: 'row/ run (אפשר לשלב)' (mostly English) and '20 wall ball (rx 9/6)' (rx not leading). Cell 3 is her live Friday sheet: 'Part 2- מחליפים אחרי סיבוב שלם!' is a PART HEADER with Hebrew in it and must stay in place. Timers must be byte-identical to before — the notes move on screen only; detection still reads cell.lines as written. Layout half asserted in the layout pass.",
+    expectTimers: ["EMOM 15′", "TC 20′ · For Time", "P2 · TC 35′"],
+    forbidTimers: [],
+    rows: [["", "1", "2", "3"],
+           ["WOD",
+            "emom 15:\n1# 8-10 cal\n2# 7 pull up+ max wall ball\n3# max burpee box jump/burpee box step up\n4# rest\n\n\n*המטרה לצבור כמה שיותר ברפיז! לספור!",
+            "for time:\nRX 22.5/15\n1000-800-600-400-200\nrow/ run  (אפשר לשלב)\nt.c 20\n20 wall ball (rx 9/6)\n50 d.u",
+            "Part 1\n3 rounds:\n30 Deadlift\n20 Wall Ball\n\nPart 2- מחליפים אחרי סיבוב שלם!\n10 rounds\n20m Shuttle Run\n\nTC: 35 min"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -643,6 +652,56 @@ const layoutFails = [];
   else if (duLine.grp) layoutFails.push('"d.u" carries a group badge — the D was split off the initials again');
   if (!du.lines.some((l) => l.grp && /Double unders/i.test(l.t)))
     layoutFails.push('the REAL group header "A - Double unders:" lost its badge');
+
+  // ── Notes below the workout (coach 2026-09-22) ──
+  // Each block's note lines render LAST in that block, as .note-line, the first
+  // one opening the notes (.notes-start); look-alikes stay exercises. Checked on
+  // the multi-cell flow layout AND on a single-cell row (the spread-card path),
+  // since the two render paths were wired separately.
+  const noteRows = FIXTURES.find((f) => f.name === "notes_below_workout").rows;
+  const page3 = await context.newPage();
+  await page3.goto(INDEX, { waitUntil: "domcontentloaded" });
+  await page3.waitForFunction(
+    () => typeof window.parseAppsScriptData === "function" && typeof window.renderWorkout === "function",
+    { timeout: 8000 }
+  );
+  const renderNotes = (rows) => page3.evaluate((rows) => {
+    window.renderWorkout(window.parseAppsScriptData(rows));
+    const txt = (el) => (el.textContent || "").replace(/\s+/g, " ").trim();
+    return [...document.querySelectorAll("#wodArea .exercise-line")]
+      .filter((l) => txt(l))
+      .map((l) => ({ t: txt(l), note: l.classList.contains("note-line"), start: l.classList.contains("notes-start") }));
+  }, rows);
+  const flow = await renderNotes(noteRows);
+  const single = await renderNotes([noteRows[0].slice(0, 2), [noteRows[1][0], noteRows[1][2]]]);
+  await page3.close();
+
+  const find = (ls, re) => ls.findIndex((l) => re.test(l.t));
+  const expectNote = (ls, re, where, { start = false, after = [] } = {}) => {
+    const i = find(ls, re);
+    if (i < 0) return layoutFails.push(`notes[${where}]: ${re} not rendered`);
+    if (!ls[i].note) layoutFails.push(`notes[${where}]: "${ls[i].t}" should be a note line`);
+    if (start && !ls[i].start) layoutFails.push(`notes[${where}]: "${ls[i].t}" should open the notes block`);
+    for (const a of after) {
+      const j = find(ls, a);
+      if (j > i) layoutFails.push(`notes[${where}]: "${ls[i].t}" renders above the work line ${a}`);
+    }
+  };
+  const expectWork = (ls, re, where) => {
+    const i = find(ls, re);
+    if (i < 0) layoutFails.push(`notes[${where}]: ${re} not rendered`);
+    else if (ls[i].note) layoutFails.push(`notes[${where}]: "${ls[i].t}" is an exercise, not a note`);
+  };
+  expectNote(flow, /המטרה/, "flow", { start: true, after: [/^4# rest/] });
+  expectNote(flow, /^RX 22\.5/, "flow", { start: true, after: [/^50 d\.u/, /^1000-800/] });
+  expectNote(flow, /^t\.c 20/, "flow", { after: [/^50 d\.u/] });
+  expectNote(flow, /^TC: 35/, "flow", { start: true, after: [/^20m Shuttle/] });
+  expectWork(flow, /^row\/ run/, "flow");
+  expectWork(flow, /^20 wall ball \(rx/, "flow");
+  expectWork(flow, /^Part 2- מחליפים/, "flow");
+  expectWork(flow, /^for time:/, "flow");
+  expectNote(single, /^RX 22\.5/, "single-cell", { start: true, after: [/^50 d\.u/] });
+  expectWork(single, /^row\/ run/, "single-cell");
 }
 
 // Detection-branch coverage, accumulated across every fixture.

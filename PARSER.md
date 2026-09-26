@@ -275,6 +275,31 @@ worse to ship — a cap that silently vanished. **A throwaway probe has no
 argument checking; the harness does. Reproduce in a fixture before believing a
 symptom**, especially a dramatic one.
 
+### ⭐ Notes hang BELOW the workout — display only (added 2026-09-26, fixture `notes_below_workout`)
+
+Coach 2026-09-22: *"identify T.C, time cap and RX as part of the notes … the
+workout itself one unit, and the weights lower or at the side."* `isNoteLine()`
+is the rule; `orderNotesLast()` moves each block's notes to the END of that
+block (a block = lines between `part N` headers) and they render as
+`.note-line` (smaller, slate, dashed divider on the first = `.notes-start`).
+
+A note is: a bare cap (`TC: 35 min`, `t.c 20`, NOT `for time (tc 20)`), a
+**leading** `rx`/`weights`/`scale`, a `*`-line, a goal/`מטרה` line, or a
+**mostly-Hebrew** line (she writes exercises in English, explanations in Hebrew).
+- **A parenthetical doesn't vote on the language** — her live `row/ run (אפשר לשלב)`
+  has more Hebrew letters than Latin and is an exercise.
+- **Never a note:** a part header (`Part 2- מחליפים אחרי סיבוב שלם!`), a line
+  starting with a digit or `#`, `rx` mid-line (`20 wall ball (rx 9/6)`), a
+  Hebrew line inside a warm-up (there Hebrew can BE the exercise).
+- A block that is all notes (or has none) renders exactly as written.
+- **Detection never sees the reorder.** `extractTimerConfigs` still reads
+  `cell.lines` in written order. `partCapHints`' orphan-cap test uses the same
+  `isNoteLine` (one rule, two consumers); all 53 goldens were byte-identical.
+- A note is never the first line of a column (`boundaryRank` → -1), so the
+  splitter can't tear it away from the work it annotates.
+- Three render paths were wired separately (flow / spread card / short card).
+  The layout pass asserts both the flow path and a single-cell row.
+
 ### Section Colors
 - WOD sections: orange gradient `#ea580c → #f97316`
 - CARDIO sections: purple gradient (default theme)
@@ -863,6 +888,7 @@ Flags `_tabataPhaseHalfwayDone` / `_tabataPhaseOneMinDone` / `_tabataPhaseTenSec
 - 3-2-1 warning ticks (660Hz) before every phase transition
 - **Start countdown + GO (`TimerAudio.countdown`)** — 3/2/1 ticks lengthened to 0.30s (660Hz) each; **GO** is the original bright 990Hz sine `beep`, lengthened 0.5s → **1.3s** so it carries across the gym (plus the Harry `say('go')` voice). (A sawtooth-fanfare `goSound()` was tried 2026-07-09 and reverted — Noam preferred the original tone, just longer.)
 - EMOM interval warning ticks (added 2026-04-13)
+- **EMOM "ten seconds" per interval (added 2026-09-26)** — only when the interval is **> 60s**; a 1-min EMOM keeps just its 5-4-3-2-1 ticks (Noam's call — fifteen "ten seconds" in an EMOM 15 is noise). The final interval is skipped, because its end is the workout end, which the total-remaining cue already calls. Flag `_emomTenSecRound`. Guarded in `timer-nav.mjs`.
 
 ### SW Cache Versioning
 **Critical:** bump `CACHE_NAME` in `sw.js` on every code change (`sw.js` is the source of truth — currently **v139**; this number drifts, always read `sw.js`). **The SW is NETWORK-FIRST for the app shell** (navigations + `.html`/`.js`) since 2026-07-26 — a deploy shows up on the next normal F5, no cache-clearing needed. (It was cache-first, which served the STALE app for a load after every push and cost hours of "my fix isn't showing" debugging.) Static assets (images/MP3s) stay stale-while-revalidate. To break a client already stuck on the OLD cache-first SW, run once in its console: `navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))).then(()=>caches.keys()).then(ks=>Promise.all(ks.map(k=>caches.delete(k)))).then(()=>location.reload())`.
