@@ -4766,8 +4766,24 @@
       }
     }
 
+    // The tick re-arms itself FIRST, and a throw inside it (an audio call on the
+    // TV's browser, say) is caught — before, the re-arm sat on the last line, so a
+    // single exception anywhere froze the clock for good (coach 2026-09-29: TABATA
+    // stuck on 02:03). Time comes from performance.now(), so a tick that resumes
+    // shows the right number. The watchdog covers a browser that stops firing rAF.
+    let _lastTickAt = 0;
     function timerTick() {
       if (timerState !== 'running') return;
+      _lastTickAt = performance.now();
+      if (timerRafId) cancelAnimationFrame(timerRafId);
+      timerRafId = requestAnimationFrame(timerTick);
+      try { timerTickBody(); } catch (e) { console.error('timerTick', e); }
+    }
+    setInterval(() => {
+      if (timerState === 'running' && performance.now() - _lastTickAt > 500) timerTick();
+    }, 250);
+
+    function timerTickBody() {
       const now = performance.now();
       const totalElapsed = timerElapsed + (now - timerStartedAt);
       const totalMs = getTimerTotalMs();
@@ -5007,7 +5023,6 @@
       }
 
       renderTimerDisplay();
-      timerRafId = requestAnimationFrame(timerTick);
     }
 
     // Get current timer display data
