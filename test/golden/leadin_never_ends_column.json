@@ -111,7 +111,16 @@
     {
       "section": "CARDIO",
       "header": "1",
-      "timers": []
+      "timers": [
+        {
+          "label": "Every 1′ ×8 (8′)",
+          "type": "emom"
+        },
+        {
+          "label": "7′ Double Unders Work",
+          "type": "amrap"
+        }
+      ]
     },
     {
       "section": "CARDIO",

@@ -8,10 +8,12 @@
  * rule (Noam, 2026-08-11) and for the countdown-resurrection landmine that
  * rule made load-bearing.
  *
- * The rule under test (index.html, navClearsTimer):
- *   finished                        → cleared on any stage change
- *   uncapped For Time (open clock)  → cleared  (it never ends by itself)
- *   AMRAP/EMOM/Tabata/capped FT     → SURVIVES (bounded; ends on its own)
+ * The rule under test (index.html, navClearsTimer) — since 2026-09-30 (Noam):
+ *   ANY clock on the board — running / paused / 3-2-1 lead-in / finished —
+ *   is cleared by a stage change (◄ ► / WOD↔CARDIO / 🏠). The 08-11 exception
+ *   for bounded clocks (AMRAP/EMOM/Tabata/capped FT survived ►) is withdrawn.
+ *   `configured` (armed, never started) is untouched; ⊙ is not a stage change;
+ *   and outside the board views (full timer mode) navigatePart is a no-op.
  *
  * Run:  node test/timer-nav.mjs
  */
@@ -137,16 +139,36 @@ console.log('\nStage change clears a FINISHED clock (the reported bug)');
     cleared(await page.evaluate(snapshot)));
 }
 
-console.log('\nA CLOSED clock survives — it ends on its own');
+console.log('\nA CLOSED clock is cleared too (Noam 2026-09-30 — a stage change cancels every clock)');
 for (const [name, type, cfg] of [
   ['AMRAP 12′', 'amrap', { totalSeconds: 720 }],
   ['EMOM 10′', 'emom', { totalSeconds: 600, intervalSeconds: 60 }],
   ['Tabata 20/10 ×8', 'tabata', { workSeconds: 20, restSeconds: 10, rounds: 8 }],
   ['For Time WITH a 10′ cap', 'fortime', { capSeconds: 600 }],
 ]) {
-  const { after } = await navWith(type, cfg, 'running');
-  ok(`${name} keeps running through ►`, after.state === 'running' && after.barShown,
-    JSON.stringify(after));
+  const { before, after } = await navWith(type, cfg, 'running');
+  ok(`${name} (running) is cleared by ►`, before.state === 'running' && cleared(after), JSON.stringify(after));
+}
+for (const state of ['paused', 'countdown321']) {
+  const { after } = await navWith('amrap', { totalSeconds: 720 }, state);
+  ok(`AMRAP (${state}) is cleared by ►`, cleared(after), JSON.stringify(after));
+}
+{
+  const { after } = await navWith('emom', { totalSeconds: 600, intervalSeconds: 60 }, 'running', 'navigatePart(-1)');
+  ok('◄ clears a running EMOM too', cleared(after), JSON.stringify(after));
+}
+{
+  // An ARMED clock (configured, never started) makes no sound and is left alone.
+  const { after } = await navWith('amrap', { totalSeconds: 720 }, 'configured');
+  ok('an armed (configured) clock is untouched by ►', after.state === 'configured', JSON.stringify(after));
+}
+{
+  // Full timer mode = where a phone-started clock lands; the ◄ ► panel is not
+  // shown there, so a ChannelDown on the remote must not tear the clock down.
+  const { after } = await navWith('amrap', { totalSeconds: 720 }, 'running',
+    "displayMode = 'timer'; navigatePart(1); displayMode = 'wod'");
+  ok('navigatePart is a no-op in full timer mode (phone-started clock survives)',
+    after.state === 'running' && after.barShown, JSON.stringify(after));
 }
 
 console.log('\nAn OPEN clock is cleared — it never ends by itself');

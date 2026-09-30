@@ -376,18 +376,37 @@ const FIXTURES = [
             "Part 1\n3 rounds:\n30 Deadlift\n20 Wall Ball\n\nPart 2- מחליפים אחרי סיבוב שלם!\n10 rounds\n20m Shuttle Run\n\nTC: 35 min"]] },
   { name: "leadin_never_ends_column",
     note: "coach's LIVE sheet 2026-09-27, verbatim (both rows). Noam: 'CARDIO stage 1 in center focus is split illogically — because of the SKILL header'. CARDIO '1' has 10 real lines against MAX_PER_COL 8, a GENUINE overflow, so the ≥3-per-side floor dropped to 1 — and group A is atomic, so the only break cohesion allowed was right after 'skill:': one label beside nine lines. Same session, same cause in WOD '2': a legal 3|3 split put 'Part 1 / 3 rounds:' in one column and its three exercises in the next. The lead-in anti-widow ('never strand a header at a column bottom') was DOCUMENTED since 2026-07 and never implemented. Now endsOnLeadIn() rejects any break whose previous column ends on a lead-in (label ending ':', part header, group header, bare 'A1.'); with no legal break the section stays one column and autoFit shrinks. ⚠️ Both rows must stay whole: MAX_PER_COL is per row (max(8, ceil(items/4))) — trimming a cell changes the cap and the reason the split happened. Layout asserted in the layout pass.",
-    expectTimers: ["TC 35′ · For Time"],
-    forbidTimers: [],
-    // KNOWN GAP, not intended forever: CARDIO '1' ('A1. 2 Rounds Of:' four
-    // '1 Min' stations + 'A2. 7 Min Double Unders Work') gets NO clock today.
-    // Whether it is an 8-minute EMOM-style rotation, 2×(4×1′), plus a 7′ block,
-    // is a semantics question for the coach (TIMER_ROADMAP §1) — surfaced to
-    // Noam 2026-09-27. Listed so this fixture guards LAYOUT without pretending
-    // the silence is right; remove the entry when her answer is implemented.
-    ignoreFacts: ["1 Min", "7 Min"],
+    expectTimers: ["TC 35′ · For Time", "Every 1′ ×8 (8′)", "7′ Double Unders Work"],
+    forbidTimers: ["1′/1′ ×2"],
+    // CLOSED 2026-09-30: CARDIO '1' ('A1. 2 Rounds Of:' four '1 Min' stations
+    // + 'A2. 7 Min Double Unders Work') now yields the 1′ ×8 rotation and the
+    // 7′ block (detectStationBlocks — fixture rounds_of_minute_stations holds
+    // the cell on its own). The former `ignoreFacts: ["1 Min", "7 Min"]` is
+    // gone on purpose: every number she wrote here reaches a clock.
+    expectTimerOrder: [["Every 1′ ×8 (8′)", "7′ Double Unders Work"]],
     rows: [["", "1", "2", "3"],
            ["WOD", "warm up: 2 sets\n10/12 cal\n10 deadlift\n10 air squat\n10 thrusters with ball", "🔥 Friday Partner WOD\n\nPart 1\n3 rounds:\n30 Deadlift\n20 Wall Ball\n10 Wall Walk\n\nPart 2- מחליפים אחרי סיבוב שלם!\n10 rounds\n20m Shuttle Run\n20m Farmer Carry\n\nPart 3\n3 rounds\n30 Wall Ball\n20 DB Snatch\n10 Wall Walk\n\nTC: 35 min", ""],
            ["CARDIO", "\n skill:\n\nA - \nJumping Rope :\n\nA1. \n2 Rounds Of:\n1 Min max Single Unders\n1 Min Max Single Unders Alternating legs\n1 Min Single Unders + Cross Over \n1 Min Rest \n\nA2. 7 Min Double Unders Work", "for time:\n1000-800-600-400-200\nrow/ run  (אפשר לשלב)\n20 rower pike ups/ 20 sit ups\n50 d.u\n\n\n\nt.c 35", "cash out: 2-3 sets\n20 biceps curl\n20 skull crushers\n20 db sit\n\n\n\n\n\n"]] },
+  // ── 2026-09-30, the coach: "it doesn't always manage to read the clock by
+  // itself". The one real-sheet cell in this file that was still clockless.
+  { name: "rounds_of_minute_stations",
+    note: "coach's live CARDIO '1' (2026-09-27, verbatim cell). '2 Rounds Of:' over four lines that ALL lead with '1 Min' (the last one a rest) is a station rotation — one interval per line, twice round = 8 one-minute intervals, the clock an EMOM already is. Then 'A2. 7 Min Double Unders Work': a station header carrying its own duration names its block, the same rule as '8 min WARM UP :'. Both were silent until now: detectActivityInterval read only the FIRST work line (and its multiplier regex rejected 'Of:'), so the shape fell through, and the leading-duration rule reads the first timed line of the CELL, which belongs to A1. detectStationBlocks — a fallback consulted only when the cell produced nothing. Index 0 must be the rotation (the block's default clock), the 7′ behind it.",
+    expectTimers: ["Every 1′ ×8 (8′)", "7′ Double Unders Work"],
+    forbidTimers: ["1′/1′ ×2", "1′ max Single Unders"],
+    expectTimerOrder: [["Every 1′ ×8 (8′)", "7′ Double Unders Work"]],
+    rows: [["", "1"],
+           ["CARDIO", "\n skill:\n\nA - \nJumping Rope :\n\nA1. \n2 Rounds Of:\n1 Min max Single Unders\n1 Min Max Single Unders Alternating legs\n1 Min Single Unders + Cross Over \n1 Min Rest \n\nA2. 7 Min Double Unders Work"]] },
+  { name: "rounds_of_work_rest_interval",
+    note: "NEGATIVE CONTROL for the rotation above, and a small widening of its own: '3 rounds of:' over ONE work line and ONE rest line is the plain work/rest interval detectActivityInterval owns (2′/1′ ×3), not a rotation — a rotation needs ≥ 2 non-rest stations. Before 2026-09-30 this cell got NO clock at all, because the activity multiplier regex accepted '3 rounds' but not '3 rounds of:' — the exact words she writes.",
+    expectTimers: ["2′/1′ ×3"],
+    forbidTimers: ["Every 2′", "Every 1′", "2′ row"],
+    rows: [["", "CARDIO"], ["ריצה", "3 rounds of:\n2 min row\n1 min rest"]] },
+  { name: "rounds_of_mixed_stations_no_rotation",
+    note: "NEGATIVE CONTROL 2: a 'rounds of:' block whose lines do NOT all carry the same duration ('1 min row' / '30 sec plank' / '10 burpees') is not a rotation and must not become one — nothing here is uniform, so no interval length is written for the whole block. The two durations are listed as intended misses: they are prescriptions inside an unclocked block, and a 1′ or 30″ clock on them would be the invented value the fixture forbids.",
+    expectTimers: [],
+    forbidTimers: ["Every 1′", "Every 30″", "1′/30″"],
+    ignoreFacts: ["1 min", "30 sec"],
+    rows: [["", "WOD"], ["", "3 rounds of:\n1 min row\n30 sec plank\n10 burpees"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────

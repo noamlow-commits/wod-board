@@ -1,0 +1,35 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "3 rounds of:",
+              "1 min row",
+              "30 sec plank",
+              "10 burpees"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "1′ row",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}

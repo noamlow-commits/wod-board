@@ -1,0 +1,48 @@
+{
+  "data": {
+    "headers": [
+      "1"
+    ],
+    "rows": [
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "skill:",
+              "__SPACER__",
+              "A -",
+              "Jumping Rope :",
+              "__SPACER__",
+              "A1.",
+              "2 Rounds Of:",
+              "1 Min max Single Unders",
+              "1 Min Max Single Unders Alternating legs",
+              "1 Min Single Unders + Cross Over",
+              "1 Min Rest",
+              "__SPACER__",
+              "A2. 7 Min Double Unders Work"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "CARDIO",
+      "header": "1",
+      "timers": [
+        {
+          "label": "Every 1′ ×8 (8′)",
+          "type": "emom"
+        },
+        {
+          "label": "7′ Double Unders Work",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}

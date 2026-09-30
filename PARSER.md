@@ -876,16 +876,16 @@ Same logic adapted for compact horizontal bar. `borderColor` and `boxShadow` fli
 
 **The bug:** a finished clock (🏁 TIME!) survived ◄ ► in center-focus mode and had to be stopped by hand. `updateFloatingTimerBar` only auto-hides on `timerState === 'idle'` (`'finished'` renders the banner forever), and `navigatePart` never touched timer state at all.
 
-**The rule (Noam's distinction — not a code-consistency choice):** a stage change turns off only a clock that *cannot end by itself*.
+**The rule since 2026-09-30 (Noam): a stage change cancels every clock on the board.**
 
-| Clock | On ◄ ► / WOD↔CARDIO / 🏠 | Why |
+| Clock | On ◄ ► / ChannelUp-Down / WOD↔CARDIO buttons / 🏠 | Why |
 |---|---|---|
+| `running` / `paused` / `countdown321` — any type | **cleared** | the clock she moves away from is the clock of the stage she has left; a bounded clock that kept running under the next stage beeped and talked over it ("noise") |
 | `finished` | **cleared** | nothing left to measure |
-| uncapped `For Time` (`capSeconds` 0) | **cleared** | counts UP forever; the coach moving on IS the end of that unit — *"מעבר חלק מבטא למעשה מעבר יחידה"* |
-| AMRAP / EMOM / Tabata / MIX / **capped** For Time | **survives** | bounded — runs to a written end. The coach legitimately browses the next stage while one runs, and a stray ► on the remote must never cost a live WOD clock (the same fear that keeps `n`/skip off the remote's big buttons) |
-| `idle` / `configured` | untouched | nothing docked over the board; `configured` only persists via the remote `configure` command, in full timer mode |
+| `idle` / `configured` | untouched | `configured` (armed, never started) makes no sound and only persists via the remote `configure` command |
+| any clock, **outside the board views** (full timer mode, scoreboard, PR) | untouched | `navigatePart` early-returns unless `displayMode` is `wod`/`split` — the ◄ ► panel is not even shown there, and full timer mode is where a phone-started clock lands. A ChannelDown on the remote must not tear that one down through a stage change nobody can see |
 
-**`getTimerTotalMs()` already IS the closed/open test** — `>0` = bounded, `0` = uncapped For Time. Do **not** add a second classifier. The predicate is `navClearsTimer()`; the teardown is `navClearTimer()`, both just above `navigatePart`.
+*History:* from 2026-08-11 to 09-30 only a `finished` or an **open** (uncapped For Time) clock was cleared and a bounded AMRAP/EMOM/Tabata/capped-FT survived ► — Noam's distinction at the time, so that a stray remote press could never cost a live WOD clock. Withdrawn 09-30 for the reason in the table; the trade-off is real (a stray ► now silently ends a live clock) and was taken knowingly. The predicate is `navClearsTimer()`; the teardown is `navClearTimer()`, both just above `navigatePart`. No clock-driven part advance exists anywhere (nothing in the timer calls `navigatePart`), so a clock can never cancel itself. The section-filter **keys** (5/6/0, ↑↓) do not route through `navClearTimer` — unchanged, and worth deciding one day.
 
 - **Keyed on timer state only.** Never on `centerFocus` / overlay `.open` — they linger stuck (same reason `getPartTimerConfigs` scopes by `partFocusIndex`).
 - **`resetTimer() + hideFloatingTimerBar()`, never `coachStopTimer()`.** The "Time!" call-out belongs to a deliberate ⏹/Backspace stop; navigation is a view change and must be **silent**. Both calls are required and neither is sufficient: `resetTimer` alone strands a visible bar (the `idle → hide` path at ~7118 only runs when something *calls* `updateFloatingTimerBar`, and the RAF is already dead); `hideFloatingTimerBar` alone leaves state `'finished'`, where Space → `toggleTimerPause()` → `startTimer()` restarts a dead clock.

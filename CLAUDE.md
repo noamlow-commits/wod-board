@@ -145,6 +145,7 @@ via the `_doReload` indirection.
 | Space | Start/pause/resume timer (timer mode only) |
 | Backspace | Reset timer (timer mode only) |
 | n | Skip to next phase (chained/EMOM clocks) — same as the ⏭ הבא button |
+| PageUp/PageDown, ChannelUp/ChannelDown | ◄ ► part navigation (board views only). **A stage change cancels any active clock** (2026-09-30) |
 
 ## Security
 - Two-layer auth: Gym PIN (all members) + Coach Password (admin)

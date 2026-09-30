@@ -4325,9 +4325,9 @@
       for (const raw of lines) {
         const l = (raw || '').trim();
         if (!l || l === '__SPACER__') continue;
-        // Multiplier: "×2", "x 5", "5 sets", "×5 sets", "5 rounds"
+        // Multiplier: "×2", "x 5", "5 sets", "×5 sets", "5 rounds", "3 rounds of:"
         let mm = l.match(/^[x×*]\s*(\d+)(?:\s*(?:sets?|rounds?))?$/i)
-              || l.match(/^(\d+)\s*(?:sets?|rounds?)$/i);
+              || l.match(/^(\d+)\s*(?:sets?|rounds?)(?:\s+of)?\s*:?$/i);
         if (mm && !rounds) {
           const r = parseInt(mm[1]);
           if (r >= 2 && r <= 20) { rounds = r; continue; }
@@ -4353,6 +4353,77 @@
       return null;
     }
 
+    // ── "K rounds of:" over UNIFORM timed stations → one rotation clock ──
+    // Her CARDIO column '1', 2026-09-27 (verbatim, fixture rounds_of_minute_stations):
+    //     A1.
+    //     2 Rounds Of:
+    //     1 Min max Single Unders
+    //     1 Min Max Single Unders Alternating legs
+    //     1 Min Single Unders + Cross Over
+    //     1 Min Rest
+    //     A2. 7 Min Double Unders Work
+    // and the board put NO clock on any of it (the coach, 29.9: "it doesn't
+    // always manage to read the clock by itself"). Two written shapes, both
+    // fully bounded by what she wrote — nothing is invented:
+    //   · a "K rounds/sets of:" header followed by lines that ALL lead with the
+    //     SAME duration is a station rotation: one interval per line, K times
+    //     round — the very thing the EMOM/every clock does (cf. every_rotation_
+    //     stations: sets × stations = intervals). A rest line is one station of
+    //     the rotation. ≥ 2 non-rest stations, or it is the plain work/rest
+    //     interval detectActivityInterval owns (2′ row / 1′ rest ×3).
+    //   · a GROUP/STATION header that carries its own duration ("A2. 7 Min
+    //     Double Unders Work") names a block, exactly as "8 min WARM UP :" does
+    //     — the leading-duration rule never sees it because that rule reads the
+    //     first timed line of the CELL, and here that line belongs to A1.
+    // Fallback by construction: consulted only when detectTimers found
+    // nothing in the cell/part, before detectActivityInterval.
+    function detectStationBlocks(lines) {
+      const out = [];
+      if (!lines || !lines.length) return out;
+      const roundsRe = /^(\d+)\s*(?:rounds?|sets?)(?:\s+of)?\s*:?\s*$/i;
+      const stationRe = new RegExp(`^(\\d+:\\d{2}|${DUR_NUM}\\s*${UNIT_STRICT})\\s+(.+)$`, 'i');
+      const groupRe = /^[A-Z]\d*\s*[.\-)]?\s*$/i;                  // bare "A1." / "A -"
+      const groupDurRe = new RegExp(`^[A-Z]\\d*\\s*[.\\-)]\\s*(${DUR_NUM_POS})\\s*${MIN_WORD}\\s+(.+)$`, 'i');
+      const specRe = new RegExp(`\\b(on|off|work\\s*/|rest|amrap|e\\d*mom|emom|tabata|tbata|for\\s*time|rft|rounds?|sets?|${PACE_DESCRIPTOR})\\b|[x×*]\\s*\\d|${DUR_NUM}\\s*${UNIT_STRICT}\\b|^t\\.?\\s*c\\b`, 'i');
+      const clean = lines.map(l => (l || '').trim());
+      for (let i = 0; i < clean.length; i++) {
+        const l = clean[i];
+        const rm = l.match(roundsRe);
+        if (rm) {
+          const K = parseInt(rm[1]);
+          if (K < 2 || K > 20) continue;
+          const durs = []; let stations = 0, j = i + 1;
+          for (; j < clean.length; j++) {
+            const s = clean[j];
+            if (!s || s === '__SPACER__' || groupRe.test(s) || roundsRe.test(s) || groupDurRe.test(s)) break;
+            const sm = s.match(stationRe);
+            const d = sm ? parseDur(sm[1]) : 0;
+            if (!d) { durs.length = 0; break; }       // an untimed line inside the block: not a rotation
+            durs.push(d);
+            if (!/^rest\b/i.test(sm[2].trim())) stations++;
+          }
+          if (durs.length >= 2 && stations >= 2 && durs.every(d => d === durs[0])
+              && durs[0] >= 30 && durs[0] <= 10 * 60) {
+            const iv = durs[0], n = durs.length * K;
+            out.push({ type: 'emom', intervalSeconds: iv, totalSeconds: iv * n,
+                       label: `Every ${fmtDur(iv)} ×${n} (${fmtDur(iv * n)})` });
+            i = j - 1;
+          }
+          continue;
+        }
+        const gm = l.match(groupDurRe);
+        if (gm) {
+          const mins = parseFloat(gm[1]);
+          const act = gm[2].trim();
+          if (mins >= 1 && mins <= 90 && !specRe.test(act)) {
+            out.push({ type: 'amrap', totalSeconds: minsToSec(mins),
+                       label: `${mins}′ ${act.replace(/[\s:.\-–—]+$/, '')}` });
+          }
+        }
+      }
+      return out;
+    }
+
     // Extract ALL timer configs from workout text (returns array). When the
     // workout is split into "part N" blocks, each part is scanned on its own
     // so every part yields its own timer button — a series of timers.
@@ -4372,7 +4443,7 @@
     // branch someone adds cannot go dark without turning the suite red.
     // Deliberately at BRANCH granularity, not per-regex: this is where the
     // structural bugs have actually been.
-    const TIMER_PATHS = ['whole-cell', 'activity-fallback', 'part-split',
+    const TIMER_PATHS = ['whole-cell', 'station-blocks', 'activity-fallback', 'part-split',
                          'part-inline-spec', 'compound-chain', 'staged-part',
                          'header-cap'];
     const __timerPathHits = Object.fromEntries(TIMER_PATHS.map(k => [k, 0]));
@@ -4397,8 +4468,12 @@
         // "current behaviour" — found 2026-08-08 by the unexplained-facts
         // assertion on its first run, not by anyone reading the code.
         if (out.length === 0) {
-          const ai = detectActivityInterval(lines);
-          if (ai) { tpHit('activity-fallback'); out = [ai]; }
+          const sb = detectStationBlocks(lines);
+          if (sb.length) { tpHit('station-blocks'); out = sb; }
+          else {
+            const ai = detectActivityInterval(lines);
+            if (ai) { tpHit('activity-fallback'); out = [ai]; }
+          }
         }
       } else {
         tpHit('part-split');
@@ -4433,8 +4508,12 @@
         for (const seg of segments) {
           let cfgs = detectTimers(seg.lines, partCapSeconds);
           if (cfgs.length === 0) {
-            const ai = detectActivityInterval(seg.lines);
-            if (ai) cfgs = [ai];
+            const sb = detectStationBlocks(seg.lines);
+            if (sb.length) cfgs = sb;
+            else {
+              const ai = detectActivityInterval(seg.lines);
+              if (ai) cfgs = [ai];
+            }
           }
           // ── Budget semantics on the PER-PART clock too (Noam, 2026-08-11) ──
           // If part 1's 14 includes its own 2:00 rest, then running part 1 alone
@@ -7253,10 +7332,19 @@
     //
     // Keyed on timer state only — NEVER on centerFocus / the overlay `.open`
     // class, which linger stuck (see getPartTimerConfigs' note below).
+    //
+    // ⭐ 2026-09-30 (Noam): a stage change cancels EVERY clock that is on the
+    // board — running, paused, in its 3-2-1 lead-in, or finished — not only
+    // the open-ended ones. The 08-11 distinction (a bounded AMRAP/EMOM/Tabata
+    // survives ► so a stray remote press cannot cost a live WOD clock) is
+    // withdrawn: in practice the clock she moves away from is the clock of the
+    // stage she has left, and it kept beeping and talking over the next stage
+    // ("noise"). `configured` (armed, never started) is still left alone — it
+    // is not making a sound and only persists via the remote `configure`
+    // command. Nothing in the timer ever calls navigatePart itself (no
+    // clock-driven part advance exists), so a clock can never cancel itself.
     function navClearsTimer() {
-      if (timerState === 'finished') return true;
-      if (!timerIsActive()) return false;   // idle / configured — nothing docked over the board
-      return getTimerTotalMs() === 0;       // running|paused|countdown321 → open-ended For Time only
+      return timerState === 'finished' || timerIsActive();
     }
     function navClearTimer() {
       if (!navClearsTimer()) return;
@@ -7265,6 +7353,11 @@
     }
 
     function navigatePart(dir) {
+      // Parts exist only on the board views (the ◄ ► panel is shown there and
+      // nowhere else). In full timer mode — where a clock started from the
+      // coach's phone lands — a ChannelDown on the remote must not silently
+      // tear that clock down through a stage change nobody can see.
+      if (displayMode !== 'wod' && displayMode !== 'split') return;
       const max = getMaxParts();
       if (max === 0) return;
       navClearTimer(); // before applyPartFocus/applyCenterFocus, so they see the undocked state
@@ -8684,6 +8777,12 @@
     }
 
     let _voicesPrefetched = false;
+    // Scoreboard + lifts + benchmarks: three JSONP calls per tick against the
+    // SAME Apps Script that serves the workout. Was 5 s (≈36 executions/min
+    // from one TV, on top of the 2 s timer-state poll) — Noam 2026-09-30: live
+    // scoring is almost never used, so 30 s. The timer-state poll stays at 2 s:
+    // that is the phone→TV start latency the coach actually feels.
+    const SCORE_POLL_MS = 30000;
     async function startApp() {
       applySettings();
       renderTabBar();
@@ -8712,7 +8811,7 @@
           fetchScoreboard();
           fetchTodayLifts();
           fetchTodayBenchmarks();
-        }, 5000);
+        }, SCORE_POLL_MS);
         // Start timer state polling (every 2 seconds)
         fetchTimerState();
         if (timerPollTimer) clearInterval(timerPollTimer);
