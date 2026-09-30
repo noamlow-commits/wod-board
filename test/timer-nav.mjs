@@ -283,7 +283,9 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
 
 // ── ONE countdown rule for every interval clock (coach 2026-09-22: "it doesn't
 // say ten seconds any more — that was great"; Noam 2026-09-27: an interval of
-// ≤ 1 min COUNTS "five…one" out loud, a longer one gets a single "Ten seconds!").
+// ≤ 1 min COUNTS "five…one" out loud; coach 2026-09-29: "ten seconds before the
+// set ends it doesn't say ten seconds" → every interval ≥ 30″ gets ONE "Ten
+// seconds!" as well, so a ≤ 1 min interval gets both the call and the count).
 // Same rule for EMOM, work/rest and MIX, before every change incl. rest→work.
 // The last interval's call is the workout-end call, never a second copy of it.
 // Drives timerTick over a fake clock in 100ms steps and records the voice,
@@ -318,11 +320,12 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
     return out.join(' ');
   }, [type, cfg]);
   const cases = [
-    ['1-min EMOM ×3: counts from five every minute, never "ten"', 'emom', { intervalSeconds: 60, totalSeconds: 180 }, '55:count 115:count 175:count'],
+    ['1-min EMOM ×3: "ten" then a count from five, every minute incl. the last', 'emom', { intervalSeconds: 60, totalSeconds: 180 }, '50:ten 55:count 110:ten 115:count 170:ten 175:count'],
     ['2-min EMOM ×2: "ten" before every change, no count', 'emom', { intervalSeconds: 120, totalSeconds: 240 }, '110:ten 230:ten'],
-    ['1:00 on / 1:00 off ×2: counts before every change (rest→work too)', 'tabata', { workSeconds: 60, restSeconds: 60, rounds: 2 }, '55:count 115:count 175:count 235:count'],
-    ['2:00 work / 0:30 rest ×2: "ten" on work, count on rest', 'tabata', { workSeconds: 120, restSeconds: 30, rounds: 2 }, '110:ten 145:count 260:ten 295:count'],
-    ['MIX 1:30 + 0:30 ×2: per interval length, last one counts', 'mix', { intervals: [{ name: 'A', seconds: 90 }, { name: 'B', seconds: 30 }], rounds: 2 }, '80:ten 115:count 200:ten 235:count'],
+    ['1:00 on / 1:00 off ×2: "ten" + count before every change (rest→work too)', 'tabata', { workSeconds: 60, restSeconds: 60, rounds: 2 }, '50:ten 55:count 110:ten 115:count 170:ten 175:count 230:ten 235:count'],
+    ['2:00 work / 0:30 rest ×2: "ten" on both, count on the 30″ rest', 'tabata', { workSeconds: 120, restSeconds: 30, rounds: 2 }, '110:ten 140:ten 145:count 260:ten 290:ten 295:count'],
+    ['Tabata 20/10 ×2: too short for "ten" — count only', 'tabata', { workSeconds: 20, restSeconds: 10, rounds: 2 }, '15:count 25:count 45:count 55:count'],
+    ['MIX 1:30 + 0:30 ×2: "ten" on every interval, count on the short ones', 'mix', { intervals: [{ name: 'A', seconds: 90 }, { name: 'B', seconds: 30 }], rounds: 2 }, '80:ten 110:ten 115:count 200:ten 230:ten 235:count'],
   ];
   for (const [name, type, cfg, want] of cases) {
     const got = await voice(type, cfg);

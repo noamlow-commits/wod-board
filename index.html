@@ -1595,11 +1595,23 @@
       padding: 1.8rem 2rem;
       width: 90%;
       max-width: 640px;
-      max-height: 92vh;
-      overflow-y: auto;
+      /* FIXED frame (coach 2026-09-29: "the buttons must not move between one
+         program and the next"). The panel is centred, so a panel that grew with
+         its row count moved the TYPE row (its ‹ › arrows) and ▶/✖ with every
+         switch of type — AMRAP has one field, Tabata four, MIX a list. Now the
+         frame never changes size: the fields scroll inside .tsu-fields and
+         ▶ התחל / ✖ יציאה are pinned to the bottom (.tsu-footer). 46rem holds
+         Tabata and the default MIX without scrolling at 1080p. */
+      height: min(92vh, 46rem);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
       direction: rtl;
       box-shadow: 0 0 0 3px rgba(249,115,22,0.25), 0 24px 60px rgba(0,0,0,0.6);
     }
+    .tsu-overlay #tsuBody { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .tsu-overlay .tsu-fields { flex: 1; min-height: 0; overflow-y: auto; }
+    .tsu-overlay .tsu-footer { flex-shrink: 0; }
     .tsu-overlay h2 {
       font-size: 1.7rem;
       font-weight: 900;
@@ -1683,6 +1695,9 @@
       border-color: #5a4a2a;
     }
     .tsu-step-type:hover { background: #2a2318; border-color: #f59e0b; }
+    /* The TYPE label is a fixed-width slot, so the ‹ › arrows sit at the same
+       x for "AMRAP" and for "אינטרוולים" (same coach request as the panel size). */
+    .tsu-stepper .tsu-value.tsu-type-value { width: 7.5em; min-width: 7.5em; }
     /* clickable toggle value (mouse can flip כן/לא, not only the remote) */
     .tsu-row .tsu-value.tsu-toggle { cursor: pointer; }
     .tsu-row.tsu-action {
@@ -1717,6 +1732,7 @@
       filter: brightness(1.08);
     }
     .tsu-hint {
+      flex-shrink: 0;
       margin-top: 1rem;
       text-align: center;
       font-size: 0.85rem;
@@ -2291,7 +2307,6 @@
     let _oneMinAnnounced  = false;
     let _tenSecAnnounced  = false;
     let _cueTenId         = null;  // interval whose "ten seconds" was already called
-    let _curIntervalShort = false; // the interval now running is ≤ 1 min (gates the total-end call)
     let _lastRoundAnnounced = false;
     let _lastAnnouncedRound = 0;   // the round the clock last CALLED (see the tabata tick)
 
@@ -2302,39 +2317,69 @@
       voicesLoaded: false,
       voiceLoadPromise: null,
       init() {
-        if (this.ctx) return;
+        if (this.ctx) { this.resume(); return; }
         try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
         catch(e) { console.warn('Web Audio not available'); }
+        this.resume();
       },
-      // Pre-load all voice cue MP3s into AudioBuffers. Idempotent — safe to call repeatedly.
+      // A context created outside a user gesture (a clock started from the
+      // coach's phone lands via JSONP — no key pressed on the TV) starts
+      // `suspended`, and every beep and word is then silently dropped. resume()
+      // is only honoured inside a gesture, so it is retried on the next
+      // key/pointer as well (listener below): the first remote press un-mutes.
+      resume() {
+        const c = this.ctx;
+        if (c && c.state === 'suspended' && typeof c.resume === 'function') c.resume().catch(() => {});
+      },
+      VOICE_KEYS: [
+        'five','four','three','two','one','go',
+        'ten_seconds','one_minute_remaining','halfway','last_round','time',
+        'work','rest',
+        'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight',
+        'round_nine','round_ten','round_eleven','round_twelve','round_thirteen','round_fourteen','round_fifteen'
+      ],
+      raw: {},               // key → ArrayBuffer fetched ahead of decoding (prefetchVoices)
+      // Fetch the MP3 bytes only — no AudioContext needed, so it can run at page
+      // load, long before the first clock. Decoding waits for loadVoices().
+      prefetchVoices() {
+        return Promise.all(this.VOICE_KEYS.filter(k => !this.raw[k] && !this.voices[k]).map(k =>
+          fetch(`sounds/voice/${k}.mp3`)
+            .then(r => { if (!r.ok) throw new Error(k + ': ' + r.status); return r.arrayBuffer(); })
+            .then(arr => { this.raw[k] = arr; })
+            .catch(e => console.warn('[voice] prefetch failed:', e && e.message))
+        ));
+      },
+      // Pre-load all voice cue MP3s into AudioBuffers. Idempotent — safe to call
+      // repeatedly, and it RETRIES whatever is still missing: one failed fetch
+      // (gym Wi-Fi) used to leave that one cue — "ten seconds", say — silent for
+      // the rest of the day, because `voicesLoaded` was set after the first
+      // attempt regardless of how many files had actually arrived.
       loadVoices() {
         if (this.voicesLoaded) return Promise.resolve();
         if (this.voiceLoadPromise) return this.voiceLoadPromise;
         this.init();
         if (!this.ctx) return Promise.resolve();
-        const keys = [
-          'five','four','three','two','one','go',
-          'ten_seconds','one_minute_remaining','halfway','last_round','time',
-          'work','rest',
-          'round_two','round_three','round_four','round_five','round_six','round_seven','round_eight',
-          'round_nine','round_ten','round_eleven','round_twelve','round_thirteen','round_fourteen','round_fifteen'
-        ];
-        this.voiceLoadPromise = Promise.all(keys.map(k =>
-          fetch(`sounds/voice/${k}.mp3`)
-            .then(r => { if (!r.ok) throw new Error(k + ': ' + r.status); return r.arrayBuffer(); })
+        const missing = this.VOICE_KEYS.filter(k => !this.voices[k]);
+        this.voiceLoadPromise = Promise.all(missing.map(k =>
+          (this.raw[k] ? Promise.resolve(this.raw[k])
+            : fetch(`sounds/voice/${k}.mp3`)
+              .then(r => { if (!r.ok) throw new Error(k + ': ' + r.status); return r.arrayBuffer(); }))
             .then(arr => new Promise((res, rej) => {
               // Use callback form for broader Safari compatibility
-              this.ctx.decodeAudioData(arr, buf => { this.voices[k] = buf; res(); }, rej);
+              this.ctx.decodeAudioData(arr, buf => { this.voices[k] = buf; delete this.raw[k]; res(); }, rej);
             }))
-            .catch(e => console.warn('[voice] load failed:', e.message))
-        )).then(() => { this.voicesLoaded = true; });
+            .catch(e => { delete this.raw[k]; console.warn('[voice] load failed:', k, e && e.message); })
+        )).then(() => {
+          this.voiceLoadPromise = null;
+          this.voicesLoaded = this.VOICE_KEYS.every(k => !!this.voices[k]);
+        });
         return this.voiceLoadPromise;
       },
       // Play a pre-loaded voice cue. `when` is an AudioContext time (default: now).
       say(key, when) {
         if (timerMuted || !timerVoiceEnabled || !this.ctx) return;
         const buf = this.voices[key];
-        if (!buf) return;
+        if (!buf) { console.warn('[voice] missing cue:', key); return; }
         const src = this.ctx.createBufferSource();
         src.buffer = buf;
         const gain = this.ctx.createGain();
@@ -2412,6 +2457,14 @@
         osc.start(t); osc.stop(t + 1.05);
       }
     };
+    // First key / pointer on the TV: un-suspend the audio context (a context
+    // opened outside a gesture stays muted — see TimerAudio.resume) and decode
+    // the voice files, retrying any that failed before, so the first clock of
+    // the day has every cue ready. Both calls are no-ops once done.
+    ['keydown', 'pointerdown'].forEach(ev => document.addEventListener(ev, () => {
+      TimerAudio.resume();
+      TimerAudio.loadVoices();
+    }, true));
 
     // ── Sequential timeline parser ──
     // Scans workout lines top→bottom, classifies each as WORK / REST / TIME / exercise,
@@ -4511,7 +4564,6 @@
       _oneMinAnnounced  = false;
       _tenSecAnnounced  = false;
       _cueTenId         = null;
-      _curIntervalShort = false;
       _lastRoundAnnounced = false;
       _lastAnnouncedRound = 0;
       _lastIntervalRound = 0;
@@ -4588,7 +4640,6 @@
       _oneMinAnnounced  = false;
       _tenSecAnnounced  = false;
       _cueTenId         = null;
-      _curIntervalShort = false;
       _lastRoundAnnounced = false;
       _lastAnnouncedRound = 0;
       _lastTabataPhase = '';
@@ -4747,12 +4798,26 @@
 
     // ── ONE countdown rule for every interval clock (Noam 2026-09-27) ──
     // An interval of ≤ 1 min: Harry COUNTS "five … one" on the 5-4-3-2-1 beeps.
-    // An interval  > 1 min: one "Ten seconds!" call, then the beeps alone.
+    // Every interval of ≥ 30″: one "Ten seconds!" call first (so a ≤ 1 min
+    // interval gets BOTH — "Ten seconds!" … "five, four, three, two, one").
     // EMOM, work/rest (tabata) and MIX all call these two — before EVERY change,
     // rest→work included — so the same length of interval always sounds the
     // same, whatever format she wrote it in. A 1-min EMOM, a "1 min on/1 min off"
     // and a MIX minute are one rule, not three.
     const SHORT_INTERVAL_MS = 60000;
+    // "Ten seconds!" before the end of every interval of at least this length.
+    // The 27.9 rule dropped the call for intervals ≤ 1 min (count only); the
+    // coach (29.9): "ten seconds before the set ends the clock doesn't say ten
+    // seconds" — her 1:00 sets had lost the call she coaches to. Below 30″
+    // (tabata 20/10) a T-10 call lands mid-interval, so none there.
+    const TEN_CALL_MIN_MS = 30000;
+    // How late a tick may be and still make a one-shot cue. The windows were
+    // 0.5–1 s wide (`remaining > 9500` / `> 9000` / `> 59000`): a single
+    // main-thread stall across one (autoFit on the 30 s refresh is >150 ms on a
+    // PC, far more on the TV) or a throttled rAF, and the call was skipped for
+    // good — "it doesn't call all the times". The one-shot flags already
+    // guarantee a single call; the window only has to survive a late tick.
+    const CUE_LATE_MS = 3000;
     const COUNT_KEYS = ['', 'one', 'two', 'three', 'four', 'five'];
     // At a 5-4-3-2-1 beep (secLeft 1-5).
     function sayIntervalCount(intervalMs, secLeft) {
@@ -4760,7 +4825,7 @@
     }
     // Every tick. `id` names the interval so each is called once.
     function sayIntervalTen(intervalMs, remainingMs, id) {
-      if (intervalMs > SHORT_INTERVAL_MS && _cueTenId !== id && remainingMs <= 10000 && remainingMs > 9000) {
+      if (intervalMs >= TEN_CALL_MIN_MS && _cueTenId !== id && remainingMs <= 10000 && remainingMs > 10000 - CUE_LATE_MS) {
         TimerAudio.say('ten_seconds');
         _cueTenId = id;
       }
@@ -4841,7 +4906,6 @@
         // The last interval's end IS the workout's end — the total-remaining
         // cue below makes that call, so it is not made twice.
         if (currentRound < totalRounds) sayIntervalTen(ivMs, emomRemaining, 'e' + currentRound);
-        _curIntervalShort = ivMs <= SHORT_INTERVAL_MS;
       }
 
       // ── Tabata / custom interval phase tracking ──
@@ -4929,7 +4993,7 @@
           }
           // One minute remaining — phases ≥ 3 min
           if (!_tabataPhaseOneMinDone && phaseMs >= 3 * 60 * 1000
-              && phaseRemaining <= 60000 && phaseRemaining > 58000) {
+              && phaseRemaining <= 60000 && phaseRemaining > 60000 - CUE_LATE_MS) {
             TimerAudio.say('one_minute_remaining');
             _tabataPhaseOneMinDone = true;
           }
@@ -4968,7 +5032,6 @@
               // As EMOM: the very last interval's end is the workout end.
               const isLastIv = timerRound >= (timerConfig.rounds || 1) && i === intervals.length - 1;
               if (!isLastIv) sayIntervalTen(ivMs, mixRemaining, 'm' + timerRound + ':' + i);
-              _curIntervalShort = ivMs <= SHORT_INTERVAL_MS;
               break;
             }
           }
@@ -4993,16 +5056,17 @@
 
         // One-minute warning — only for timers ≥ 3 minutes
         if (!_oneMinAnnounced && totalMs >= 3 * 60 * 1000
-            && remaining <= 60000 && remaining > 59000) {
+            && remaining <= 60000 && remaining > 60000 - CUE_LATE_MS) {
           TimerAudio.say('one_minute_remaining');
           _oneMinAnnounced = true;
         }
 
-        // Ten-second warning — voice + beep
-        if (remaining <= 10000 && remaining > 9500 && !_lastWarningBeeped) {
+        // Ten-second warning — voice + beep. One-shot (flag), window wide enough
+        // to survive a late tick (see CUE_LATE_MS) — was a 0.5 s window that a
+        // single stall skipped past, and the call never came.
+        if (remaining <= 10000 && remaining > 10000 - CUE_LATE_MS && !_lastWarningBeeped) {
           TimerAudio.warningBeep();
-          // An EMOM/MIX whose last interval is ≤ 1 min counts from five instead.
-          if (!_tenSecAnnounced && !((timerType === 'emom' || timerType === 'mix') && _curIntervalShort)) {
+          if (!_tenSecAnnounced) {
             TimerAudio.say('ten_seconds');
             _tenSecAnnounced = true;
           }
@@ -7067,7 +7131,9 @@
         setTimeout(() => container.classList.remove('fade-enter'), 500);
         // Apply section filter, part focus, warmup frames + auto-fit
         requestAnimationFrame(() => { applySectionFilter(); applyPartFocus(); applyWarmupFrames(); autoFitFontSize(); });
+        return true;   // the DOM changed — callers re-fit
       }
+      return false;    // same workout as before — nothing to re-fit
     }
 
     // ════════════════════════════════════════
@@ -7228,10 +7294,18 @@
         // `timerState !== 'idle'` — after a nav teardown there is no clock to
         // re-assert; without it this timeout could force `display:flex` back
         // onto a bar we just hid 350ms earlier.
+        // Same geometry as applyCenterFocus: the clock is a top-center box the
+        // overlay reserves TOP space for (clock-reserve). `right = '14vw'` was
+        // the pre-2026-07-26 right-column layout and outlived it here: 350 ms
+        // after every ► with a running clock the overlay was squeezed by 14vw
+        // — its fitted content clipped on the right and the raw board column
+        // showing through the gap — until the next clock-height change put it
+        // back. (Coach 2026-09-29: the centred stage "loses" its text.)
         if (timerState !== 'idle' && _ov && _ov.classList.contains('open') && _mc2 && _mc2.classList.contains('timer-docked') && _tb) {
           _tb.classList.add('overlay-mode');
           _tb.style.display = 'flex';
-          _ov.style.right = '14vw';
+          _ov.style.right = '0';
+          _ov.classList.add('clock-reserve');
         }
       }, 350);
     }
@@ -7549,7 +7623,7 @@
             // ‹ › arrows cycle the timer type on click (same as Left/Right on the
             // remote) — a pointer/touch can switch AMRAP↔EMOM↔Tabata… without a D-pad.
             const stop = 'event.stopPropagation();';
-            return `<div class="tsu-row ${focused ? 'tsu-focus' : ''}" ${click}><span class="tsu-label">סוג</span><div class="tsu-stepper"><button type="button" tabindex="-1" class="tsu-step tsu-step-type minus" onclick="${stop}TimerSetup.cycleType(-1)" title="סוג קודם">‹</button><span class="tsu-value">${TSU_TYPE_LABELS[this.type]}</span><button type="button" tabindex="-1" class="tsu-step tsu-step-type plus" onclick="${stop}TimerSetup.cycleType(1)" title="סוג הבא">›</button></div></div>`;
+            return `<div class="tsu-row ${focused ? 'tsu-focus' : ''}" ${click}><span class="tsu-label">סוג</span><div class="tsu-stepper"><button type="button" tabindex="-1" class="tsu-step tsu-step-type minus" onclick="${stop}TimerSetup.cycleType(-1)" title="סוג קודם">‹</button><span class="tsu-value tsu-type-value">${TSU_TYPE_LABELS[this.type]}</span><button type="button" tabindex="-1" class="tsu-step tsu-step-type plus" onclick="${stop}TimerSetup.cycleType(1)" title="סוג הבא">›</button></div></div>`;
           }
           if (it.kind === 'field') {
             const f = it.field;
@@ -7573,7 +7647,15 @@
           return `<div class="tsu-row ${cls} ${focused ? 'tsu-focus' : ''}" ${click}><span class="tsu-label">${it.label}</span></div>`;
         });
         const body = document.getElementById('tsuBody');
-        if (body) { body.innerHTML = rows.join(''); const fr = body.querySelector('.tsu-focus'); if (fr) fr.scrollIntoView({ block: 'nearest' }); }
+        if (body) {
+          // ▶/✖ live in a footer pinned to the panel's bottom; everything else
+          // scrolls above it — so the buttons sit in the same place for every type.
+          const isFooter = it => it.kind === 'start' || it.kind === 'cancel';
+          const fields = rows.filter((_, i) => !isFooter(items[i])).join('');
+          const footer = rows.filter((_, i) => isFooter(items[i])).join('');
+          body.innerHTML = `<div class="tsu-fields">${fields}</div><div class="tsu-footer">${footer}</div>`;
+          const fr = body.querySelector('.tsu-fields .tsu-focus'); if (fr) fr.scrollIntoView({ block: 'nearest' });
+        }
       },
       // Pointer/mouse click on any row — focuses it, and fires its action for
       // start/cancel/action rows (mirror of the OK-key path).
@@ -8243,14 +8325,24 @@
       const gymPin = localStorage.getItem('wodboard-gym-pin') || '';
       const tab = tabName ? '&tab=' + encodeURIComponent(tabName) : '';
       const url = settings.appsScriptUrl + '?action=getWorkoutSheet' + tab + '&pin=' + encodeURIComponent(gymPin);
+      // A hung Apps Script request used to hang the board with it — no timeout,
+      // so a cold start that never answered meant a blank wall until the next
+      // 30 s tick. Bounded now; on abort the gviz fallback / cached sheet apply.
+      const ac = (typeof AbortController === 'function') ? new AbortController() : null;
+      const killer = ac ? setTimeout(() => ac.abort(), WORKOUT_FETCH_TIMEOUT_MS) : 0;
       try {
-        const resp = await fetch(url, { redirect: 'follow' });
+        const resp = await fetch(url, { redirect: 'follow', signal: ac ? ac.signal : undefined });
         const text = await resp.text();
         console.log('[WORKOUT-FETCH] status:', resp.status, 'length:', text.length, 'preview:', text.substring(0, 200));
         const json = JSON.parse(text);
         if (json && json.rows && json.rows.length > 0) {
           const parsed = parseAppsScriptData(json.rows);
           console.log('[WORKOUT-FETCH] parsed:', parsed.rows.length, 'sections, cells per section:', parsed.rows.map(r => r.label + ':' + r.cells.length));
+          // Remember the raw sheet so the NEXT load paints it at once (see
+          // paintCachedWorkout) instead of a black screen for the whole
+          // Apps Script round-trip — the sheet parser runs on the rows again,
+          // so a parser fix still applies to the cached copy.
+          try { localStorage.setItem(WORKOUT_CACHE_KEY + (tabName || ''), JSON.stringify(json.rows)); } catch (e) {}
           return parsed;
         }
         console.log('[WORKOUT-FETCH] no rows in response');
@@ -8258,7 +8350,39 @@
       } catch (err) {
         console.warn('[WORKOUT-FETCH] failed:', err.message);
         return null;
+      } finally {
+        clearTimeout(killer);
       }
+    }
+    const WORKOUT_FETCH_TIMEOUT_MS = 25000;
+    const WORKOUT_CACHE_KEY = 'wodboard-last-rows:';
+    // First paint from the last sheet this browser saw (per tab) — the board is
+    // readable in the time it takes to parse, and the live fetch that follows
+    // replaces it only if the sheet actually changed (renderWorkout diffs).
+    // Nothing cached (fresh browser, cleared storage) ⇒ exactly the old path.
+    function paintCachedWorkout() {
+      try {
+        const raw = localStorage.getItem(WORKOUT_CACHE_KEY + (currentTab || ''));
+        if (!raw) return false;
+        const rows = JSON.parse(raw);
+        if (!Array.isArray(rows) || rows.length < 2) return false;
+        return fitAfterRender(renderWorkout(parseAppsScriptData(rows)));
+      } catch (e) { return false; }
+    }
+    // The autoFit retry ladder after a workout re-render (flex layout needs the
+    // 300/800 ms retries to settle). Only when the DOM actually changed: on an
+    // unchanged 30 s refresh these three passes cost ~150 ms of layout each on a
+    // PC (much more on the TV) for nothing — and a stall that long inside a
+    // running clock was one way a voice cue's window got skipped.
+    function fitAfterRender(changed) {
+      if (!changed) return false;
+      requestAnimationFrame(() => {
+        autoFitFontSize();
+        setTimeout(() => autoFitFontSize(), 300);
+        setTimeout(() => autoFitFontSize(), 800);
+        setTimeout(() => repositionQR(), 900);
+      });
+      return true;
     }
 
     // Parse Apps Script response into the same format as parseTableData
@@ -8349,15 +8473,7 @@
 
       dot.classList.remove('fetching');
 
-      if (data) {
-        renderWorkout(data);
-        requestAnimationFrame(() => {
-          autoFitFontSize();
-          setTimeout(() => autoFitFontSize(), 300);
-          setTimeout(() => autoFitFontSize(), 800);
-          setTimeout(() => repositionQR(), 900);
-        });
-      }
+      if (data) fitAfterRender(renderWorkout(data));
     }
 
     // ════════════════════════════════════════
@@ -8567,6 +8683,7 @@
       ];
     }
 
+    let _voicesPrefetched = false;
     async function startApp() {
       applySettings();
       renderTabBar();
@@ -8576,10 +8693,15 @@
 
       if (settings.sheetId) {
         document.getElementById('emptyState')?.remove();
+        // Paint the last sheet this browser saw while the live fetch runs.
+        if (!document.querySelector('#wodArea .workout-row')) paintCachedWorkout();
         // Await initial fetch so data is in DOM before setDisplayMode runs
         await fetchAndRender();
         refreshTimer = setInterval(fetchAndRender, (settings.refreshInterval || 30) * 1000);
       }
+      // Warm the voice files once the board is up (bytes only; decoding waits
+      // for the first key press / clock — see TimerAudio.prefetchVoices).
+      if (!_voicesPrefetched) { _voicesPrefetched = true; setTimeout(() => TimerAudio.prefetchVoices(), 2500); }
 
       // Start scoreboard + lifts + benchmarks refresh if configured
       if (settings.appsScriptUrl) {
@@ -8632,7 +8754,12 @@
     });
 
     // Re-fit font on resize
-    window.addEventListener('resize', () => { autoFitFontSize(); repositionQR(); });
+    window.addEventListener('resize', () => {
+      autoFitFontSize(); repositionQR();
+      // The centred stage is fitted to the overlay's size at open time only.
+      const ov = document.getElementById('tvCenterOverlay');
+      if (ov && ov.classList.contains('open')) applyCenterFocus();
+    });
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {

@@ -550,6 +550,22 @@ That also explains why it never reproduced in isolation (the response arrives lo
 
 ---
 
+## 2l. 2026-09-30 (sw v155) — the coach's five reports after the 27–29.9 upgrade
+
+Five reports (29.9), each traced in headless Chromium against the live-sheet fixture; details in PARSER.md (voice cues, centre-focus, SW):
+
+| report | cause | fix |
+|---|---|---|
+| "10 seconds before the set ends it doesn't say ten seconds" | the 27.9 ONE rule dropped "ten" for intervals ≤ 1 min — her 1:00 sets had said it since 2026-04 (tabata WORK ≥ 45″) | "Ten seconds!" for every interval ≥ 30″ (`TEN_CALL_MIN_MS`), the five-count stays for ≤ 1 min; the total-end call is no longer suppressed for a short last interval |
+| "it doesn't call all the times" | 0.5–1 s cue windows + main-thread stalls (`autoFitFontSize` ×3 per 30 s refresh, even unchanged) / throttled rAF; and a failed voice fetch was never retried | flag-based windows (`CUE_LATE_MS`), re-fit only on a real DOM change, voice retry + prefetch, `AudioContext.resume()` on the next key |
+| "the second screen disappears" (centred stage after ►) | `navigatePart`'s 350 ms timeout still set `overlay.style.right = '14vw'` (dead geometry) — overlay squeezed, content clipped, board showing through; undone only by a later clock-height change | timeout mirrors `applyCenterFocus` (`right: 0` + `clock-reserve`); resize re-fits the open overlay |
+| "the system takes a long time to load" | the board is black until the Apps Script round-trip answers (cold start seconds+, no timeout at all); 27 voice MP3s were fetched on the first clock | last sheet cached per tab in `localStorage` and painted at once (`paintCachedWorkout`, live answer diffed in), 25 s `AbortController` timeout with the gviz fallback behind it, voice bytes prefetched after boot. Still open: the scoreboard/lifts/benchmarks JSONP trio every 5 s + timer state every 2 s (~66 Apps Script calls/min from one TV) — a product call |
+| "the buttons must not move between one program and the next" (manual clock) | the setup panel is centred and grew with its row count: TYPE row, its ‹ › arrows and ▶/✖ moved with every type | fixed-size panel (`height: min(92vh, 46rem)`), fields scroll inside `.tsu-fields`, ▶/✖ pinned in `.tsu-footer`, fixed-width type slot so the arrows never drift |
+
+**Open for the coach / a real-device check:** the docked clock band is ~450 px tall at 1080p (7.5vw digits + 3.4vw round line + two buttons), so a centred 10-line stage under it fits at ~1.85rem — readable on a PC, possibly not from the far end of the room. If she reads "stage text missing" as "too small", the knob is the band, not the overlay. Audio autoplay on the TV browser (a phone-started clock before any key press) still needs one press on the remote to un-mute — the board now does that on the first key.
+
+---
+
 ## 3. The detection pipeline, in execution order
 
 Nothing else in the repo shows the whole pipeline at once; every past incident
