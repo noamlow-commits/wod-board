@@ -2307,6 +2307,7 @@
     let _oneMinAnnounced  = false;
     let _tenSecAnnounced  = false;
     let _cueTenId         = null;  // interval whose "ten seconds" was already called
+    let _cueHalfId        = null;  // interval whose "halfway" was already called
     let _lastRoundAnnounced = false;
     let _lastAnnouncedRound = 0;   // the round the clock last CALLED (see the tabata tick)
 
@@ -4643,6 +4644,7 @@
       _oneMinAnnounced  = false;
       _tenSecAnnounced  = false;
       _cueTenId         = null;
+      _cueHalfId        = null;
       _lastRoundAnnounced = false;
       _lastAnnouncedRound = 0;
       _lastIntervalRound = 0;
@@ -4651,7 +4653,6 @@
       _emomTickedSec = 0;
       _tabataTickedSec = 0;
       _mixTickedSec = 0;
-      _tabataPhaseHalfwayDone = false;
       _tabataPhaseOneMinDone  = false;
       _lastWarningBeeped = false;
       renderTimerDisplay();
@@ -4719,12 +4720,12 @@
       _oneMinAnnounced  = false;
       _tenSecAnnounced  = false;
       _cueTenId         = null;
+      _cueHalfId        = null;
       _lastRoundAnnounced = false;
       _lastAnnouncedRound = 0;
       _lastTabataPhase = '';
       _lastTabataPhaseIdx = 0;
       _tabataTickedSec = 0;
-      _tabataPhaseHalfwayDone = false;
       _tabataPhaseOneMinDone  = false;
       renderTimerDisplay();
     }
@@ -4872,7 +4873,6 @@
     let _emomTickedSec = 0;    // tracks 5-4-3-2-1 ticks before EMOM interval transitions
     let _mixTickedSec = 0;     // tracks 5-4-3-2-1 ticks before MIX interval transitions
     // Per-phase mid-workout cue flags (reset on every phase transition)
-    let _tabataPhaseHalfwayDone = false;
     let _tabataPhaseOneMinDone = false;
 
     // ── ONE countdown rule for every interval clock (Noam 2026-09-27) ──
@@ -4907,6 +4907,20 @@
       if (intervalMs >= TEN_CALL_MIN_MS && _cueTenId !== id && remainingMs <= 10000 && remainingMs > 10000 - CUE_LATE_MS) {
         TimerAudio.say('ten_seconds');
         _cueTenId = id;
+      }
+    }
+
+    // ── Halfway of EVERY work interval (coach 2026-09-30) ──
+    // "If I set 45 seconds, halfway is half of 45; if I set a minute, half of a
+    // minute" — the clock must not decide by itself which intervals deserve the
+    // call. So there is NO length threshold: EMOM, work/rest (tabata) and MIX
+    // call "halfway" at the midpoint of every WORK interval, never in a rest.
+    // Replaces the old "work phase ≥ 4 min" rule and the whole-workout halfway
+    // an EMOM used to get (two meanings for one word). `id` names the interval.
+    function sayIntervalHalf(intervalMs, elapsedMs, id) {
+      if (_cueHalfId !== id && elapsedMs >= intervalMs / 2 && elapsedMs < intervalMs / 2 + CUE_LATE_MS) {
+        TimerAudio.say('halfway');
+        _cueHalfId = id;
       }
     }
 
@@ -4985,6 +4999,7 @@
         // The last interval's end IS the workout's end — the total-remaining
         // cue below makes that call, so it is not made twice.
         if (currentRound < totalRounds) sayIntervalTen(ivMs, emomRemaining, 'e' + currentRound);
+        sayIntervalHalf(ivMs, emomElapsedInRound, 'e' + currentRound);
       }
 
       // ── Tabata / custom interval phase tracking ──
@@ -5034,8 +5049,7 @@
             TimerAudio.say('rest');          // Harry: "Rest"
           }
           _tabataTickedSec = 0; // reset tick tracker on phase change
-          // Reset per-phase mid-workout cues so the next phase gets its own halfway/1min
-          _tabataPhaseHalfwayDone = false;
+          // Reset per-phase mid-workout cues so the next phase gets its own 1min
           _tabataPhaseOneMinDone  = false;
         }
         _lastTabataPhase = phase;
@@ -5060,16 +5074,10 @@
         // total-remaining block skips 'tabata', so the last phase is called here.
         sayIntervalTen(phaseMs, phaseRemaining, 't' + phaseIdx);
 
-        // ── Per-phase mid-workout cues for LONG work phases ──
-        // Only fire during WORK (athletes don't need cues mid-rest) and only when
-        // the phase itself is long enough to benefit from them. One-shot per phase.
+        // ── Per-phase mid-workout cues — WORK only (athletes don't need cues mid-rest) ──
         if (phase === 'work') {
-          // Halfway — phases ≥ 4 min
-          if (!_tabataPhaseHalfwayDone && phaseMs >= 4 * 60 * 1000
-              && phaseElapsed >= phaseMs / 2 && phaseRemaining > 20000) {
-            TimerAudio.say('halfway');
-            _tabataPhaseHalfwayDone = true;
-          }
+          // Halfway — EVERY work phase, whatever its length (see sayIntervalHalf)
+          sayIntervalHalf(phaseMs, phaseElapsed, 't' + phaseIdx);
           // One minute remaining — phases ≥ 3 min
           if (!_tabataPhaseOneMinDone && phaseMs >= 3 * 60 * 1000
               && phaseRemaining <= 60000 && phaseRemaining > 60000 - CUE_LATE_MS) {
@@ -5111,6 +5119,8 @@
               // As EMOM: the very last interval's end is the workout end.
               const isLastIv = timerRound >= (timerConfig.rounds || 1) && i === intervals.length - 1;
               if (!isLastIv) sayIntervalTen(ivMs, mixRemaining, 'm' + timerRound + ':' + i);
+              if (!/^(?:rest|recovery|מנוחה)/i.test((intervals[i].name || '').trim()))
+                sayIntervalHalf(ivMs, ivMs - mixRemaining, 'm' + timerRound + ':' + i);
               break;
             }
           }
@@ -5125,9 +5135,10 @@
         const remaining = totalMs - totalElapsed;
         const elapsedFraction = totalElapsed / totalMs;
 
-        // Halfway cue — once, right around 50%. AMRAP / For-Time-with-cap AND EMOM
-        // (coach 2026-07-27 wanted halfway called on interval workouts too).
-        if (!_halfwayAnnounced && (timerType === 'amrap' || timerType === 'fortime' || timerType === 'emom')
+        // Halfway cue — once, right around 50%. AMRAP / For-Time-with-cap only:
+        // there the whole workout IS the interval. EMOM/MIX call it per interval
+        // (sayIntervalHalf, coach 2026-09-30) — no second, whole-workout halfway.
+        if (!_halfwayAnnounced && (timerType === 'amrap' || timerType === 'fortime')
             && elapsedFraction >= 0.5 && remaining > 15000) {
           TimerAudio.say('halfway');
           _halfwayAnnounced = true;
@@ -6426,7 +6437,11 @@
       // SET_NUM_TIGHT_RE joins it per the "the guard must be the same pattern
       // that earns the badge" rule (PARSER.md 2026-08-04) — a new badge-earning
       // shape left out of this guard re-creates the very bug that rule exists for.
-      const isNumberedStation = /^\s*\d+\s*[\.\)]\s+/.test(text) || SET_NUM_TIGHT_RE.test(text);
+      // STATION_LINE_RE joins it for the same reason (2026-09-30): "2# Even: 20-30
+      // sec HOLD:" ends in ":", became an all-amber sub-header, while its sibling
+      // "1# Odd: 3-6 HSPU (…)" kept its amber "1#" badge on a white line.
+      const isNumberedStation = /^\s*\d+\s*[\.\)]\s+/.test(text) || SET_NUM_TIGHT_RE.test(text)
+                             || STATION_LINE_RE.test(text);
 
       // Detect sub-headers (lines ending with : or all-caps). EXCEPT lines that
       // start with a letter+digit label ("A1. 4 Sets Of:") or a station number
@@ -7927,7 +7942,6 @@
       timerElapsed += (boundary - totalElapsed);
       // The per-phase one-shots are keyed to a phase we just left — reset them
       // or the new phase inherits "already announced" and goes silent.
-      _tabataPhaseHalfwayDone = false;
       _tabataPhaseOneMinDone  = false;
       _tabataTickedSec = 0;
       _emomTickedSec   = 0;

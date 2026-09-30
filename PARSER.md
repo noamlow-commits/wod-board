@@ -170,6 +170,10 @@ existing `12 Pike Leg Lifts` → `none`, which now also proves the rule does not
 over-match a plain rep count), a third `STATION_CATEGORY_GROUPS` sibling group,
 and the `set_wave_bare_numbers` fixture (the wave must stay ONE clock: `2:30 ×4`).
 
+### A `#` station ending in `:` is still a station (added 2026-09-30)
+The coach's `EMOM 10, alternating:` had `1# Odd: 3-6 HSPU (scale: …)` over `2# Even: 20-30 sec HOLD:`. The first rendered as an amber `1#` badge on a white line. The second **ends in `:`**, so the colon sub-header rule turned the whole line amber and underlined it. It's the third instance of the 2026-08-04 bug. `isNumberedStation` knew `N.`/`N)` and `SET_NUM_TIGHT_RE`, but not the `#` markers, even though `STATION_BODY` is exactly what earns the amber badge (~6568). **Fix:** `STATION_LINE_RE` is OR-ed into `isNumberedStation`, per the rule above: *the predicate that protects a line must be the pattern that earns its badge.* A station line with an instruction keyword (`#2 amrap 2:`) is covered too, since station label beats instruction keyword.
+Guarded by two `STATION_CATEGORY_GROUPS` sibling groups (`badge: "station"`: the coach's two lines, and a hash-first `#1`/`#2 max hold:` pair). Both fail on the pre-fix code.
+
 ### A duration badge covers the WHOLE number (added 2026-09-03)
 
 `2.5 min rest` painted a red **`5 min`** badge. Not a missing badge — a
@@ -895,12 +899,20 @@ Same logic adapted for compact horizontal bar. `borderColor` and `boxShadow` fli
 - Covered by **`node test/timer-nav.mjs`** — `verify-board.mjs` is parser-only and cannot see timer state or the docked DOM.
 
 ### Per-phase voice cues (chained timers only)
-Flags `_tabataPhaseHalfwayDone` / `_tabataPhaseOneMinDone` reset on every phase transition (not just timer start). Triggers only during WORK phase:
-- `halfway` at 50% of a WORK phase ≥ 4 min (e.g. 5:00 into each AMRAP 10)
+`_tabataPhaseOneMinDone` resets on every phase transition (not just timer start). Triggers only during WORK phase:
+- `halfway` — see the ONE halfway rule below (was: WORK phases ≥ 4 min only, until 2026-09-30)
 - `one_minute_remaining` at T-60 of a WORK phase ≥ 3 min (e.g. 9:00 into each AMRAP 10)
 - `ten_seconds` — see the ONE countdown rule below (was: WORK phases ≥ 45s only, until 2026-09-27)
 
 **IMPORTANT:** The total-time-based mid-workout cue block (line ~2320) is gated with `timerType !== 'tabata'` to prevent double-firing. Final 5-4-3-2-1 tick beeps still run off total remaining (no voice, just beeps).
+
+### ⭐ ONE halfway rule — the midpoint of EVERY work interval (2026-09-30, coach)
+Her words (voice note, 30.9): *"If I set 45 seconds, halfway is half of 45; if I set a minute, half of a minute"*. The clock **must not decide by itself** which intervals deserve the call.
+- `sayIntervalHalf(intervalMs, elapsedMs, id)` beside `sayIntervalTen`, called by **EMOM, work/rest (tabata) and MIX**. No length threshold, one-shot per interval via `_cueHalfId`.
+- **WORK intervals only, never a rest.** A MIX interval counts as rest when its name starts with `rest`/`recovery`/`מנוחה`.
+- **Interval clocks get no whole-workout halfway any more.** EMOM had one at total 50% (07-27). That's two meanings for one word, and in a 1-min EMOM ×3 both fired at 1:30. AMRAP / capped For Time keep the total-based halfway, because there the whole workout *is* the interval.
+- Replaces "work phase ≥ 4 min" (chained AMRAPs still get 5:00 of each AMRAP 10, now by the general rule). `one_minute_remaining` keeps its ≥ 3 min gate: a T-60 call in a 1-min interval would land at its start.
+- Guarded by seven `halfCases` in `timer-nav.mjs` (45/15 ×6, 1- and 2-min EMOM, 20/10, MIX, adjacent work phases, AMRAP 10). Six fail on the pre-rule code.
 
 ### Other audio cues (preserved from earlier)
 - Phase transition: `tabataWork()` high beep + `say('work')` at WORK start, `tabataRest()` low beep + `say('rest')` at REST start

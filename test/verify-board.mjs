@@ -31,9 +31,13 @@ import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 
 const require = createRequire(import.meta.url);
-const { chromium } = require("C:/Users/User/claude-office-skills/node_modules/playwright");
+const { chromium } = require(path.join(os.homedir(), "claude-office-skills/node_modules/playwright"));
+const CHROME = ["C:/Program Files/Google/Chrome/Application/chrome.exe",
+                "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+                "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"].find(p => fs.existsSync(p));
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "..");
 const INDEX = pathToFileURL(path.join(ROOT, "index.html")).href;
@@ -512,6 +516,14 @@ const STATION_CATEGORY_GROUPS = [
   { name: "bare-numbered set wave 1./2-/3-/4- (coach 2026-09-03)",
     badge: "rep",
     lines: ["1.5 REPS- 70-75%", "2- 4 REPS- 77-80%", "3- 3 REPS- 82-85%", "4- MAX REPS 70 %"] },
+  // "#"-marked stations (coach's EMOM 10 alternating, 2026-09-30): the even line
+  // ended in ":" and became an all-amber sub-header beside a badged white sibling.
+  { name: "# stations, one ending in ':' (coach 2026-09-30)",
+    badge: "station",
+    lines: ["1# Odd: 3-6 HSPU (scale: box HSPU or push-ups)", "2# Even: 20-30 sec HOLD:"] },
+  { name: "hash-first stations, one ending in ':'",
+    badge: "station",
+    lines: ["#1 12 cal row", "#2 max hold:"] },
 ];
 
 const stable = (o) => JSON.stringify(o, null, 2);
@@ -522,7 +534,8 @@ function firstDiff(a, b) {
   return "  (whitespace-only difference)";
 }
 
-const browser = await chromium.launch();
+// Playwright's own Chromium if installed, else the system Chrome/Edge (no download needed).
+const browser = await chromium.launch().catch(() => chromium.launch({ executablePath: CHROME }));
 const context = await browser.newContext();
 await context.route("**/*", (r) => (r.request().url().startsWith("file:") ? r.continue() : r.abort()));
 
@@ -569,16 +582,18 @@ const stationCatFails = [];
   const catGot = await page.evaluate((groups) =>
     groups.map((g) => ({
       name: g.name,
+      badge: g.badge,
       rows: g.lines.map((line) => {
         const p = window.parseLine(line) || {};
         return {
           line,
           type: p.type,
           // the leading number badge every sibling must carry — red "N." for a
-          // station list, amber "N."/"N-" for a bare-numbered set wave
-          numBadge: (g.badge === "rep"
-            ? /^<span class="rep-number">\d+[.\-]<\/span>/
-            : /^<span class="time-badge">\d+\.<\/span>/).test(p.html || ""),
+          // station list, amber "N."/"N-" for a bare-numbered set wave, amber
+          // "N#"/"#N" for a #-marked station list
+          numBadge: (g.badge === "rep"     ? /^<span class="rep-number">\d+[.\-]<\/span>/
+                   : g.badge === "station" ? /^<span class="rep-number">[^<]*#[^<]*<\/span>/
+                   : /^<span class="time-badge">\d+\.<\/span>/).test(p.html || ""),
         };
       }),
     })), STATION_CATEGORY_GROUPS);
@@ -589,7 +604,7 @@ const stationCatFails = [];
         g.rows.map((r) => `"${r.line}"=${r.type}`).join(", "));
     const noBadge = g.rows.filter((r) => !r.numBadge).map((r) => `"${r.line}"`);
     if (noBadge.length)
-      stationCatFails.push(`${g.name}: missing the leading ${g.badge === "rep" ? "amber" : "red"} "N." badge → ${noBadge.join(", ")}`);
+      stationCatFails.push(`${g.name}: missing the leading ${g.badge === "station" ? 'amber "N#"' : g.badge === "rep" ? 'amber "N."' : 'red "N."'} badge → ${noBadge.join(", ")}`);
   }
   await page.close();
 }
@@ -928,7 +943,8 @@ for (const fx of FIXTURES) {
       fs.writeFileSync(goldenPath, actual, "utf8");
       results.push({ name: fx.name, status: UPDATE ? "UPDATED" : "NEW" });
     } else {
-      const golden = fs.readFileSync(goldenPath, "utf8");
+      // Strip CR: git's autocrlf may check a golden out as CRLF on Windows.
+      const golden = fs.readFileSync(goldenPath, "utf8").replace(/\r\n/g, "\n");
       if (golden === actual) results.push({ name: fx.name, status: "PASS" });
       else {
         const ap = path.join(GOLDEN_DIR, `${fx.name}.actual.json`);
@@ -976,7 +992,7 @@ if (timeBadgeFails.length === 0) {
 
 console.log("\nStation-number category consistency");
 if (stationCatFails.length === 0) {
-  console.log(`✅ all ${STATION_CATEGORY_GROUPS.length} sibling groups render in one category with their leading "N." badge`);
+  console.log(`✅ all ${STATION_CATEGORY_GROUPS.length} sibling groups render in one category with their leading number badge`);
 } else {
   for (const f of stationCatFails) console.log(`❌ ${f}`);
 }

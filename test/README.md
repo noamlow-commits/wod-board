@@ -51,7 +51,9 @@ node test/verify-board.mjs --update   # accept intended changes → rewrite base
 ```
 
 Playwright is resolved from `claude-office-skills/node_modules` (the board has
-no npm of its own). Chromium is already installed there.
+no npm of its own): `~/claude-office-skills` — `npm i playwright` there once per
+machine (behind this network's SSL interception: `NODE_OPTIONS=--use-system-ca`).
+If Playwright's Chromium isn't downloaded, both tests fall back to the system Chrome/Edge.
 
 ### Workflow
 

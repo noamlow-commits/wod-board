@@ -20,13 +20,18 @@
 import { createRequire } from 'module';
 import { pathToFileURL } from 'url';
 import path from 'path';
+import os from 'os';
+import fs from 'fs';
 
 const require = createRequire(import.meta.url);
-const PW = 'C:/Users/User/claude-office-skills/node_modules/playwright';
+// Per-user, so the same path works on every machine (was hardcoded to C:/Users/User).
+const PW = path.join(os.homedir(), 'claude-office-skills/node_modules/playwright');
 const { chromium } = require(PW);
 
 const INDEX = pathToFileURL(path.resolve(process.cwd(), 'index.html')).href;
-const CHROME = 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe';
+const CHROME = ['C:/Program Files/Google/Chrome/Application/chrome.exe',
+                'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+                'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(p => fs.existsSync(p));
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = '') => {
@@ -314,7 +319,7 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
 // collapsed to "<second>:ten" / "<second>:count" (a count = the five words
 // five…one on five consecutive seconds, checked in order).
 {
-  const voice = (type, cfg) => page.evaluate(([type, cfg]) => {
+  const voice = (type, cfg, mode) => page.evaluate(([type, cfg, mode]) => {
     const said = [], keep = { ...TimerAudio }, raf = window.requestAnimationFrame;
     TimerAudio.say = (k) => said.push(k);
     for (const f of ['beep', 'intervalBeep', 'warningBeep', 'finishSound', 'tabataWork', 'tabataRest']) TimerAudio[f] = () => {};
@@ -329,6 +334,7 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
       for (let i = n; i < said.length; i++) log.push([ms / 1000, said[i]]);
     }
     Object.assign(TimerAudio, keep); window.requestAnimationFrame = raf; resetTimer();
+    if (mode === 'half') return log.filter(([, k]) => k === 'halfway').map(([t]) => `${t}:half`).join(' ');
     const out = [], W = ['five', 'four', 'three', 'two', 'one'];
     for (let i = 0; i < log.length; i++) {
       const [t, k] = log[i];
@@ -340,7 +346,7 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
       } else if (W.includes(k) && !(i > 0 && W.includes(log[i - 1][1]))) out.push(`${t}:stray-${k}`);
     }
     return out.join(' ');
-  }, [type, cfg]);
+  }, [type, cfg, mode]);
   const cases = [
     ['1-min EMOM ×3: "ten" then a count from five, every minute incl. the last', 'emom', { intervalSeconds: 60, totalSeconds: 180 }, '50:ten 55:count 110:ten 115:count 170:ten 175:count'],
     ['2-min EMOM ×2: "ten" before every change, no count', 'emom', { intervalSeconds: 120, totalSeconds: 240 }, '110:ten 230:ten'],
@@ -351,6 +357,24 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
   ];
   for (const [name, type, cfg, want] of cases) {
     const got = await voice(type, cfg);
+    ok(name, got === want, `got "${got}"`);
+  }
+
+  // ── Halfway of EVERY work interval (coach 2026-09-30: "if I set 45 seconds,
+  // halfway is half of 45; if I set a minute, half a minute" — no length
+  // threshold). Work intervals only, never a rest; interval clocks get no
+  // second, whole-workout halfway. Six of these fail on the pre-rule code.
+  const halfCases = [
+    ['45/15 ×6 (her workout): halfway at 22.5″ of every work', 'tabata', { workSeconds: 45, restSeconds: 15, rounds: 6 }, '22.5:half 82.5:half 142.5:half 202.5:half 262.5:half 322.5:half'],
+    ['1-min EMOM ×3: halfway at 0:30 of every minute, once each', 'emom', { intervalSeconds: 60, totalSeconds: 180 }, '30:half 90:half 150:half'],
+    ['2-min EMOM ×2: halfway at 1:00 of each interval, none at total 50%', 'emom', { intervalSeconds: 120, totalSeconds: 240 }, '60:half 180:half'],
+    ['Tabata 20/10 ×2: halfway in work, never in rest', 'tabata', { workSeconds: 20, restSeconds: 10, rounds: 2 }, '10:half 40:half'],
+    ['MIX עבודה 40 / מנוחה 20 ×2: halfway in work only', 'mix', { intervals: [{ name: 'עבודה', seconds: 40 }, { name: 'מנוחה', seconds: 20 }], rounds: 2 }, '20:half 80:half'],
+    ['Adjacent work phases (every 3:00 ×2): each gets its own halfway', 'tabata', { phases: [{ type: 'work', seconds: 180 }, { type: 'work', seconds: 180 }] }, '90:half 270:half'],
+    ['AMRAP 10: one halfway at 5:00 (the workout IS the interval)', 'amrap', { totalSeconds: 600 }, '300:half'],
+  ];
+  for (const [name, type, cfg, want] of halfCases) {
+    const got = await voice(type, cfg, 'half');
     ok(name, got === want, `got "${got}"`);
   }
 }
