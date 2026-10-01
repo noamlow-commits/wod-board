@@ -1,0 +1,92 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "10 rounds EMOM",
+              "5 pull ups"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "EMOM x10"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "12 סבבים EMOM"
+            ]
+          },
+          {
+            "header": "4",
+            "lines": [
+              "10 EMOM"
+            ]
+          },
+          {
+            "header": "5",
+            "lines": [
+              "EMOM",
+              "10 burpee"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "1",
+      "timers": [
+        {
+          "label": "EMOM 10′",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "2",
+      "timers": [
+        {
+          "label": "EMOM 10′",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "3",
+      "timers": [
+        {
+          "label": "EMOM 12′",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "4",
+      "timers": []
+    },
+    {
+      "section": "—",
+      "header": "5",
+      "timers": []
+    }
+  ]
+}

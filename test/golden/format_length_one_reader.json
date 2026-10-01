@@ -1,0 +1,130 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "EMOM 1:30 x7"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "AMRAP 150 sec"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "12:30 AMRAP"
+            ]
+          },
+          {
+            "header": "4",
+            "lines": [
+              "AMRAP 12:30"
+            ]
+          },
+          {
+            "header": "5",
+            "lines": [
+              "#1 amrap 2:"
+            ]
+          },
+          {
+            "header": "6",
+            "lines": [
+              "12' AMRAP",
+              "10 burpees"
+            ]
+          },
+          {
+            "header": "7",
+            "lines": [
+              "EMOM 1:30"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "1",
+      "timers": [
+        {
+          "label": "EMOM 1:30 ×7",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "2",
+      "timers": [
+        {
+          "label": "AMRAP 2:30",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "3",
+      "timers": [
+        {
+          "label": "AMRAP 12:30",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "4",
+      "timers": [
+        {
+          "label": "AMRAP 12:30",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "5",
+      "timers": [
+        {
+          "label": "AMRAP 2′",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "6",
+      "timers": [
+        {
+          "label": "AMRAP 12′",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "7",
+      "timers": []
+    }
+  ]
+}

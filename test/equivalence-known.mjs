@@ -3,7 +3,8 @@
 // on 2026-10-01 and curated by hand against the audit
 // (memory/project_audit_2026-10-01.md) and Noam's 8 decisions.
 //
-//   BUG(step N)  — a defect; step N of the audit plan fixes it. When a fix lands
+//   BUG(step N)  — a defect; step N of the audit plan fixes it (2b = the
+//                  missing-clock half of step 2: 'every 90 sec', 'כל', cap units…). When a fix lands
 //                  the suite fails with "now passes — delete it": delete it.
 //   SPEC         — a deliberate, documented rule; the class's alternative
 //                  reading is NOT wanted. Keep (and keep the reason current).
@@ -11,24 +12,17 @@
 //   DECIDE       — waits on Noam.
 //
 // ⛔ Never ADD an entry to make a new divergence pass — a new divergence is a
-// regression until proven otherwise. Entries only ever leave this file.
+// regression until proven otherwise. Entries leave this file; the ONE way an
+// entry may arrive is when a fix makes the MEASUREMENT see an older gap (the
+// fact channel learning to read a duration the display never badged). Such an
+// entry says "SURFACED by step N" and names the older gap it exposes.
 export const KNOWN = {
   "timers": {
     "amrap12": {
-      "12' AMRAP\n10 burpees\n10 wall balls": "BUG(step 2 readDuration / step 8 binding): AMRAP length in this spelling — today: SILENT total 600 ≠ 720 [AMRAP 10′]",
-      "12′ AMRAP\n10 burpees\n10 wall balls": "BUG(step 2 readDuration / step 8 binding): AMRAP length in this spelling — today: SILENT total 600 ≠ 720 [AMRAP 10′]",
-      "AMRAP: 12\n10 burpees\n10 wall balls": "BUG(step 2 readDuration / step 8 binding): AMRAP length in this spelling — today: SILENT no clock [—]",
-      "AMRAP - 12\n10 burpees\n10 wall balls": "BUG(step 2 readDuration / step 8 binding): AMRAP length in this spelling — today: SILENT no clock [—]",
-      "12 דקות AMRAP\n10 burpees\n10 wall balls": "BUG(step 2 readDuration / step 8 binding): AMRAP length in this spelling — today: total 600 ≠ 720 [AMRAP 10′]",
-      "AMRAP של 12 דקות\n10 burpees\n10 wall balls": "BUG(step 2 readDuration / step 8 binding): AMRAP length in this spelling — today: no clock [—]",
-      "AMRAP (12 min)\n10 burpees\n10 wall balls": "BUG(step 2 readDuration / step 8 binding): AMRAP length in this spelling — today: no clock [—]",
-      "AMRAP x 12 min\n10 burpees\n10 wall balls": "BUG(step 2 readDuration / step 8 binding): AMRAP length in this spelling — today: no clock [—]",
+      "AMRAP של 12 דקות\n10 burpees\n10 wall balls": "BUG(step 2b readDuration / step 8 binding): AMRAP length in this spelling — today: no clock [—]",
+      "AMRAP (12 min)\n10 burpees\n10 wall balls": "BUG(step 2b readDuration / step 8 binding): AMRAP length in this spelling — today: no clock [—]",
+      "AMRAP x 12 min\n10 burpees\n10 wall balls": "BUG(step 2b readDuration / step 8 binding): AMRAP length in this spelling — today: no clock [—]",
       "AMRAP12\n10 burpees\n10 wall balls": "SPEC: glued \"AMRAP12\" has no word boundary; deliberately not read — today: SILENT no clock [—]"
-    },
-    "amrap12_5": {
-      "AMRAP 12,5 min\n10 burpees\n10 wall balls": "BUG(step 2 readDuration): M:SS or comma decimal in an AMRAP length — today: total 720 ≠ 750 [AMRAP 12′]",
-      "AMRAP 12:30\n10 burpees\n10 wall balls": "BUG(step 2 readDuration): M:SS or comma decimal in an AMRAP length — today: SILENT total 720 ≠ 750 [AMRAP 12′]",
-      "12:30 AMRAP\n10 burpees\n10 wall balls": "BUG(step 2 readDuration): M:SS or comma decimal in an AMRAP length — today: SILENT total 1800 ≠ 750 [AMRAP 30′]"
     },
     "tc14": {
       "For Time\n21-15-9\nthrusters\npull ups\nT.C. 14": "BUG: \"T.C.\" with a trailing dot is read as group letter T, the cap is lost — today: SILENT cap 0 ≠ 840 [For Time]",
@@ -36,35 +30,33 @@ export const KNOWN = {
       "For Time\n21-15-9\nthrusters\npull ups\nTIME CAP: 14 min": "COACH(Q8): \"time cap N\"/\"cap N\" — Noam 1.10: keep today's behaviour, ask the coach — today: cap 0 ≠ 840 [For Time]",
       "For Time\n21-15-9\nthrusters\npull ups\ncap 14": "COACH(Q8): \"time cap N\"/\"cap N\" — Noam 1.10: keep today's behaviour, ask the coach — today: SILENT cap 0 ≠ 840 [For Time]",
       "For Time\n21-15-9\nthrusters\npull ups\ncap: 14 min": "COACH(Q8): \"time cap N\"/\"cap N\" — Noam 1.10: keep today's behaviour, ask the coach — today: cap 0 ≠ 840 [For Time]",
-      "For Time\n21-15-9\nthrusters\npull ups\n14 דקות tc": "BUG(step 2 readDuration): Hebrew unit in a cap — today: cap 0 ≠ 840 [For Time]",
-      "For Time\n21-15-9\nthrusters\npull ups\n14' tc": "BUG(step 2 readDuration): prime ' as a minute unit in a cap — today: SILENT cap 0 ≠ 840 [For Time]"
+      "For Time\n21-15-9\nthrusters\npull ups\n14 דקות tc": "BUG(step 2b readDuration): Hebrew unit in a cap — today: cap 0 ≠ 840 [For Time]",
+      "For Time\n21-15-9\nthrusters\npull ups\n14' tc": "BUG(step 2b readDuration): prime ' as a minute unit in a cap — today: SILENT cap 0 ≠ 840 [For Time]"
     },
     "tc14_inline": {
       "For Time, 14 min cap\n21-15-9\nthrusters\npull ups": "COACH(Q8): \"time cap N\"/\"cap N\"/\"N min cap\" — keep today's behaviour, ask the coach — today: cap 0 ≠ 840 [For Time]",
-      "For Time (14 min TC)\n21-15-9\nthrusters\npull ups": "BUG(step 2): number-first cap inside parentheses after the format word — today: cap 0 ≠ 840 [For Time]",
+      "For Time (14 min TC)\n21-15-9\nthrusters\npull ups": "BUG(step 2b): number-first cap inside parentheses after the format word — today: cap 0 ≠ 840 [For Time]",
       "For Time (time cap 14)\n21-15-9\nthrusters\npull ups": "COACH(Q8): \"time cap N\"/\"cap N\" — Noam 1.10: keep today's behaviour, ask the coach — today: SILENT cap 0 ≠ 840 [For Time]",
       "For Time (cap 14)\n21-15-9\nthrusters\npull ups": "COACH(Q8): \"time cap N\"/\"cap N\"/\"N min cap\" — keep today's behaviour, ask the coach — today: SILENT cap 0 ≠ 840 [For Time]"
     },
     "emom10": {
-      "EMOM x10\n5 pull ups\n10 push ups": "BUG(step 2/6): EMOM / every in this spelling — today: SILENT no clock [—]",
-      "EMOM: 10\n5 pull ups\n10 push ups": "BUG(step 2/6): EMOM / every in this spelling — today: SILENT no clock [—]",
-      "10 min EMOM\n5 pull ups\n10 push ups": "BUG(step 2/6): EMOM / every in this spelling — today: total 300 ≠ 600 [EMOM 5′]",
-      "every minute x 10\n5 pull ups\n10 push ups": "BUG(step 2/6): EMOM / every in this spelling — today: SILENT no clock [—]",
-      "every minute for 10\n5 pull ups\n10 push ups": "BUG(step 2/6): EMOM / every in this spelling — today: SILENT no clock [—]",
-      "every minute for 10 min\n5 pull ups\n10 push ups": "BUG(step 2/6): EMOM / every in this spelling — today: no clock [—]",
-      "10 דקות EMOM\n5 pull ups\n10 push ups": "BUG(step 2/6): EMOM / every in this spelling — today: total 300 ≠ 600 [EMOM 5′]",
-      "כל דקה x10\n5 pull ups\n10 push ups": "BUG(step 2/6): EMOM / every in this spelling — today: SILENT no clock [—]",
-      "כל דקה במשך 10 דקות\n5 pull ups\n10 push ups": "BUG(step 2/6): EMOM / every in this spelling — today: no clock [—]",
-      "10 rounds EMOM\n5 pull ups\n10 push ups": "BUG(step 2/6): EMOM / every in this spelling — today: SILENT total 300 ≠ 600 [EMOM 5′]",
-      "every 60 sec x10\n5 pull ups\n10 push ups": "BUG(step 2/6): EMOM / every in this spelling — today: no clock [—]",
-      "every 1:00 for 10 min\n5 pull ups\n10 push ups": "BUG(step 2/6): EMOM / every in this spelling — today: no clock [—]"
+      "every minute x 10\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: SILENT no clock [—]",
+      "every minute for 10\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: SILENT no clock [—]",
+      "every minute for 10 min\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
+      "כל דקה x10\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: SILENT no clock [—]",
+      "כל דקה במשך 10 דקות\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
+      "every 60 sec x10\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
+      "every 1:00 for 10 min\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
+      "EMOTM 10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: no clock [—]",
+      "EMOTM x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: no clock [—]",
+      "OTM x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: no clock [—]",
+      "every minute on the minute x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: no clock [—]"
     },
     "e90x7": {
-      "every 90 sec x7\n5 pull ups\n10 push ups": "BUG(step 2): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: no clock [—]",
-      "every 90 seconds x 7\n5 pull ups\n10 push ups": "BUG(step 2): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: no clock [—]",
-      "every 1.5 min x 7\n5 pull ups\n10 push ups": "BUG(step 2): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: interval 60 ≠ 90; total 420 ≠ 630 [1′ ×7 (7′ total)]",
-      "כל 1:30 x7\n5 pull ups\n10 push ups": "BUG(step 2): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: no clock [—]",
-      "כל דקה וחצי x7\n5 pull ups\n10 push ups": "BUG(step 2): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: SILENT no clock [—]"
+      "every 90 sec x7\n5 pull ups\n10 push ups": "BUG(step 2b): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: no clock [—]",
+      "every 90 seconds x 7\n5 pull ups\n10 push ups": "BUG(step 2b): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: no clock [—]",
+      "כל 1:30 x7\n5 pull ups\n10 push ups": "BUG(step 2b): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: no clock [—]",
+      "כל דקה וחצי x7\n5 pull ups\n10 push ups": "BUG(step 2b): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: SILENT no clock [—]"
     },
     "e2mom6": {
       "E2MOM 6\n5 thrusters\n10 burpees": "SPEC: \"E2MOM N\" = N total minutes (PARSER rotation rule) → ×3; the class's ×6 reading is the alternative — today: SILENT total 360 ≠ 720 [E2MOM ×3 (6′)]",
@@ -99,15 +91,11 @@ export const KNOWN = {
       "5 rounds, 30 sec\nplank hold": "BUG(step 5 readCount): sets interval — duration-first, or a rounds/סבבים count — today: no clock [—]",
       "5 סבבים, 30 שניות\nplank hold": "BUG(step 5 readCount): sets interval — duration-first, or a rounds/סבבים count — today: no clock [—]"
     },
-    "station_amrap": {
-      "#1 amrap 2:\n10 burpees\n10 air squats": "BUG(new, 1.10): hash-first station number read as the AMRAP length — \"#1 amrap 2\" → AMRAP 1′, silent — today: SILENT total 60 ≠ 120 [AMRAP 1′]",
-      "#3 amrap 2\n10 burpees\n10 air squats": "BUG(new, 1.10): hash-first station number read as the AMRAP length — \"#1 amrap 2\" → AMRAP 1′, silent — today: SILENT total 180 ≠ 120 [AMRAP 3′]"
-    },
     "chain": {
       "AMRAP 10\n10 wall balls\n10 T2B\nREST: 2:00\nAMRAP 10\n10 wall balls\n10 T2B": "BUG(step 4 readRest): this rest spelling breaks the chain — today: type amrap ≠ tabata; work 0 ≠ 600; rest 0 ≠ 120; rounds 0 ≠ 2 [AMRAP 10′ | AMRAP 10′]",
       "AMRAP 10\n10 wall balls\n10 T2B\nrest 2'\nAMRAP 10\n10 wall balls\n10 T2B": "BUG(step 4 readRest): this rest spelling breaks the chain — today: SILENT type amrap ≠ tabata; work 0 ≠ 600; rest 0 ≠ 120; rounds 0 ≠ 2 [AMRAP 10′ | AMRAP 10′]",
       "AMRAP 10\n10 wall balls\n10 T2B\n2' rest\nAMRAP 10\n10 wall balls\n10 T2B": "BUG(step 4 readRest): this rest spelling breaks the chain — today: SILENT type amrap ≠ tabata; work 0 ≠ 600; rest 0 ≠ 120; rounds 0 ≠ 2 [AMRAP 10′ | AMRAP 10′]",
-      "AMRAP 10\n10 wall balls\n10 T2B\n2 min\nAMRAP 10\n10 wall balls\n10 T2B": "SPEC: a bare \"N min\" between work blocks is a WORK continuation (buildWorkoutTimeline pass 3, CARDIO 2026-03-04), not a rest — today: SILENT type amrap ≠ tabata; work 0 ≠ 600; rest 0 ≠ 120; rounds 0 ≠ 2 [AMRAP 10′ | AMRAP 2′]",
+      "AMRAP 10\n10 wall balls\n10 T2B\n2 min\nAMRAP 10\n10 wall balls\n10 T2B": "SPEC: a bare \"N min\" between work blocks is a WORK continuation (buildWorkoutTimeline pass 3, CARDIO 2026-03-04), not a rest — today: type amrap ≠ tabata; work 0 ≠ 600; rest 0 ≠ 120; rounds 0 ≠ 2 [AMRAP 10′ | AMRAP 10′]",
       "AMRAP 10\n10 wall balls\n10 T2B\nrest 120 sec\nAMRAP 10\n10 wall balls\n10 T2B": "BUG(step 4 readRest): this rest spelling breaks the chain — today: type amrap ≠ tabata; work 0 ≠ 600; rest 0 ≠ 120; rounds 0 ≠ 2 [AMRAP 10′ | AMRAP 10′]",
       "AMRAP 10\n10 wall balls\n10 T2B\n120 sec rest\nAMRAP 10\n10 wall balls\n10 T2B": "BUG(step 4 readRest): this rest spelling breaks the chain — today: type amrap ≠ tabata; work 0 ≠ 600; rest 0 ≠ 120; rounds 0 ≠ 2 [AMRAP 10′ | AMRAP 10′]",
       "AMRAP 10\n10 wall balls\n10 T2B\nrest - 2:00\nAMRAP 10\n10 wall balls\n10 T2B": "BUG(step 4 readRest): this rest spelling breaks the chain — today: type amrap ≠ tabata; work 0 ≠ 600; rest 0 ≠ 120; rounds 0 ≠ 2 [AMRAP 10′ | AMRAP 10′]"
@@ -125,29 +113,25 @@ export const KNOWN = {
       "חלק א'\nFor Time\n21-15-9\nthrusters\nt.c 8\nחלק ב'\nFor Time\n15-12-9\nburpees\nt.c 6": "SPEC(not yet): letter-numbered parts \"חלק א׳\" are listed as unsupported in PARSER.md — today: 1 clocks, want 2 [TC 8′ · For Time]"
     },
     "dec_amrap": {
-      "AMRAP 2,5 min\n10 burpees\n10 wall balls": "BUG(step 2 readDuration): AMRAP 2:30 written as sec / M:SS / comma / Hebrew half — today: total 120 ≠ 150 [AMRAP 2′]",
-      "AMRAP 2:30\n10 burpees\n10 wall balls": "BUG(step 2 readDuration): AMRAP 2:30 written as sec / M:SS / comma / Hebrew half — today: SILENT total 120 ≠ 150 [AMRAP 2′]",
-      "AMRAP 150 sec\n10 burpees\n10 wall balls": "BUG(step 2 readDuration): AMRAP 2:30 written as sec / M:SS / comma / Hebrew half — today: SILENT total 9000 ≠ 150 [AMRAP 150′]",
-      "AMRAP 2 וחצי דקות\n10 burpees\n10 wall balls": "BUG(step 2 readDuration): AMRAP 2:30 written as sec / M:SS / comma / Hebrew half — today: SILENT total 120 ≠ 150 [AMRAP 2′]",
-      "AMRAP 2:30 min\n10 burpees\n10 wall balls": "BUG(step 2 readDuration): AMRAP 2:30 written as sec / M:SS / comma / Hebrew half — today: total 120 ≠ 150 [AMRAP 2′]"
+      "AMRAP 2 וחצי דקות\n10 burpees\n10 wall balls": "BUG(step 2b readDuration): AMRAP 2:30 written as sec / M:SS / comma / Hebrew half — today: SILENT total 120 ≠ 150 [AMRAP 2′]"
     },
     "dec_rest": {
-      "5 sets\n3 min run\n1,5 min rest": "BUG(step 2): comma decimal \"1,5 min\" turns the interval into a stray count-up — today: type amrap ≠ tabata; work 0 ≠ 180; rest 0 ≠ 90; rounds 0 ≠ 5 [3′ run]"
+      "5 sets\n3 min run\n1,5 min rest": "BUG(step 2b): comma decimal \"1,5 min\" turns the interval into a stray count-up — today: type amrap ≠ tabata; work 0 ≠ 180; rest 0 ≠ 90; rounds 0 ≠ 5 [3′ run]"
     },
     "dec_block": {
-      "2,5 min row": "BUG(step 2): leading block duration in this spelling — today: no clock [—]",
-      "2:30 row": "BUG(step 2): leading block duration in this spelling — today: no clock [—]",
-      "150 sec row": "BUG(step 2): leading block duration in this spelling — today: no clock [—]",
+      "2,5 min row": "BUG(step 2b): leading block duration in this spelling — today: no clock [—]",
+      "2:30 row": "BUG(step 2b): leading block duration in this spelling — today: no clock [—]",
+      "150 sec row": "BUG(step 2b): leading block duration in this spelling — today: no clock [—]",
       "row 2.5 min": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
-      "2.5 דקות חתירה": "BUG(step 2): leading block duration in this spelling — today: no clock [—]",
-      "2:30 min row": "BUG(step 2): leading block duration in this spelling — today: no clock [—]"
+      "2.5 דקות חתירה": "BUG(step 2b): leading block duration in this spelling — today: no clock [—]",
+      "2:30 min row": "BUG(step 2b): leading block duration in this spelling — today: no clock [—]"
     },
     "block10": {
-      "10' row": "BUG(step 2): leading block duration in this spelling — today: SILENT no clock [—]",
-      "10:00 row": "BUG(step 2): leading block duration in this spelling — today: no clock [—]",
+      "10' row": "BUG(step 2b): leading block duration in this spelling — today: SILENT no clock [—]",
+      "10:00 row": "BUG(step 2b): leading block duration in this spelling — today: no clock [—]",
       "Row 10 min": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
       "row for 10 min": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
-      "10 דקות חתירה": "BUG(step 2): leading block duration in this spelling — today: no clock [—]",
+      "10 דקות חתירה": "BUG(step 2b): leading block duration in this spelling — today: no clock [—]",
       "חתירה 10 דקות": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
       "row\n10 min": "SPEC: bare_block_duration_must_lead — a duration written after the work is not a block length — today: no clock [—]"
     },
@@ -168,7 +152,7 @@ export const KNOWN = {
     },
     "station_kw": {
       "1# amrap 2:": "BUG(step 3): the station's own AMRAP length is not badged — today: read but not badged: 2",
-      "#1 amrap 2:": "BUG(new, 1.10): the fact channel reads \"1 amrap\" (the station number) as the length, and so does the detector — today: read but not badged: 1",
+      "#1 amrap 2:": "BUG(new, 1.10): the fact channel reads \"1 amrap\" (the station number) as the length, and so does the detector — today: read but not badged: 2",
       "1. amrap 2:": "BUG(step 3): the station's own AMRAP length is not badged — today: read but not badged: 2; badged but not read: 1.",
       "1) amrap 2:": "BUG(step 3): the station's own AMRAP length is not badged — today: read but not badged: 2; badged but not read: 1.",
       "1 - amrap 2:": "BUG(step 3): the station's own AMRAP length is not badged — today: read but not badged: 2",
@@ -200,7 +184,9 @@ export const KNOWN = {
     "format_header": {
       "AMRAP 12": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 12",
       "amrap 12": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 12",
+      "12' AMRAP": "BUG(step 3 badgeTokens): the AMRAP length is not badged. SURFACED by step 2b (2026-10-01): the fact channel now reads \"12' AMRAP\" the way the detector does; the display gap is older than this entry — today: read but not badged: 12",
       "AMRAP 12:": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 12",
+      "AMRAP: 12": "BUG(step 3 badgeTokens): the AMRAP length is not badged. SURFACED by step 2b (2026-10-01): the fact channel now reads \"AMRAP: 12\" the way the detector does; the display gap is older than this entry — today: read but not badged: 12",
       "amrap 12 דקות": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 12",
       "12 דקות AMRAP": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 12",
       "AMRAP 12.5": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 12.5"
@@ -265,9 +251,9 @@ export const KNOWN = {
     "cashout": {
       "קאש אאוט": "BUG(step 6): Hebrew cashout spelling gets no CASHOUT marker — today: exercise|- ≠ sub-header|group-badge",
       "קאשאאוט:": "BUG(step 6): Hebrew cashout spelling gets no CASHOUT marker — today: sub-header|- ≠ sub-header|group-badge",
-      "buy in:": "DECIDE(Noam): is BUY-IN a block marker like CASHOUT? (audit c.2 S2) — today: sub-header|- ≠ sub-header|group-badge",
-      "buy-in -": "DECIDE(Noam): is BUY-IN a block marker like CASHOUT? (audit c.2 S2) — today: exercise|- ≠ sub-header|group-badge",
-      "BUY IN: 20 cal row": "DECIDE(Noam): is BUY-IN a block marker like CASHOUT? (audit c.2 S2) — today: exercise|- ≠ sub-header|group-badge"
+      "buy in:": "BUG(step 6): BUY-IN is a block marker exactly like CASHOUT — Noam 1.10: they are the opening and the closing of a workout — today: sub-header|- ≠ sub-header|group-badge",
+      "buy-in -": "BUG(step 6): BUY-IN is a block marker exactly like CASHOUT — Noam 1.10: they are the opening and the closing of a workout — today: exercise|- ≠ sub-header|group-badge",
+      "BUY IN: 20 cal row": "BUG(step 6): BUY-IN is a block marker exactly like CASHOUT — Noam 1.10: they are the opening and the closing of a workout — today: exercise|- ≠ sub-header|group-badge"
     },
     "emom_header": {
       "e 1:00 x 10": "BUG(step 6 FORMAT): this header spelling renders as an exercise — today: exercise ≠ sub-header",

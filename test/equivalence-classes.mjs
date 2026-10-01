@@ -36,11 +36,11 @@ add("tc14_inline", "For Time with the cap on the header line", { type: "fortime"
 add("emom10", "EMOM 10 (1:00 x 10)", { type: "emom", interval: 60, total: 600 },
   ["EMOM 10", "emom 10 min", "EMOM 10 mins", "EMOM x10", "EMOM 10:", "EMOM: 10", "10 min EMOM", "every 1:00 x10", "every 1:00 x 10", "Every 1:00 x10 rounds",
    "every 1 min x 10", "every minute x 10", "E1MOM 10", "E1MOM x10", "evey 1:00 x10", "e 1:00 x 10", "e1:00 x10", "every minute for 10", "every minute for 10 min",
-   "EMOM 10 דקות", "10 דקות EMOM", "כל דקה x10", "כל דקה במשך 10 דקות", "EMOM 10 rounds", "10 rounds EMOM", "every 60 sec x10", "every 1:00 for 10 min"
+   "EMOM 10 דקות", "10 דקות EMOM", "כל דקה x10", "כל דקה במשך 10 דקות", "EMOM 10 rounds", "10 rounds EMOM", "every 60 sec x10", "every 1:00 for 10 min", "EMOTM 10", "EMOTM x10", "OTM x10", "every minute on the minute x10"
   ].map(v => v + "\n5 pull ups\n10 push ups"));
 add("e90x7", "Every 1:30 x 7 (10:30)", { type: "emom", interval: 90, total: 630 },
   ["every 1:30 x 7", "every 1:30 x7", "Every 1:30 x 7 rounds", "e 1:30 x 7", "E1:30MOM x7", "e1:30mom x 7", "every 90 sec x7", "every 90 seconds x 7",
-   "every 1.5 min x 7", "every 1:30 for 7 rounds", "every 1:30 x 7 sets", "כל 1:30 x7", "כל דקה וחצי x7", "every 1:30 (7 rounds)"
+   "every 1.5 min x 7", "every 1:30 for 7 rounds", "every 1:30 x 7 sets", "כל 1:30 x7", "כל דקה וחצי x7", "every 1:30 (7 rounds)", "EMOM 1:30 x7", "EMOM 1:30 x 7", "emom 1:30 ×7"
   ].map(v => v + "\n5 pull ups\n10 push ups"));
 add("e2mom6", "E2MOM x 6 (12:00)", { type: "emom", interval: 120, total: 720 },
   ["E2MOM x6", "E2MOM 6", "E2MOM x 6 rounds", "E2MOM 12", "E2MOM 12 min", "every 2:00 x6", "every 2 min x 6", "every 2 minutes x 6", "e 2:00 x 6", "evry 2:00 x6", "EVERY 2:00 X 6", "e2mom x 6", "every 2 min for 12 min"
@@ -76,6 +76,12 @@ add("sets30x5", "Sets interval 30 sec x 5 (no rest)", { type: "emom", interval: 
 // (hash-first marker), silently — the fact channel lexes the same "1 amrap".
 add("station_amrap", "Station AMRAP 2 (the station number is not the length)", { type: "amrap", total: 120 },
   ["1# amrap 2:", "#1 amrap 2:", "1. amrap 2:", "3# amrap 2", "#3 amrap 2", "2+3# amrap 2:", "1# AMRAP 2 min:"].map(v => v + "\n10 burpees\n10 air squats"));
+
+// ── An EMOM written as an INTERVAL with no count — nothing to run ──
+// "EMOM 1:30" says how long each interval is, never how many. Until 2026-10-01
+// it ran a 1′ clock (the "1" of 1:30). No count written ⇒ no clock (decision 7).
+add("emom_mmss_nocount", "EMOM 1:30 with no count → no clock (nothing written to run)", { nconfigs: 0 },
+  ["EMOM 1:30\nsnatch", "EMOM 1:30:\nsnatch", "emom 2:00\nclean"]);
 
 // ── Chains: AMRAP 10 / rest 2:00 / AMRAP 10 ──
 const chain = (r) => `AMRAP 10\n10 wall balls\n10 T2B\n${r}\nAMRAP 10\n10 wall balls\n10 T2B`;

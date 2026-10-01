@@ -743,6 +743,54 @@ What had to change, and the rule behind each piece:
 
 **Not recognised (yet):** `חלק א׳/ב׳` (Hebrew letter numerals), `החלק הראשון`, a Hebrew work/rest spec with a written TOTAL instead of a count (`30 שניות עבודה 10 שניות מנוחה, 4 דקות`), `30 שניות x 5` (duration first), and the Hebrew units anywhere outside the sets-interval shape and the fact channel (e.g. `AMRAP 10 דקות` works only because AMRAP reads its own number). Outside a rest line, the time **badge** does not paint Hebrew durations either.
 
+### ⭐ ONE reader for a format keyword's length (2026-10-01, audit plan step 2a; fixtures `format_length_one_reader`, `decimal_durations_read_whole`)
+
+The number an AMRAP or EMOM carries was read by **three** regexes: the timeline (`buildWorkoutTimeline`), `detectTimers` (`amrapRe` / `emomRe`) and the fact channel. All three had the same blind spots. So these wrong clocks were **silent**: the property test could not contradict a misread it repeated (TIMER_ROADMAP §4 cause #8).
+
+| Written | Clock before |
+|---|---|
+| `EMOM 1:30 x7` | 1′ |
+| `AMRAP 150 sec` | 150′ |
+| `12:30 AMRAP` | 30′ |
+| `AMRAP 12:30` | 12′ |
+| `#1 amrap 2` | 1′ (the **station number**) |
+| `12' AMRAP` over `10 burpees` | 10′ (a `\s` crossed the line break) |
+
+All three readers now build from one set of fragments: `LEN_HSP`, `LEN_UNIT`, `LEN_NUM`, `LEN_BEFORE_GUARD`, `lenSeconds`, `amrapLenRe` / `amrapLenSeconds`, and `emomLenRe` / `emomLen`. The rules:
+
+- **One line only.** Horizontal whitespace, never `\s`.
+- **M:SS is minutes:seconds.** A unit decides min vs sec: English, Hebrew, or prime `′` / `'`. No unit keeps the old meaning: minutes.
+- **A number after `#`, `:`, `.`, `,` or a digit is never a length.**
+- **A comma decimal (`2,5`) counts only before a unit.** `AMRAP 2,5` alone is not read.
+- **A separator is required after the keyword** (space, `:` or `-`). Glued `AMRAP12` stays unread, as before.
+- **EMOM is an acronym: Every Minute On the Minute.** The 1′ interval is written by the word itself, so a written count is a complete clock: `10 rounds EMOM` / `EMOM x10` / `12 סבבים EMOM` → 10′ / 10′ / 12′ (Noam 1.10, `emom_acronym_is_the_interval`). ⚠️ The first version of this reader left `10 rounds EMOM` clockless as "no length written". That was wrong: **expand the acronym before deciding nothing is written.**
+- **The acronym rule applies ONLY where the acronym names a time.** EMOM / E2MOM / EMOTM / OTM do: "every minute", "every 2 minutes", "on the minute". **AMRAP does not:** As Many Rounds/Reps As Possible names a goal, not a length, so a bare `AMRAP` or `10 rounds AMRAP` stays clockless. Its length must be written (`AMRAP 12`). The same goes for RFT (Rounds For Time) and For Time, which are bounded by the athletes or by a written cap. `EMOTM` / `OTM` are not read yet (step 2b, recorded in the equivalence classes).
+- **`EMOM M:SS ×N` is an interval × N.** `EMOM M:SS` with no count has no written total, so it gets **no clock** (decision 7). It is not read as 1′ either.
+- **Number-first EMOM needs a unit.** `10 min EMOM` is read; a bare `10 EMOM` is not.
+
+The same day, four readers that dropped the fraction were fixed (audit F5). Each now reads the whole number:
+
+| Site | Example |
+|---|---|
+| single-line work/rest | `2.5 min work` |
+| `minXmRe` | `every 1.5 min x7` |
+| `eXmomRe` total | `E2MOM 7.5 min` |
+| `writtenTotalMin` | `(7.5 min total)` read **5** |
+
+Whole-minute labels stay byte-identical: the label goes through `fmtDur`, and every golden confirmed it. **Not in this step:** the label of a fractional total still rounds (`(7.5 min total)` → `×8 (8′)`). One label format is step 7.
+
+**Results:**
+- `test/equivalence.mjs`: timer divergences 102 → 84; silent ones 38 → 26.
+- `10 rounds EMOM` over `5 pull ups` used to read **EMOM 5′**. It is now clockless: nothing is written to run.
+
+**Step 2b, still open:** missing clocks.
+- `every 90 sec x7` / `every 60 sec x10`
+- `כל 1:30`
+- cap units: `14' tc`, `14 דקות tc`
+- other spellings of a block length: `10' row`, `10:00 row`
+
+Each widens what is read, so each needs its own review.
+
 ### Per-part timer detection (added 2026-05-21)
 `extractTimerConfigs` is a **part-aware wrapper** around the core `detectTimers`. When a cell holds a multi-part workout (≥2 `part 1:` / `part 2:` / `part 3:` lines), each part is scanned independently and yields **its own timer button** — a series of timers.
 
