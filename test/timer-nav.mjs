@@ -380,39 +380,56 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
 }
 
 // ── Adiel 2026-10-01 ──────────────────────────────────────────────────────
-// (a) ±5″ in the manual timer setup: on EVERY time field, every multiple of 5
-// inside [min, max] reachable, while the remote's ←→ (field.step) and the
-// existing 10″/30″ · 0:30/1:00 buttons stay exactly as they were.
+// (a) ±5″ in the manual timer setup: on EVERY time field, full size (Noam:
+// the TV is huge — a smaller target is a worse button), and every multiple of 5
+// inside [min, max] reachable WITHOUT ever leaving the 5″ lattice: from the
+// type's default, walking ±5″ end to end visits only multiples of 5 (no 37″,
+// no 1 → 6 → 11). The remote's ←→ (field.step) and the existing 10″/30″ ·
+// 0:30/1:00 buttons stay exactly as they were.
 {
   const r = await page.evaluate(() => {
     const TS = TimerSetup, rows = [];
     for (const type of ['amrap', 'fortime', 'emom', 'tabata', 'mix']) {
       TS.seedDefaults(type); TS.buffer = '';
+      TS.open = true; document.getElementById('timerSetupOverlay').classList.add('open');
       TS.buildItems().forEach((it, i) => {
         if (it.kind !== 'field' || it.field.kind === 'toggle') return;
         const f = it.field, seen = new Set();
-        TS.setFieldValue(f, 37);
-        for (let k = 0; k < 1300 && TS.getFieldValue(f) !== f.min; k++) { TS.stepBy(i, -5, true); seen.add(TS.getFieldValue(f)); }
-        for (let k = 0; k < 1300 && TS.getFieldValue(f) !== f.max; k++) { TS.stepBy(i, 5, true); seen.add(TS.getFieldValue(f)); }
+        const start = TS.getFieldValue(f);
+        seen.add(start);
+        for (let k = 0; k < 1300 && TS.getFieldValue(f) !== f.min; k++) { TS.stepBy(i, -5); seen.add(TS.getFieldValue(f)); }
+        for (let k = 0; k < 1300 && TS.getFieldValue(f) !== f.max; k++) { TS.stepBy(i, 5); seen.add(TS.getFieldValue(f)); }
         let missing = 0;
-        for (let v = Math.ceil(f.min / 5) * 5; v <= f.max; v += 5) if (!seen.has(v)) missing++;
+        for (let v = f.min; v <= f.max; v += 5) if (!seen.has(v)) missing++;
+        const offLattice = [...seen].filter(v => v % 5);
         const base = Math.max(f.min, Math.min(f.max - f.step, 100));
         TS.setFieldValue(f, base); TS.focusIdx = i; TS.nudge(1);
         const nudge = TS.getFieldValue(f) - base;
+        TS.setFieldValue(f, start);
         TS.render();
         const row = document.querySelectorAll('#tsuBody .tsu-row')[i];
-        const btns = [...row.querySelectorAll('.tsu-step')].map(b => (b.classList.contains('tsu-step-fine') ? '*' : '') + b.textContent).join(' ');
-        rows.push({ type, key: f.key, kind: f.kind, step: f.step, missing, nudge, btns });
+        const btns = [...row.querySelectorAll('.tsu-step')];
+        const fine = btns.filter(b => b.classList.contains('tsu-step-fine'));
+        const main = btns.find(b => !b.classList.contains('tsu-step-fine'));
+        const sz = b => { const q = b.getBoundingClientRect(); return [Math.round(q.width), Math.round(q.height), getComputedStyle(b).fontSize]; };
+        rows.push({ type, key: f.key, kind: f.kind, step: f.step, start, min: f.min, max: f.max, missing, offLattice, nudge,
+                    btns: btns.map(b => (b.classList.contains('tsu-step-fine') ? '*' : '') + b.textContent).join(' '),
+                    fineSz: fine.map(sz), mainSz: main ? sz(main) : null });
       });
     }
     TS.close();
     return rows;
   });
   const time = r.filter(x => x.kind === 'time');
-  ok('±5″: present on every time field (AMRAP, cap, EMOM ×2, Tabata ×2, each MIX segment)', time.length === 8 && time.every(x => /^\*−5″ .* \*\+5″$/.test(x.btns)),
+  ok('±5″: present on every time field (AMRAP, cap, EMOM ×2, Tabata ×2, each MIX segment), at the outer edges', time.length === 8 && time.every(x => /^\*−5″ .* \*\+5″$/.test(x.btns)),
      time.map(x => `${x.type}.${x.key}: ${x.btns}`).join(' | '));
-  ok('±5″: every multiple of 5 reachable on every time field', time.every(x => x.missing === 0),
-     time.filter(x => x.missing).map(x => `${x.type}.${x.key} misses ${x.missing}`).join(', '));
+  ok('±5″: the SAME size as the existing step buttons (not smaller)',
+     time.every(x => x.fineSz.length === 2 && x.fineSz.every(s => s[0] >= x.mainSz[0] - 1 && s[1] >= x.mainSz[1] - 1 && s[2] === x.mainSz[2])),
+     time.map(x => `${x.key}: fine ${JSON.stringify(x.fineSz)} main ${JSON.stringify(x.mainSz)}`).join(' | '));
+  ok('±5″: every time field\'s min, max and default sit on the 5″ lattice', time.every(x => x.min % 5 === 0 && x.max % 5 === 0 && x.start % 5 === 0),
+     time.map(x => `${x.type}.${x.key} ${x.start} [${x.min}, ${x.max}]`).join(', '));
+  ok('±5″: every multiple of 5 reachable, and nothing off the lattice is ever shown', time.every(x => x.missing === 0 && x.offLattice.length === 0),
+     time.filter(x => x.missing || x.offLattice.length).map(x => `${x.type}.${x.key} misses ${x.missing}, off-lattice ${x.offLattice.slice(0, 5)}`).join(', '));
   ok('±5″: remote ←→ step unchanged (field.step)', r.every(x => x.nudge === x.step), JSON.stringify(r.map(x => [x.key, x.nudge, x.step])));
   ok('±5″: round counts get no ±5″', r.filter(x => x.kind === 'rounds').every(x => !x.btns.includes('*')));
 }

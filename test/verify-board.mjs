@@ -571,6 +571,13 @@ const TIME_BADGE_CHECKS = [
   { line: "3000 m run", expect: [] },                   // METRES are never minutes
   { line: "1.5 pood kb swing", expect: [] },            // a load is not a duration
   { line: "1.5 REPS- 70-75%", expect: [] },             // the set-number fix stays amber
+  // Hebrew rest (2026-10-01): the clock reads it, so the board must paint it
+  // as a duration — not an amber rep count on the "2".
+  { line: "2 דקות מנוחה", expect: ["2 דקות"] },
+  { line: "מנוחה 90 שניות", expect: ["90 שניות"] },
+  { line: "1:30 מנוחה", expect: ["1:30"] },
+  { line: "מנוחה של דקה", expect: ["דקה"] },
+  { line: "דקתיים מנוחה", expect: ["דקתיים"] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
