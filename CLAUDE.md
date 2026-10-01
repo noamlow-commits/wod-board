@@ -32,6 +32,14 @@ timer state + the docked clock's DOM). Covers what the golden harness structural
 cannot: which clocks a stage change turns off, and the countdown-resurrection
 guard. Run after any change to timer state, `navigatePart`, or the docked bar.
 
+`node test/equivalence.mjs` — **same meaning ⇒ same result** (added 2026-10-01).
+One meaning written many ways (318 timer variants, 178 display lines) must give
+the same clock, display ⇄ detection must agree, and display siblings must share
+a category. Today's divergences sit in `test/equivalence-known.mjs`, each with
+a reason. That file is a **ratchet**: a new divergence fails the run, and so
+does a fixed one still listed ("delete it"). **Never add an entry to make
+something pass.** Run it after ANY parser, timer or display change.
+
 See [`test/README.md`](test/README.md).
 
 ## Correction → Rule (keep this file learning)
