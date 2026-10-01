@@ -142,6 +142,14 @@ regex — because no regex can separate her two meanings here.
 
 The first build of `seamlessFromParts` also laid AMRAP parts end to end (`part 1: amrap 10 / part 2: amrap 8` → `18′ · AMRAP 10′ → AMRAP 8′`). Noam's answer, word for word in meaning: *two parts UNDER one AMRAP run with no rest, obviously. Two separate AMRAPs back to back with no rest between them stay two clocks.* The rule now chains interval parts only. `amrap_parts_no_rest_two_clocks` locks the two clocks, and `one_amrap_over_parts_one_clock` locks the single-AMRAP shape (the preamble's `AMRAP 20′`). Recorded in `memory/project_2026-10-01_adiel_timer.md`.
 
+### Q8 — Is `time cap 14` / `cap 14` a time cap? 🟡 NEW 2026-10-01 (audit), for the coach
+
+Only `t.c 14` / `tc 14` / `14 min tc` are caps today. `time cap 14`, `cap 14`, `TIME CAP: 14 min` and `T.C. 14` leave a For Time **uncapped**. The display meanwhile paints `time cap` red, as if it had been understood. **Noam (1.10): keep today's behaviour and build conservatively; ask her at the end.** **Ask:** *do you ever write "time cap" or "cap" instead of t.c, and should the board read it?*
+
+### Q9 — A cap beside another clock in the same cell 🟡 NEW 2026-10-01 (audit), for the coach
+
+`AMRAP 10 / burpee / 16 min tc` and `every 1:30 x7 / 1# / 2# / t.c 12` **drop the cap** today: it is read only when no other clock exists (`results.length === 0`). Noam doesn't know which reading is right. **Ask:** *when a cap sits in the same cell as another clock, is it a separate clock, or does it cap that block?* The audit plan's step 8 (arbitration) waits on this answer.
+
 ### Q4 — The redundant `For Time` preamble button (answered 2026-08-08: suppress; trigger widened 2026-08-10).
 
 A bare format line above the parts (`for time:`) is dropped when the preamble

@@ -1,0 +1,83 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "דקה עבודה דקה מנוחה x5"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "8 סבבים: 30 שניות עבודה, 10 שניות מנוחה"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "6 סבבים של עבודה 40 שניות מנוחה 20 שניות"
+            ]
+          },
+          {
+            "header": "4",
+            "lines": [
+              "5 סטים, 30 שניות"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "1",
+      "timers": [
+        {
+          "label": "1′/1′ ×5",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "2",
+      "timers": [
+        {
+          "label": "30″/10″ ×8",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "3",
+      "timers": [
+        {
+          "label": "40″/20″ ×6",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "4",
+      "timers": [
+        {
+          "label": "30″ ×5 (2:30)",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

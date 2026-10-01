@@ -8,6 +8,16 @@ code extraction, so the test can never drift from production. It snapshots the
 parsed structure + detected timers as **golden baselines**; any later change
 that alters them is flagged as a `DIFF`.
 
+### ⭐ A new shape is ALSO tested alone in its cell (rule since 2026-10-01)
+
+Every fixture for a new written shape gets a variant where that shape is the
+**only** line in its cell. On 2026-10-01 four Hebrew work/rest fixtures passed
+while the one-line spec alone in a cell got **no clock**. The detector
+demanded ≥2 lines, and every fixture happened to carry an extra exercise line.
+PARSER.md then claimed support the board did not have. A context line makes a
+fixture realistic, and it can also be the only reason the fixture passes.
+Fixture: `hebrew_work_rest_alone_in_cell`.
+
 ### Beyond goldens — two assertions that catch what a snapshot can't
 
 A golden captures whatever the code **does**, not what the fixture **means**. On
