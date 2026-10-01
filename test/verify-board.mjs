@@ -458,6 +458,25 @@ const FIXTURES = [
     expectTimerOrder: [["12:15 · 30″ ×5 → 1′ rest → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)"]],
     rows: [["", "WOD"],
            ["STRENGTH", "חלק 1\n5 סטים, 30 שניות\n5 front squat\n1:00 rest\n\nחלק 2\n5 סטים, 45 שניות\n3 front squat\n\nחלק 3\nEMOM 5\n2 squat clean"]] },
+  // ── Hebrew REST, 2026-10-01 (Noam: "ההקשר של זיהוי 'מנוחה' בעברית צריך גם
+  // להיכנס"). Every rest matcher was English-only, so "2 דקות מנוחה" reached no
+  // clock — a written number silently dropped, the mirror form of the
+  // no-invented-values rule. The fact channel now reads Hebrew durations, so
+  // each of these would also fail the unexplained-facts assertion if dropped.
+  { name: "hebrew_rest_in_parts_chain",
+    note: "Adiel's parts with Hebrew rests in two word orders: '2 דקות מנוחה' (number first) closes part 1, 'ואז מנוחה של דקה' (rest first, 'של', the singular 'דקה' = one minute, behind a 'ואז') closes part 2. Both become rest phases of the ONE continuous clock: 2:30 + 2:00 + 3:45 + 1:00 + 5:00 = 14:15. ⚠️ The 'ואז' here sequences a REST, not untimed work, so it must not trip the staged-part suppression: a line that is nothing but a rest has a known length by definition.",
+    expectTimers: ["14:15 · 30″ ×5 → 2′ rest → 45″ ×5 → 1′ rest → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"],
+    expectTimerOrder: [["14:15 · 30″ ×5 → 2′ rest → 45″ ×5 → 1′ rest → EMOM 5′", "P1 · 30″ ×5 (2:30)"]],
+    rows: [["", "WOD"],
+           ["STRENGTH", "חלק 1\n5 סטים, 30 שניות\n5 front squat\n2 דקות מנוחה\n\nחלק 2\n5 סטים, 45 שניות\n3 front squat\nואז מנוחה של דקה\n\nחלק 3\nEMOM 5\n2 squat clean"]] },
+  { name: "hebrew_rest_chained_amrap",
+    note: "The Hebrew twin of chained_amrap: 'מנוחה 2:00' and 'דקתיים מנוחה' (the dual form — two minutes) between three AMRAP 10s. The shared timeline classifier now reads Hebrew rests, so the existing uniform chain fires exactly as it does for 'rest 2:00'.",
+    expectTimers: ["AMRAP ×3 · 10′ work / 2′ rest"],
+    rows: [["", "WOD"], ["מטקון", "AMRAP 10\n10 Wall Balls\n10 T2B\nמנוחה 2:00\nAMRAP 10\n10 Wall Balls\n10 T2B\nדקתיים מנוחה\nAMRAP 10\n10 Wall Balls\n10 T2B"]] },
+  { name: "hebrew_rest_activity_interval",
+    note: "The Hebrew twin of activity_interval: '5 סבבים / 3 min run / 1 דקה מנוחה' is 3′ work / 1′ rest ×5. Both the multiplier ('סבבים') and the rest line are Hebrew.",
+    expectTimers: ["3′/1′ ×5"],
+    rows: [["", "CARDIO"], ["ריצה", "5 סבבים\n3 min run\n1 דקה מנוחה"]] },
   { name: "sets_seconds_whole_cell",
     note: "Adiel 2026-10-01, the same shape with NO part headers: '5 סטים, 30 שניות' alone in a cell is a 30″ interval ×5 (2:30). Reached through the whole-cell fallback (sets-interval), after every other detector found nothing.",
     expectTimers: ["30″ ×5 (2:30)"],
