@@ -458,6 +458,21 @@ const FIXTURES = [
     expectTimerOrder: [["12:15 · 30″ ×5 → 1′ rest → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)"]],
     rows: [["", "WOD"],
            ["STRENGTH", "חלק 1\n5 סטים, 30 שניות\n5 front squat\n1:00 rest\n\nחלק 2\n5 סטים, 45 שניות\n3 front squat\n\nחלק 3\nEMOM 5\n2 squat clean"]] },
+  { name: "sets_seconds_whole_cell",
+    note: "Adiel 2026-10-01, the same shape with NO part headers: '5 סטים, 30 שניות' alone in a cell is a 30″ interval ×5 (2:30). Reached through the whole-cell fallback (sets-interval), after every other detector found nothing.",
+    expectTimers: ["30″ ×5 (2:30)"],
+    rows: [["", "WOD"], ["", "5 סטים, 30 שניות\n10 burpee"]] },
+  { name: "sets_seconds_rest_beneath_not_ours",
+    note: "NEGATIVE CONTROL for the sets-interval shape: '5 sets / 30 sec / 1 min rest' writes a REST directly beneath the length, which makes it a work/rest interval (30″ on, 1′ off ×5?) — not Adiel's whole-set interval, and the bare '30 sec' (no activity) is not detectActivityInterval's shape either. Nothing may guess, so the cell stays clockless and both durations are DELIBERATE misses. If a coach really writes this, it is a question for her, not a regex.",
+    expectTimers: [],
+    forbidTimers: ["30″ ×5 (2:30)"],
+    ignoreFacts: ["30 sec", "1 min"],
+    rows: [["", "WOD"], ["", "5 sets\n30 sec\n1 min rest"]] },
+  { name: "seamless_amrap_parts_no_rest",
+    note: "Adiel's rule (2026-10-01) is general, not Hebrew-only: parts whose lengths are ALL written run back to back unless a rest is written. Two English AMRAP parts with no rest → one 18′ clock (10′ → 8′, instant hand-off) first, the per-part clocks behind it. Before 2026-10-01 this cell had no whole-cell clock at all (both whole-cell builders need a written rest). ⚠️ Semantic change worth confirming with the coach for AMRAP parts — see TIMER_ROADMAP §1 Q7.",
+    expectTimers: ["18′ · AMRAP 10′ → AMRAP 8′", "P1 · AMRAP 10′", "P2 · AMRAP 8′"],
+    expectTimerOrder: [["18′ · AMRAP 10′ → AMRAP 8′", "P1 · AMRAP 10′", "P2 · AMRAP 8′"]],
+    rows: [["", "WOD"], ["", "part 1: amrap 10\n10 burpee\n15 wall ball\npart 2: amrap 8\n10 pull up\n20 d.u"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────

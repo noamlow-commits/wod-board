@@ -1686,6 +1686,21 @@
     .tsu-step:active { transform: translateY(1px); }
     .tsu-step.minus { color: #ff9a86; }
     .tsu-step.plus  { color: #9fe0b0; }
+    /* ±5″ — the SECONDARY step (Adiel 2026-10-01). Outer edge of the row,
+       smaller, outline-only and muted, so the everyday 10″/30″ and 0:30/1:00
+       buttons stay the obvious ones. Not on the remote's ←→ (field.step). */
+    .tsu-step.tsu-step-fine {
+      min-width: 2.5rem;
+      padding: 0.3rem 0.3rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: transparent;
+      border: 1px solid #333;
+      opacity: 0.7;
+    }
+    .tsu-step.tsu-step-fine.minus { color: #b98278; }
+    .tsu-step.tsu-step-fine.plus  { color: #86a890; }
+    .tsu-step.tsu-step-fine:hover { opacity: 1; background: #1c1c1c; border-color: #555; }
     /* TYPE-row ‹ › arrows — bigger, brighter glyphs so switching timer type is
        an obvious button on the TV (not just a Left/Right remote press). */
     .tsu-step-type {
@@ -2545,6 +2560,14 @@
     const UNIT_STRICT = '(?:min(?:ute)?s?|sec(?:ond)?s?)';
     const UNIT_LOOSE  = '(?:min(?:ute)?s?|m|sec(?:ond)?s?|s)';
     const MIN_WORD    = 'min(?:ute)?s?';    // matches min · mins · minute · minutes
+    // Hebrew time words (Adiel, 2026-10-01: "5 סטים, 30 שניות"). ⚠️ Hebrew
+    // letters are NOT \w, so a JS `\b` never fires after one — every consumer
+    // closes these with HE_END instead. Deliberately NOT folded into
+    // UNIT_STRICT/MIN_WORD: those feed ~20 English sites (badges, on/off,
+    // facts) whose `\b` endings would silently never match a Hebrew unit.
+    const HE_SEC_WORD = "(?:שניות|שנייה|שניה|שנ['׳])";
+    const HE_MIN_WORD = "(?:דקות|דקה|דק['׳])";
+    const HE_END      = '(?![\\u0590-\\u05FF\\w])';
 
     // A duration NUMBER as the coach writes it — "12", "2.5", "0.5". The
     // fraction is PART OF THE NUMBER, and leaving it out was a WRONG duration
@@ -2623,8 +2646,13 @@
     // "keep in sync" comment, which is the same failure waiting to happen).
     //   Rule 1: concat repair — "press4 clean" → ["press", "4 clean"]
     //   Rule 2: a station marker starting mid-line — "air squat 4#rotata"
+    //   ⚠️ Rule 1 skips a line that OPENS with "Nx" (Adiel 2026-10-01,
+    //   "5x30 שניות"): the x is a multiplier, not a word with a number glued
+    //   to it, and splitting printed "5x" | "30 שניות" as two lines. Anchored
+    //   to line START so "every 3:00x5 sets" keeps its split byte-for-byte
+    //   (stitchSplitSpecs below owns that one).
     const lineSplitRe = () => new RegExp(
-      `(?<=[a-z\\u0590-\\u05FF])(?=\\d+\\s+[a-zA-Z\\u0590-\\u05FF])|(?<=\\s)(?=[1-9]#|#[1-9])`);
+      `(?<=[a-z\\u0590-\\u05FF])(?<!^\\s*\\d+\\s*[x×])(?=\\d+\\s+[a-zA-Z\\u0590-\\u05FF])|(?<=\\s)(?=[1-9]#|#[1-9])`);
 
     // ── Stitch a spec that lineSplitRe cut in half (2026-08-31) ──────────────
     // Rule 1 above (concat repair, "press4 clean" → "press" | "4 clean") also
@@ -2973,6 +3001,66 @@
       return { type: 'tabata', phases, rounds: works.length, skipLastRest: true, label };
     }
 
+    // ── ONE clock straight through the parts, no rest written (2026-10-01) ──
+    // Adiel: "חלק 1: 5 × 30″ / חלק 2: 5 × 45″ / חלק 3: EMOM 5" is ONE 11:15
+    // piece, run back to back — not three clocks to start by hand. The two
+    // whole-cell builders above both need a written REST to fire, so a
+    // rest-free cell never chained. This lays the parts' OWN detected clocks end
+    // to end, each keeping its beat (an interval part expands into its
+    // intervals, exactly like chainFromTimeline's expandable branch).
+    //
+    // ⛔ No invented values — every guard below refuses rather than guesses:
+    //   · EVERY numbered part has exactly ONE clock of FIXED length: an
+    //     interval (emom: interval × N) or an AMRAP (its total). A part with no
+    //     written length, two clocks, or a For Time (ends when the athletes
+    //     finish — no fixed hand-off) → null, per-part clocks only.
+    //   · A part carrying a sequence marker ("ואז" / "and then") → null. The
+    //     staged-part rule upstream already covers a header with no length;
+    //     this is the same reason one level down.
+    //   · A REST written inside a part becomes a rest phase AFTER that part
+    //     (several are summed — the partBudget convention). The hand-off is
+    //     instant only when no rest is written.
+    function seamlessFromParts(segs) {
+      const numbered = segs.filter(s => s.num);
+      if (numbered.length < 2) return null;
+      const pre = segs.find(s => !s.num);
+      if (pre && buildWorkoutTimeline(pre.lines).some(p => p.type === 'rest')) return null;
+      const phases = [], names = [];
+      for (const seg of numbered) {
+        const cfgs = seg.cfgs || [];
+        if (cfgs.length !== 1) return null;
+        const c = cfgs[0];
+        if (c.roundsInvented || c.phases || c.windowSeconds) return null;
+        if (seg.lines.some(l => STAGE_MARKER_RE.test(l || ''))) return null;
+        let block;
+        if (c.type === 'emom' && c.intervalSeconds > 0 && c.totalSeconds > 0
+            && c.totalSeconds % c.intervalSeconds === 0) {
+          block = Array.from({ length: c.totalSeconds / c.intervalSeconds },
+                             () => ({ type: 'work', seconds: c.intervalSeconds }));
+        } else if (c.type === 'amrap' && c.totalSeconds > 0) {
+          block = [{ type: 'work', seconds: c.totalSeconds }];
+        } else return null;
+        const name = String(c.label || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+        for (const p of block) phases.push({ ...p, label: name });
+        names.push(name);
+        const restSec = buildWorkoutTimeline(seg.lines)
+          .filter(p => p.type === 'rest').reduce((t, p) => t + p.seconds, 0);
+        if (restSec > 600) return null;
+        if (restSec > 0) {
+          phases.push({ type: 'rest', seconds: restSec });
+          names.push(`${fmtDur(restSec)} rest`);
+        }
+      }
+      // The session ends on work — a rest at the very end leads nowhere.
+      while (phases.length && phases[phases.length - 1].type === 'rest') { phases.pop(); names.pop(); }
+      const totalSec = phases.reduce((t, p) => t + p.seconds, 0);
+      // Same readability/sanity window the interval chain uses.
+      if (phases.length > 40 || totalSec > 90 * 60) return null;
+      // Time FIRST — the 11rem button truncates the tail (see TIME-FIRST labels).
+      return { type: 'tabata', phases, rounds: phases.filter(p => p.type === 'work').length,
+               skipLastRest: true, label: `${fmtDur(totalSec)} · ${names.join(' → ')}` };
+    }
+
     // THE canonical time-cap matcher — one line in, seconds out (0 = no cap).
     // Works on a single line so the regex never crosses a newline. The previous
     // in-place version used `\s` and matched "tc\n800" on the boundary between
@@ -3093,6 +3181,15 @@
         while ((m = re.exec(line)) !== null) {
           if (!claim(m.index, m.index + m[0].length)) continue;
           add('duration', /^min/i.test(m[2]) ? minsToSec(m[1]) : secsToSec(m[1]), m[0], null);
+        }
+
+        // ── Hebrew "30 שניות" / "2 דקות" (2026-10-01). Own rule: Hebrew is not
+        // \w, so FACT_UNIT's `\b` ending could never match one. Claimed spans
+        // ("EMOM 5" in "EMOM 5 דקות") are not re-read. ──
+        re = new RegExp(`(?<![\\d.])(${DUR_NUM})\\s*(${HE_SEC_WORD}|${HE_MIN_WORD})${HE_END}`, 'g');
+        while ((m = re.exec(line)) !== null) {
+          if (!claim(m.index, m.index + m[0].length)) continue;
+          add('duration', /^דק/.test(m[2]) ? minsToSec(m[1]) : secsToSec(m[1]), m[0], null);
         }
 
         // ── Counts. Recorded for context; NOT asserted, and deliberately kept
@@ -4274,11 +4371,25 @@
     // Recognizes a "part N" block header. Kept as ONE shared literal so the
     // line parser, the warm-up reset, the column layout and the timer splitter
     // all agree on what a part header is (see the 3-place-pattern rule).
-    const PART_HEADER_RE = /^\s*part\s*\d+\b/i;
+    // Hebrew too since 2026-10-01 (Adiel): "חלק 1" / "חלק 2" and the
+    // ordinals "חלק ראשון/שני/שלישי/רביעי/חמישי". ONE fragment feeds both
+    // regexes below and partNumberOf, so the three consumers of a part header
+    // — line parser (parseLine), layout (isNoteLine/orderNotesLast/warm-up
+    // reset/column break) and timer splitter (extractTimerConfigs) — cannot
+    // disagree about it. HE_END, not `\b`: "חלק שנייה" is not part 2.
+    const HE_PART_ORDINAL = { 'ראשון': 1, 'שני': 2, 'שלישי': 3, 'רביעי': 4, 'חמישי': 5 };
+    const PART_LABEL = `(?:part\\s*\\d+\\b|חלק\\s*(?:\\d+|${Object.keys(HE_PART_ORDINAL).join('|')})${HE_END})`;
+    const PART_HEADER_RE = new RegExp(`^\\s*${PART_LABEL}`, 'i');
     // Just the "part N" label + its separator, so the REST of that line (the
     // coach writes the part's timing there: "part 1: t.c 14", "part 2: amrap
     // 14") can be handed to the detectors instead of being thrown away.
-    const PART_HEADER_PREFIX_RE = /^\s*part\s*\d+\s*[:.)–—-]?\s*/i;
+    const PART_HEADER_PREFIX_RE = new RegExp(`^\\s*${PART_LABEL}\\s*[:.)–—-]?\\s*`, 'i');
+    // The part's NUMBER ("part 3" → 3, "חלק שלישי" → 3), or null.
+    function partNumberOf(line) {
+      const m = String(line || '').match(new RegExp(`^\\s*(?:part|חלק)\\s*(\\d+|${Object.keys(HE_PART_ORDINAL).join('|')})`, 'i'));
+      if (!m) return null;
+      return /^\d+$/.test(m[1]) ? parseInt(m[1]) : HE_PART_ORDINAL[m[1]];
+    }
     // A part is INTERNALLY STAGED when the coach writes a sequence transition
     // inside it — "part 2: amrap 14 / 1000 m run / and then: amrap: / …". The
     // 1000 m carries no clock, so the AMRAP she declared on the header does not
@@ -4352,6 +4463,55 @@
                  label: `${fmtDur(workSec)}/${fmtDur(restSec)} ×${rounds}` };
       }
       return null;
+    }
+
+    // ── "N sets, X seconds" — a whole-set INTERVAL, no rest (2026-10-01) ──
+    // Adiel: "5 סטים, 30 שניות" means every set lasts 30″ INCLUDING the work and
+    // the change-over — a 30″ interval ×5 = 2:30, with no separate rest. Three
+    // written shapes, each one fully anchored (the line holds NOTHING else):
+    //   "5 סטים, 30 שניות" / "5 sets of 30 sec" / "5 sets: 0:30"   (one line)
+    //   "5x30 שניות" / "5 x 30 sec"                                (one line)
+    //   "5 סטים" over "30 שניות"                                   (two lines)
+    // The anchoring is the guard: "5 sets / 30 sec plank" (an activity line)
+    // and "3 sets of 30 sec on 10 sec off" (an on/off spec) never match.
+    // ⛔ A REST written directly beneath the spec makes it a work/rest interval
+    // ("5 sets / 30 sec / 1 min rest" = 30″ on, 1′ off) — not this shape, and
+    // not ours to guess, so the spec is skipped. Last resort by construction:
+    // consulted only when every other detector found nothing.
+    const SETS_WORD = '(?:sets?|סטים|סט)';
+    const SETS_DUR = `(\\d+:\\d{2}|${DUR_NUM_POS}\\s*(?:${UNIT_STRICT}\\b|${HE_SEC_WORD}${HE_END}|${HE_MIN_WORD}${HE_END}))`;
+    function setsDurSeconds(tok) {
+      const t = String(tok || '').trim();
+      let m = t.match(/^(\d+):(\d{2})$/);
+      if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
+      m = t.match(/^([\d.]+)\s*(.*)$/);
+      if (!m) return 0;
+      return /^(?:min|דק)/i.test(m[2]) ? minsToSec(m[1]) : secsToSec(m[1]);
+    }
+    function detectSetsInterval(lines) {
+      const out = [];
+      const oneLine = new RegExp(`^(\\d+)\\s*(?:${SETS_WORD}\\s*[,:\\-–]?\\s*(?:(?:של|of)\\s+)?|[x×*]\\s*)${SETS_DUR}\\s*\\.?$`, 'i');
+      const countOnly = new RegExp(`^(\\d+)\\s*${SETS_WORD}\\s*:?$`, 'i');
+      const durOnly = new RegExp(`^${SETS_DUR}\\s*\\.?$`, 'i');
+      const isRest = (l) => /\brest\b|מנוחה/i.test(l || '');
+      const clean = (lines || []).map(l => String(l || '').trim()).filter(l => l && l !== '__SPACER__');
+      for (let i = 0; i < clean.length; i++) {
+        let n = 0, iv = 0, used = i;
+        const m1 = clean[i].match(oneLine);
+        if (m1) { n = parseInt(m1[1]); iv = setsDurSeconds(m1[2]); }
+        else {
+          const mc = clean[i].match(countOnly);
+          const md = mc && clean[i + 1] ? clean[i + 1].match(durOnly) : null;
+          if (md) { n = parseInt(mc[1]); iv = setsDurSeconds(md[1]); used = i + 1; }
+        }
+        if (!n) continue;
+        i = used;
+        if (isRest(clean[used + 1])) continue;
+        if (n < 2 || n > 30 || iv < 10 || iv > 600) continue;
+        out.push({ type: 'emom', intervalSeconds: iv, totalSeconds: iv * n,
+                   label: `${fmtDur(iv)} ×${n} (${fmtDur(iv * n)})` });
+      }
+      return out;
     }
 
     // ── "K rounds of:" over UNIFORM timed stations → one rotation clock ──
@@ -4444,9 +4604,9 @@
     // branch someone adds cannot go dark without turning the suite red.
     // Deliberately at BRANCH granularity, not per-regex: this is where the
     // structural bugs have actually been.
-    const TIMER_PATHS = ['whole-cell', 'station-blocks', 'activity-fallback', 'part-split',
-                         'part-inline-spec', 'compound-chain', 'staged-part',
-                         'header-cap'];
+    const TIMER_PATHS = ['whole-cell', 'station-blocks', 'activity-fallback', 'sets-interval',
+                         'part-split', 'part-inline-spec', 'compound-chain', 'seamless-chain',
+                         'staged-part', 'header-cap'];
     const __timerPathHits = Object.fromEntries(TIMER_PATHS.map(k => [k, 0]));
     function tpHit(id) { __timerPathHits[id] = (__timerPathHits[id] || 0) + 1; }
     // Exposed as FUNCTIONS on purpose: a top-level `const` in a classic script
@@ -4474,6 +4634,10 @@
           else {
             const ai = detectActivityInterval(lines);
             if (ai) { tpHit('activity-fallback'); out = [ai]; }
+            else {
+              const si = detectSetsInterval(lines);
+              if (si.length) { tpHit('sets-interval'); out = si; }
+            }
           }
         }
       } else {
@@ -4483,7 +4647,6 @@
         for (let p = 0; p < partIdx.length; p++) {
           const start = partIdx[p];
           const end = p + 1 < partIdx.length ? partIdx[p + 1] : lines.length;
-          const numMatch = lines[start].match(/part\s*(\d+)/i);
           // The part header line carries the part's OWN timing when the coach
           // writes it inline ("part 1: t.c 14" / "part 2: amrap 14"). Slicing
           // from start+1 discarded it, so BOTH written numbers never reached a
@@ -4494,7 +4657,7 @@
           const segLines = lines.slice(start + 1, end);
           const inlineSpec = (lines[start] || '').replace(PART_HEADER_PREFIX_RE, '').trim();
           if (inlineSpec) { tpHit('part-inline-spec'); segLines.unshift(inlineSpec); }
-          const num = numMatch ? parseInt(numMatch[1]) : p + 1;
+          const num = partNumberOf(lines[start]) || p + 1;
           segments.push({ num, lines: segLines, inlineSpec,
                           // The part's written duration as its TOTAL budget —
                           // drives BOTH the per-part clock below and the
@@ -4514,6 +4677,10 @@
             else {
               const ai = detectActivityInterval(seg.lines);
               if (ai) cfgs = [ai];
+              else {
+                const si = detectSetsInterval(seg.lines);
+                if (si.length) { tpHit('sets-interval'); cfgs = si; }
+              }
             }
           }
           // ── Budget semantics on the PER-PART clock too (Noam, 2026-08-11) ──
@@ -4545,6 +4712,7 @@
             // length is NOT written, because then its end is genuinely unknown.
             if (!seg.budget && seg.lines.some(l => STAGE_MARKER_RE.test(l || ''))) stagedPart = true;
           }
+          seg.cfgs = cfgs;
           const tag = seg.num ? `P${seg.num} · ` : '';
           for (const c of cfgs) out.push({ ...c, label: tag + c.label, _preamble: !seg.num });
         }
@@ -4576,12 +4744,16 @@
         // Budget-adjusted schedule first (non-uniform capable, 2026-08-11); the
         // uniform whole-cell chain stays as the fallback for cells whose parts
         // carry no header duration — losing a clock is worse than a wrong one.
-        const whole = stagedPart ? null
+        // Third, and only when both find nothing: the parts' OWN clocks laid
+        // end to end (Adiel, 2026-10-01) — see seamlessFromParts.
+        let whole = stagedPart ? null
           : (compoundFromParts(segments) || chainFromTimeline(lines));
-        if (whole) {
-          tpHit('compound-chain');
-          out.unshift(whole);
+        if (whole) tpHit('compound-chain');
+        else if (!stagedPart) {
+          whole = seamlessFromParts(segments);
+          if (whole) tpHit('seamless-chain');
         }
+        if (whole) out.unshift(whole);
         // The preamble's bare format line ("for time:" above the parts) is the
         // umbrella header for those parts, not a block of its own; its capless
         // count-up is a duplicate that would sit in FRONT of the real clocks in
@@ -7606,6 +7778,12 @@
     //  - whole-workout times        → 0:30 / 1:00 (minute thinking)
     //  - round counts               → 1 / 5
     const TSU_STEPS_INTERVAL = [10, 30], TSU_STEPS_TOTAL = [30, 60], TSU_STEPS_ROUNDS = [1, 5];
+    // Secondary ±5″ on EVERY time field (Adiel 2026-10-01: "5 סטים, 45 שניות").
+    // Rendered small at the outer edge; it SNAPS to the 5″ lattice, so every
+    // multiple of 5 inside [min, max] is reachable from any value — a field
+    // whose min is 1 (work/mix) would otherwise go 1 → 6 → 11 forever.
+    // Deliberately NOT field.step: the remote's ←→ keeps its 10″/0:30/1:00.
+    const TSU_STEP_FINE = 5;
     function tsuFieldsFor(type, d) {
       switch (type) {
         case 'amrap':   return [ { key: 'totalSeconds', label: 'זמן', kind: 'time', min: 0, max: 5999, step: 30, steps: TSU_STEPS_TOTAL } ];
@@ -7747,8 +7925,11 @@
             // Numeric/time: −coarse −fine  VALUE  +fine +coarse (amount printed on each button).
             const steps = (f.steps && f.steps.length) ? f.steps : [f.step || 1];
             const stop = 'event.stopPropagation();';
-            const minusBtns = steps.slice().reverse().map(s => `<button type="button" tabindex="-1" class="tsu-step minus" onclick="${stop}TimerSetup.stepBy(${i}, ${-s})">−${tsuStepLabel(f, s)}</button>`).join('');
-            const plusBtns = steps.map(s => `<button type="button" tabindex="-1" class="tsu-step plus" onclick="${stop}TimerSetup.stepBy(${i}, ${s})">+${tsuStepLabel(f, s)}</button>`).join('');
+            // Time fields get the secondary ±5″ at the OUTER edge of each side.
+            const fine = f.kind === 'time' ? TSU_STEP_FINE : 0;
+            const fineBtn = (sign) => fine ? `<button type="button" tabindex="-1" class="tsu-step tsu-step-fine ${sign > 0 ? 'plus' : 'minus'}" onclick="${stop}TimerSetup.stepBy(${i}, ${sign * fine}, true)" title="${sign > 0 ? 'הוסף' : 'הורד'} 5 שניות">${sign > 0 ? '+' : '−'}${tsuStepLabel(f, fine)}</button>` : '';
+            const minusBtns = fineBtn(-1) + steps.slice().reverse().map(s => `<button type="button" tabindex="-1" class="tsu-step minus" onclick="${stop}TimerSetup.stepBy(${i}, ${-s})">−${tsuStepLabel(f, s)}</button>`).join('');
+            const plusBtns = steps.map(s => `<button type="button" tabindex="-1" class="tsu-step plus" onclick="${stop}TimerSetup.stepBy(${i}, ${s})">+${tsuStepLabel(f, s)}</button>`).join('') + fineBtn(1);
             return `<div class="tsu-row ${focused ? 'tsu-focus' : ''}" ${click}><span class="tsu-label">${f.label}</span><div class="tsu-stepper">${minusBtns}<span class="tsu-value ${editing ? 'tsu-editing' : ''}">${disp}</span>${plusBtns}</div></div>`;
           }
           const cls = it.kind === 'action' ? 'tsu-action' : (it.kind === 'cancel' ? 'tsu-cancel' : 'tsu-start');
@@ -7786,14 +7967,19 @@
         this.nudge(dir);
       },
       // Pointer +/- stepper: focus the row and add `amount` to its value (clamped).
-      // Reused for both step sizes; clicking a button never starts/cancels the timer.
-      stepBy(i, amount) {
+      // Reused for every step size; clicking a button never starts/cancels the timer.
+      // `snap` (the ±5″ button): land on the NEXT multiple of |amount| in that
+      // direction — 37 → 40 / 35, 1 → 5 — so the 5″ lattice is always reachable.
+      stepBy(i, amount, snap) {
         this.commitBuffer();
         this.focusIdx = i;
         const it = this.buildItems()[i];
         if (!it || it.kind !== 'field' || it.field.kind === 'toggle') { this.render(); return; }
         const f = it.field;
-        let v = this.getFieldValue(f) + amount;
+        const cur = this.getFieldValue(f);
+        const q = Math.abs(amount);
+        let v = !snap ? cur + amount
+          : amount > 0 ? Math.floor(cur / q) * q + q : Math.ceil(cur / q) * q - q;
         v = Math.max(f.min, Math.min(f.max, v));
         this.setFieldValue(f, v);
         this.render();
@@ -7856,7 +8042,7 @@
         const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v || 0)));
         let config;
         if (t === 'amrap') config = { totalSeconds: clamp(d.totalSeconds, 0, 5999) };
-        else if (t === 'fortime') config = { capSeconds: Math.max(0, Math.round(d.capSeconds || 0)) };
+        else if (t === 'fortime') config = { capSeconds: clamp(d.capSeconds, 0, 5999) };
         else if (t === 'emom') config = { totalSeconds: clamp(d.totalSeconds, 60, 5999), intervalSeconds: clamp(d.intervalSeconds, 5, 600) || 60 };
         // Ceilings mirror tsuFieldsFor EXACTLY — a clamp tighter than its own
         // field's max silently rewrites the coach's number on start (the 300/600

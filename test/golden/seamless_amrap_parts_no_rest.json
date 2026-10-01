@@ -1,0 +1,45 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "part 1: amrap 10",
+              "10 burpee",
+              "15 wall ball",
+              "part 2: amrap 8",
+              "10 pull up",
+              "20 d.u"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "18′ · AMRAP 10′ → AMRAP 8′",
+          "type": "tabata"
+        },
+        {
+          "label": "P1 · AMRAP 10′",
+          "type": "amrap"
+        },
+        {
+          "label": "P2 · AMRAP 8′",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}
