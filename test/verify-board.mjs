@@ -410,7 +410,54 @@ const FIXTURES = [
     expectTimers: [],
     forbidTimers: ["Every 1′", "Every 30″", "1′/30″"],
     ignoreFacts: ["1 min", "30 sec"],
-    rows: [["", "WOD"], ["", "3 rounds of:\n1 min row\n30 sec plank\n10 burpees"]] },
+    rows: [["", "WOD"], ["", "3 rounds of:\n1 min row\n30 sec plank\n10 burpees"]] },  // ── Adiel, 2026-10-01: a strength part split into sub-parts, ONE clock ────
+  // His answers, verbatim in meaning: "5 סטים, 30 שניות" = each set is 30″
+  // TOTAL (work AND transition) — a 30″ interval ×5, no separate rest. And he
+  // wants ONE clock running straight through every part, not a clock per part:
+  //     חלק 1: 5 × 30″ → 2:30 · חלק 2: 5 × 45″ → 3:45 · חלק 3: EMOM 5 → 5:00
+  // = 11:15 back to back, no rest between parts unless one is WRITTEN.
+  // Four wordings of the same day (Hebrew number / Hebrew ordinal / English
+  // header; sets+seconds on one line / NxS / on two lines) must all resolve to
+  // the same schedule, continuous clock FIRST, the per-part clocks behind it.
+  // Then the controls: a part with no written length, a staged part, and a
+  // written rest.
+  { name: "adiel_parts_hebrew_sets_comma",
+    note: "Adiel 2026-10-01 — Hebrew 'חלק N' headers, 'N סטים, X שניות' on ONE line. Each set is the WHOLE interval (work + transition), so '5 סטים, 30 שניות' is 30″ ×5 = 2:30 with no rest. Parts run back to back with no rest written → ONE continuous 11:15 clock first, P1/P2/P3 behind it. Before 2026-10-01 'חלק' was not a part header at all (PART_HEADER_RE was English-only), so the cell was scanned whole and only 'EMOM 5′' came out — 6:15 of written work reached no clock.",
+    expectTimers: ["11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"],
+    expectTimerOrder: [["11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"]],
+    forbidTimers: ["EMOM 5′", "P1 · EMOM 1′", "P2 · EMOM 2′", "P3 · EMOM 3′"],
+    rows: [["", "WOD"],
+           ["STRENGTH", "חלק 1\n5 סטים, 30 שניות\n5 front squat\n\nחלק 2\n5 סטים, 45 שניות\n3 front squat\n\nחלק 3\nEMOM 5\n2 squat clean"]] },
+  { name: "adiel_parts_hebrew_ordinal_nx",
+    note: "Adiel 2026-10-01 — same day, ordinal headers ('חלק ראשון/שני/שלישי') and the 'NxX שניות' shorthand. ⚠️ lineSplitRe's concat repair used to cut '5x30 שניות' into '5x' | '30 שניות' (the x is a letter touching 'digit+space+word'), so the board PRINTED the spec on two lines and no line-scoped detector could read it. A line that OPENS with 'Nx' is a multiplier, not a word with a number glued to it; 'every 3:00x5 sets' (interval_blocks_chain_keeps_intervals) is not at line start and keeps its split byte-for-byte. 'EMOM 5 דקות' — the Hebrew unit after the EMOM number is decoration; the EMOM matcher reads the 5.",
+    expectTimers: ["11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"],
+    expectTimerOrder: [["11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"]],
+    rows: [["", "WOD"],
+           ["STRENGTH", "חלק ראשון\n5x30 שניות\n5 front squat\n\nחלק שני\n5x45 שניות\n3 front squat\n\nחלק שלישי\nEMOM 5 דקות\n2 squat clean"]] },
+  { name: "adiel_parts_english_sets_two_lines",
+    note: "Adiel 2026-10-01 — English 'Part N:' headers with the count and the length on SEPARATE lines ('5 סטים' / '30 שניות'), and part 3's EMOM written INLINE on its header ('Part 3: EMOM 5'). The two-line form is only read as an interval when the duration line is NOTHING but a duration — '5 sets' over '30 sec plank' is an activity line and stays the activity detector's.",
+    expectTimers: ["11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"],
+    expectTimerOrder: [["11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"]],
+    rows: [["", "WOD"],
+           ["STRENGTH", "Part 1:\n5 סטים\n30 שניות\n5 front squat\n\nPart 2:\n5 sets\n45 sec\n3 front squat\n\nPart 3: EMOM 5\n2 squat clean"]] },
+  { name: "adiel_parts_unwritten_length_no_chain",
+    note: "NEGATIVE CONTROL (no invented values). Part 2 writes '5 סטים' and NO length. A continuous clock needs every part's length, so there is no schedule to run — and auto-advancing through part 2 would invent its duration. Only the parts that wrote a length get their own clock; no continuous clock at all.",
+    expectTimers: ["P1 · 30″ ×5 (2:30)", "P3 · EMOM 5′"],
+    forbidTimers: ["6:15 · 30″ ×5 → EMOM 5′", "7:30 · 30″ ×5 → EMOM 5′"],
+    rows: [["", "WOD"],
+           ["STRENGTH", "חלק 1\n5 סטים, 30 שניות\n5 front squat\n\nחלק 2\n5 סטים\n3 front squat\n\nחלק 3\nEMOM 5\n2 squat clean"]] },
+  { name: "adiel_parts_staged_no_chain",
+    note: "NEGATIVE CONTROL (staged part). Part 2 adds 'ואז 400 m run' — a written sequence-transition marker inside a part whose header carries no length. The run is untimed, so part 3 does not start at a fixed offset; the existing staged-part rule (STAGE_MARKER_RE) suppresses the whole-cell clock exactly as it does for 'part N' cells. Every per-part clock survives.",
+    expectTimers: ["P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"],
+    forbidTimers: ["11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′"],
+    rows: [["", "WOD"],
+           ["STRENGTH", "חלק 1\n5 סטים, 30 שניות\n5 front squat\n\nחלק 2\n5 סטים, 45 שניות\n3 front squat\nואז 400 m run\n\nחלק 3\nEMOM 5\n2 squat clean"]] },
+  { name: "adiel_parts_written_rest_in_chain",
+    note: "Adiel 2026-10-01: 'no rest between parts unless one is written'. A '1:00 rest' written at the end of part 1 becomes a REST phase between part 1 and part 2 of the one continuous clock: 2:30 + 1:00 + 3:45 + 5:00 = 12:15. The rest is HER number; with none written the hand-off is instant (the fixtures above).",
+    expectTimers: ["12:15 · 30″ ×5 → 1′ rest → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"],
+    expectTimerOrder: [["12:15 · 30″ ×5 → 1′ rest → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)"]],
+    rows: [["", "WOD"],
+           ["STRENGTH", "חלק 1\n5 סטים, 30 שניות\n5 front squat\n1:00 rest\n\nחלק 2\n5 סטים, 45 שניות\n3 front squat\n\nחלק 3\nEMOM 5\n2 squat clean"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
