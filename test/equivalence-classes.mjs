@@ -36,7 +36,7 @@ add("tc14_inline", "For Time with the cap on the header line", { type: "fortime"
 add("emom10", "EMOM 10 (1:00 x 10)", { type: "emom", interval: 60, total: 600 },
   ["EMOM 10", "emom 10 min", "EMOM 10 mins", "EMOM x10", "EMOM 10:", "EMOM: 10", "10 min EMOM", "every 1:00 x10", "every 1:00 x 10", "Every 1:00 x10 rounds",
    "every 1 min x 10", "every minute x 10", "E1MOM 10", "E1MOM x10", "evey 1:00 x10", "e 1:00 x 10", "e1:00 x10", "every minute for 10", "every minute for 10 min",
-   "EMOM 10 דקות", "10 דקות EMOM", "כל דקה x10", "כל דקה במשך 10 דקות", "EMOM 10 rounds", "10 rounds EMOM", "every 60 sec x10", "every 1:00 for 10 min"
+   "EMOM 10 דקות", "10 דקות EMOM", "כל דקה x10", "כל דקה במשך 10 דקות", "EMOM 10 rounds", "10 rounds EMOM", "every 60 sec x10", "every 1:00 for 10 min", "EMOTM 10", "EMOTM x10", "OTM x10", "every minute on the minute x10"
   ].map(v => v + "\n5 pull ups\n10 push ups"));
 add("e90x7", "Every 1:30 x 7 (10:30)", { type: "emom", interval: 90, total: 630 },
   ["every 1:30 x 7", "every 1:30 x7", "Every 1:30 x 7 rounds", "e 1:30 x 7", "E1:30MOM x7", "e1:30mom x 7", "every 90 sec x7", "every 90 seconds x 7",

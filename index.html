@@ -2647,16 +2647,28 @@
       `\\b(?:${LEN_BEFORE_GUARD}${LEN_NUM}${LEN_HSP}*(?:(${LEN_UNIT})${LEN_HSP}*)?AMRAP`
       + `|AMRAP(?:${LEN_HSP}+|${LEN_HSP}*[:\\-–]${LEN_HSP}*)${LEN_NUM}(?:${LEN_HSP}*(${LEN_UNIT}))?)${extra || ''}`, flags);
     const amrapLenSeconds = (m) => (m[1] ? lenSeconds(m[1], m[2]) : lenSeconds(m[3], m[4]));
-    // EMOM + its length. Two meanings, both written by her:
-    //   "EMOM 10" / "EMOM 10 min" / "10 min EMOM"  → 10′ total, 1′ interval
+    // EMOM + its length. EMOM is an acronym — Every Minute On the Minute — so
+    // the INTERVAL is written by the word itself: 1′. Three shapes follow:
+    //   "EMOM 10" / "EMOM 10 min" / "10 min EMOM"  → 10′ total (10 × 1′)
+    //   "10 rounds EMOM" / "EMOM x10" / "EMOM ×10 rounds" → 10 × 1′ = 10′
+    //       (Noam, 2026-10-01: "EMOM is an acronym — expand it and you have a
+    //        clock". The first version of this reader left "10 rounds EMOM"
+    //        clockless as "no length written" — wrong: the acronym IS the
+    //        length, and the count is written.)
     //   "EMOM 1:30 x7"                             → a 1:30 INTERVAL ×7
     // A M:SS EMOM with no count has no written total → no clock (no guessing).
-    // Number-first needs a unit ("10 min EMOM"): a bare "10 EMOM" stays unread.
-    // Groups: 1 M · 2 SS · 3 count · 4 total-after · 5 unit-after · 6 total-before · 7 unit-before.
+    // Number-first needs a unit or a count word ("10 min EMOM", "10 rounds
+    // EMOM"): a bare "10 EMOM" stays unread.
+    // Groups (in SOURCE order — keep emomLen in step when adding one):
+    //   1 M · 2 SS · 3 count · 4 total-after · 5 unit-after · 6 count-after-x
+    //   · 7 total-before · 8 unit-before · 9 count-before.
+    const EMOM_COUNT_WORD = '(?:rounds?|sets?|סבבים|סטים)';
     const emomLenRe = (flags) => new RegExp(
       `\\bEMOM(?:${LEN_HSP}+|${LEN_HSP}*[:\\-–]${LEN_HSP}*)(?:(\\d{1,2}):(\\d{2})(?:${LEN_HSP}*[x×*]${LEN_HSP}*([1-9]\\d*))?`
-      + `|(\\d+)(?![.,:]\\d)(?:${LEN_HSP}*(${LEN_UNIT}))?)`
-      + `|${LEN_BEFORE_GUARD}\\b(\\d+)(?![.,:]\\d)${LEN_HSP}*(${LEN_UNIT})${LEN_HSP}*EMOM\\b`, flags);
+      + `|(\\d+)(?![.,:]\\d)(?:${LEN_HSP}*(${LEN_UNIT}))?`
+      + `|[x×*]${LEN_HSP}*([1-9]\\d*)\\b(?:${LEN_HSP}*${EMOM_COUNT_WORD})?)`
+      + `|${LEN_BEFORE_GUARD}\\b(\\d+)(?![.,:]\\d)${LEN_HSP}*(${LEN_UNIT})${LEN_HSP}*EMOM\\b`
+      + `|${LEN_BEFORE_GUARD}\\b([1-9]\\d*)${LEN_HSP}*${EMOM_COUNT_WORD}${LEN_HSP}*(?:(?:of|של)${LEN_HSP}+)?EMOM\\b`, flags);
     // → { total, interval, rounds } in seconds, or null when nothing is written.
     function emomLen(m) {
       if (m[1] !== undefined) {
@@ -2664,7 +2676,12 @@
         const n = m[3] ? parseInt(m[3]) : 0;
         return n ? { total: iv * n, interval: iv, rounds: n, mmss: true } : null;
       }
-      const num = m[4] !== undefined ? m[4] : m[6], unit = m[4] !== undefined ? m[5] : m[7];
+      const count = m[6] !== undefined ? m[6] : m[9];
+      if (count !== undefined) {                 // N rounds of the acronym's 1′
+        const n = parseInt(count);
+        return n >= 1 && n <= 90 ? { total: n * 60, interval: 60, rounds: n, mmss: false } : null;
+      }
+      const num = m[4] !== undefined ? m[4] : m[7], unit = m[4] !== undefined ? m[5] : m[8];
       if (/^(?:sec|שני|שנ)/i.test(String(unit || '').trim())) return null; // "EMOM 150 sec" — not a minute count
       const total = parseInt(num) * 60;
       return total ? { total, interval: 60, rounds: total / 60, mmss: false } : null;

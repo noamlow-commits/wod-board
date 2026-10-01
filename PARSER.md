@@ -763,6 +763,8 @@ All three readers now build from one set of fragments: `LEN_HSP`, `LEN_UNIT`, `L
 - **A number after `#`, `:`, `.`, `,` or a digit is never a length.**
 - **A comma decimal (`2,5`) counts only before a unit.** `AMRAP 2,5` alone is not read.
 - **A separator is required after the keyword** (space, `:` or `-`). Glued `AMRAP12` stays unread, as before.
+- **EMOM is an acronym: Every Minute On the Minute.** The 1′ interval is written by the word itself, so a written count is a complete clock: `10 rounds EMOM` / `EMOM x10` / `12 סבבים EMOM` → 10′ / 10′ / 12′ (Noam 1.10, `emom_acronym_is_the_interval`). ⚠️ The first version of this reader left `10 rounds EMOM` clockless as "no length written". That was wrong: **expand the acronym before deciding nothing is written.**
+- **The acronym rule applies ONLY where the acronym names a time.** EMOM / E2MOM / EMOTM / OTM do: "every minute", "every 2 minutes", "on the minute". **AMRAP does not:** As Many Rounds/Reps As Possible names a goal, not a length, so a bare `AMRAP` or `10 rounds AMRAP` stays clockless. Its length must be written (`AMRAP 12`). The same goes for RFT (Rounds For Time) and For Time, which are bounded by the athletes or by a written cap. `EMOTM` / `OTM` are not read yet (step 2b, recorded in the equivalence classes).
 - **`EMOM M:SS ×N` is an interval × N.** `EMOM M:SS` with no count has no written total, so it gets **no clock** (decision 7). It is not read as 1′ either.
 - **Number-first EMOM needs a unit.** `10 min EMOM` is read; a bare `10 EMOM` is not.
 

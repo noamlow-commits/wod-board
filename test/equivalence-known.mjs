@@ -40,15 +40,17 @@ export const KNOWN = {
       "For Time (cap 14)\n21-15-9\nthrusters\npull ups": "COACH(Q8): \"time cap N\"/\"cap N\"/\"N min cap\" — keep today's behaviour, ask the coach — today: SILENT cap 0 ≠ 840 [For Time]"
     },
     "emom10": {
-      "EMOM x10\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: SILENT no clock [—]",
       "every minute x 10\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: SILENT no clock [—]",
       "every minute for 10\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: SILENT no clock [—]",
       "every minute for 10 min\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
       "כל דקה x10\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: SILENT no clock [—]",
       "כל דקה במשך 10 דקות\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
-      "10 rounds EMOM\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: SILENT no clock [—]",
       "every 60 sec x10\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
-      "every 1:00 for 10 min\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]"
+      "every 1:00 for 10 min\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
+      "EMOTM 10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: no clock [—]",
+      "EMOTM x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: no clock [—]",
+      "OTM x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: no clock [—]",
+      "every minute on the minute x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: no clock [—]"
     },
     "e90x7": {
       "every 90 sec x7\n5 pull ups\n10 push ups": "BUG(step 2b): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: no clock [—]",

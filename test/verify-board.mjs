@@ -505,6 +505,12 @@ const FIXTURES = [
     ignoreFacts: ["1:30"],   // column 7 only — "EMOM 1:30" writes no count, so no clock is the INTENDED outcome
     rows: [["", "1", "2", "3", "4", "5", "6", "7"],
            ["", "EMOM 1:30 x7", "AMRAP 150 sec", "12:30 AMRAP", "AMRAP 12:30", "#1 amrap 2:", "12' AMRAP\n10 burpees", "EMOM 1:30"]] },
+  { name: "emom_acronym_is_the_interval",
+    note: "Noam 2026-10-01: EMOM is an acronym, Every Minute On the Minute, so the 1′ interval is WRITTEN by the word itself, and a written count makes a complete clock: '10 rounds EMOM' / 'EMOM x10' / '12 סבבים EMOM' → 10′ / 10′ / 12′. The first version of the shared format-length reader (step 2a, same day) left '10 rounds EMOM' clockless as 'no length written', which was wrong: the acronym IS the length. (Before step 2a it read EMOM 5′, taking the 5 from the next line.) Negative controls in the same fixture: a bare '10 EMOM' (no unit, no count word) stays unread, and 'EMOM' over '10 burpee' stays clockless, because that 10 is a rep count on its own line. Each shape is alone in its cell.",
+    expectTimers: ["EMOM 10′", "EMOM 12′"],
+    forbidTimers: ["EMOM 5′", "EMOM 1′"],
+    rows: [["", "1", "2", "3", "4", "5"],
+           ["", "10 rounds EMOM\n5 pull ups", "EMOM x10", "12 סבבים EMOM", "10 EMOM", "EMOM\n10 burpee"]] },
   { name: "decimal_durations_read_whole",
     note: "Audit 2026-10-01 F5, plan step 2: four readers still dropped the fraction with parseInt / \\d+, each a WRONG clock (flagged by the fact channel, but on no fixture): '2.5 min work 1 min rest x5' → 2′ work · 'every 1.5 min x7' → 1′ ×7 · 'E2MOM 7.5 min' → 7′ label · '(7.5 min total)' → read as 5. Each column alone in its cell. Whole-minute labels stay byte-identical (fmtDur), which every golden confirms. The '(7.5 min total)' label still rounds ('×8 (8′)' for a 7:30 clock); one label format for everything is plan step 7, not this one.",
     expectTimers: ["×5 · 2:30 work / 1′ rest", "1:30 ×7 (10:30 total)", "E2MOM ×4 (7:30)"],
