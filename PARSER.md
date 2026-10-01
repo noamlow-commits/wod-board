@@ -715,6 +715,7 @@ What had to change, and the rule behind each piece:
    - the part's rounds are invented.
    - any part carries a sequence marker (`ואז` / `and then`). The upstream staged-part rule still applies as before.
    - it would exceed 40 phases or 90′.
+   - ⛔ **any part is an AMRAP** (Noam, 2026-10-01). Two separate AMRAPs back to back with no rest written stay **two clocks** (`amrap_parts_no_rest_two_clocks`). Do not confuse this with two parts **under one AMRAP** (`AMRAP 20:` above `חלק 1` / `חלק 2`). That is one AMRAP with no rest inside it, and the preamble's single `AMRAP 20′` is the clock (`one_amrap_over_parts_one_clock`).
 
    A rest written inside a part becomes a rest phase **after** that part, with several rests summed (the `partBudget` convention): `adiel_parts_written_rest_in_chain` gives 12:15. With no rest written, the hand-off is instant.
 5. **Hebrew REST — `heRestSeconds`, ONE reader for every rest consumer** (same day, Noam). Every rest matcher was English-only, so `2 דקות מנוחה` reached no clock, and on the board it rendered as an exercise with an amber **rep** badge on the 2. The line must be nothing but a rest, in either order: `2 דקות מנוחה` · `מנוחה 2 דקות` · `מנוחה של דקה` · `1:30 מנוחה` · `מנוחה: 90 שניות` · `דקתיים מנוחה` · `דקה וחצי מנוחה`, optionally behind `ואז` / `אחר כך` / `לאחר מכן`. The words are exact numbers, not guesses (דקה = 1′, דקתיים = 2′, חצי דקה = 30″). A bare `מנוחה` with no length returns 0 and never becomes a default rest. Consumers:
@@ -728,9 +729,17 @@ What had to change, and the rule behind each piece:
    Fixtures: `hebrew_rest_in_parts_chain` (14:15), `hebrew_rest_chained_amrap`, `hebrew_rest_activity_interval`, plus 5 `TIME_BADGE_CHECKS`.
 6. **The fact channel reads Hebrew durations.** It has its own rule, because `FACT_UNIT`'s `\b` can never close on a Hebrew letter. So `30 שניות` that reaches no clock now fails the unexplained-facts assertion, the same as `30 sec`.
 
-⚠️ **A semantic widening to confirm:** rule 4 is general. `part 1: amrap 10 / part 2: amrap 8` with no rest now opens on `18′ · AMRAP 10′ → AMRAP 8′` (`seamless_amrap_parts_no_rest`). Before, it had no whole-cell clock. The per-part clocks are one ⏱↻ press away. See TIMER_ROADMAP Q7.
+✅ **AMRAP parts: decided (Noam, 2026-10-01).** The first version of rule 4 also chained AMRAP parts (`18′ · AMRAP 10′ → AMRAP 8′`). Noam: two separate AMRAPs with no rest written between them stay two clocks. Rule 4 now chains interval parts only (TIMER_ROADMAP Q7, answered).
 
-**Not recognised (yet):** `חלק א׳/ב׳` (Hebrew letter numerals), `החלק הראשון`, Hebrew work/rest WORDS in an on/off spec (`30 שניות עבודה 10 שניות מנוחה`), `30 שניות x 5` (duration first), and the Hebrew units anywhere outside the sets-interval shape and the fact channel (e.g. `AMRAP 10 דקות` works only because AMRAP reads its own number). Outside a rest line, the time **badge** does not paint Hebrew durations either.
+7. **Hebrew WORK/REST specs** (same day). These are read by `detectActivityInterval`, which already owns multi-line work/rest/×N, and **never** by the English on/off block. That block's last-resort round count is the invented `|| 5`, and a Hebrew spec must not inherit that guess. Shapes:
+   - `8 סבבים: 30 שניות עבודה, 10 שניות מנוחה` (count first, one line)
+   - `דקה עבודה דקה מנוחה x5` (trailing multiplier)
+   - `30 שניות עבודה` / `10 שניות מנוחה` / `x8` (separate lines)
+   - `עבודה 40 שניות` / `מנוחה 20 שניות` / `6 סבבים` (word first)
+
+   Readers: `heWorkRest` and `heWorkOnlySeconds`. Duration tokens are shared with the rest reader. ⛔ **No count written → no clock** (`hebrew_work_rest_no_count_no_clock`). On the board these lines are instructions with their durations badged. They are not exercises, and not notes, even though they are mostly Hebrew (`isHeIntervalSpec`).
+
+**Not recognised (yet):** `חלק א׳/ב׳` (Hebrew letter numerals), `החלק הראשון`, a Hebrew work/rest spec with a written TOTAL instead of a count (`30 שניות עבודה 10 שניות מנוחה, 4 דקות`), `30 שניות x 5` (duration first), and the Hebrew units anywhere outside the sets-interval shape and the fact channel (e.g. `AMRAP 10 דקות` works only because AMRAP reads its own number). Outside a rest line, the time **badge** does not paint Hebrew durations either.
 
 ### Per-part timer detection (added 2026-05-21)
 `extractTimerConfigs` is a **part-aware wrapper** around the core `detectTimers`. When a cell holds a multi-part workout (≥2 `part 1:` / `part 2:` / `part 3:` lines), each part is scanned independently and yields **its own timer button** — a series of timers.

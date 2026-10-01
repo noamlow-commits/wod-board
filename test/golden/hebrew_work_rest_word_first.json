@@ -1,0 +1,35 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "עבודה 40 שניות",
+              "מנוחה 20 שניות",
+              "6 סבבים",
+              "row"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "40″/20″ ×6",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

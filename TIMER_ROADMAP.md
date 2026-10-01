@@ -138,9 +138,9 @@ regex — because no regex can separate her two meanings here.
 
 *"5 סטים, 30 שניות"* = each set is 30″ **including** work and change-over, so it is a 30″ interval ×5 with no separate rest. Multi-part strength = **one continuous clock** across the parts, with no rest between them unless one is written. Shipped as `detectSetsInterval` + `seamlessFromParts` (PARSER.md, the Hebrew-parts section).
 
-### Q7 — Does "one clock through the parts" hold for AMRAP parts too? 🟡 NEW 2026-10-01
+### ✅ Q7 ANSWERED 2026-10-01 (Noam) — AMRAP parts do NOT chain
 
-Adiel's answer was given for an interval strength block. The rule as built is general, so `part 1: amrap 10 / part 2: amrap 8` with **no rest written** now opens on `18′ · AMRAP 10′ → AMRAP 8′` (an instant hand-off), with the per-part clocks one ⏱↻ press away. If AMRAP parts usually get an unwritten "rest as needed" between them, the fix is a narrowing in `seamlessFromParts` (interval parts only), not a new rule. **Ask:** *two AMRAPs written back to back with no rest — do they really run straight through?*
+The first build of `seamlessFromParts` also laid AMRAP parts end to end (`part 1: amrap 10 / part 2: amrap 8` → `18′ · AMRAP 10′ → AMRAP 8′`). Noam's answer, word for word in meaning: *two parts UNDER one AMRAP run with no rest, obviously. Two separate AMRAPs back to back with no rest between them stay two clocks.* The rule now chains interval parts only. `amrap_parts_no_rest_two_clocks` locks the two clocks, and `one_amrap_over_parts_one_clock` locks the single-AMRAP shape (the preamble's `AMRAP 20′`). Recorded in `memory/project_2026-10-01_adiel_timer.md`.
 
 ### Q4 — The redundant `For Time` preamble button (answered 2026-08-08: suppress; trigger widened 2026-08-10).
 

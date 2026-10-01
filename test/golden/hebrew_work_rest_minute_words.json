@@ -1,0 +1,33 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "דקה עבודה דקה מנוחה x5",
+              "row"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "1′/1′ ×5",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}
