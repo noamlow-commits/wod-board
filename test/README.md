@@ -8,6 +8,42 @@ code extraction, so the test can never drift from production. It snapshots the
 parsed structure + detected timers as **golden baselines**; any later change
 that alters them is flagged as a `DIFF`.
 
+## `equivalence.mjs` — same meaning ⇒ same result (added 2026-10-01)
+
+**Why it exists.** On 2026-10-01 both suites above were green, yet an audit
+found ~56 root causes of one meaning resolving differently by wording:
+- `EMOM 1:30` → 1′, `AMRAP 150 sec` → 150′
+- `work: 40 sec` painted as an amber rep count
+- Hebrew group headers moved below their exercises as notes
+
+38 of the wrong clocks are **silent**: the fact channel misreads them the same
+way. Goldens lock what was fixed; nothing locked its siblings.
+
+**What it asserts**, running the real page functions:
+1. **timers.** Every variant in `equivalence-classes.mjs` matches its class's
+   expected clock signature.
+2. **agree.** Every duration the fact channel reads in a line sits inside a red
+   time badge, and every numbered red badge is a duration it reads.
+3. **category.** Lines of one display group share a category. The `check`
+   field sets the level: `full`, `type` or `none`.
+
+**The ratchet** (`equivalence-known.mjs`). It lists every divergence that
+exists today, each tagged with a reason:
+- `BUG(step N)`: a defect that step N of the audit plan fixes.
+- `SPEC`: a deliberate, documented rule.
+- `COACH(Qn)`: waiting on the coach.
+- `DECIDE`: waiting on Noam.
+
+An unlisted divergence fails the run. A listed one that now passes fails it
+too, with "delete it", so the list can only shrink. **Never add an entry to
+make something pass.**
+
+Curating: `node test/equivalence.mjs --baseline` prints every current
+divergence as JSON.
+
+Adding a shape: add a class or variants in `equivalence-classes.mjs`,
+including the shape alone in its cell.
+
 ### ⭐ A new shape is ALSO tested alone in its cell (rule since 2026-10-01)
 
 Every fixture for a new written shape gets a variant where that shape is the
