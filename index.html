@@ -2688,10 +2688,13 @@
     // ── Hebrew REST — "2 דקות מנוחה" (2026-10-01) ──────────────────────────
     // Every rest matcher in the pipeline was English-only ("rest 2:00", "3 min
     // rest"), so a rest the coach wrote in Hebrew reached no clock: a chain
-    // never formed, a part's rest vanished. ONE reader, consumed by every site
-    // that asks "is this line a rest, and how long": the timeline classifier
-    // (→ chains, part budgets, the continuous parts clock), the activity
-    // interval, the note-line rule and the staged-part predicate.
+    // never formed, a part's rest vanished. ONE Hebrew reader, consumed by: the
+    // timeline classifier (→ chains, part budgets, the continuous parts clock),
+    // the activity interval, the note-line rule, the display and the
+    // staged-part predicate. ⚠️ NOT yet every rest site: the 2026-10-01 audit
+    // counted ~10 English-only rest matchers elsewhere (single-line interval,
+    // on/off, station blocks, isExerciseLine…). A single shared readRest() is
+    // step 4 of the audit plan (memory/project_audit_2026-10-01.md).
     //
     // The line must be NOTHING BUT a rest — duration + מנוחה in either order:
     //   "2 דקות מנוחה" · "מנוחה 2 דקות" · "מנוחה של דקה" · "1:30 מנוחה"
@@ -4512,7 +4515,12 @@
     // (tabata-type) or null. A time unit is REQUIRED on the work line so a
     // bare rep line like "20 ring row" can't be mistaken for a duration.
     function detectActivityInterval(lines) {
-      if (!lines || lines.length < 2) return null;
+      if (!lines || !lines.length) return null;
+      // ≥2 lines is the multi-line shape ("5 sets / 3 min run / 1 min rest").
+      // A complete one-line Hebrew spec ("דקה עבודה דקה מנוחה x5") carries work,
+      // rest AND count by itself — alone in its cell it got NO clock until the
+      // 2026-10-01 audit caught it (fixture hebrew_work_rest_alone_in_cell).
+      if (lines.length < 2 && !heWorkRest(lines[0])) return null;
       let workSec = 0, restSec = 0, rounds = 0;
       for (const raw of lines) {
         const l = (raw || '').trim();
