@@ -1,0 +1,33 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "5 סטים, 30 שניות",
+              "10 burpee"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "30″ ×5 (2:30)",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

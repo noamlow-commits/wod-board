@@ -1,0 +1,35 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "30 שניות עבודה",
+              "10 שניות מנוחה",
+              "x8",
+              "burpee"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "30″/10″ ×8",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

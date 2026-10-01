@@ -1,0 +1,54 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "STRENGTH",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "חלק 1",
+              "5 סטים, 30 שניות",
+              "5 front squat",
+              "__SPACER__",
+              "חלק 2",
+              "5 סטים, 45 שניות",
+              "3 front squat",
+              "__SPACER__",
+              "חלק 3",
+              "EMOM 5",
+              "2 squat clean"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "STRENGTH",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′",
+          "type": "tabata"
+        },
+        {
+          "label": "P1 · 30″ ×5 (2:30)",
+          "type": "emom"
+        },
+        {
+          "label": "P2 · 45″ ×5 (3:45)",
+          "type": "emom"
+        },
+        {
+          "label": "P3 · EMOM 5′",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

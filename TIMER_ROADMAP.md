@@ -134,6 +134,14 @@ is habitual, this closes and the guard is already correct. If not, the answer is
 a **convention** ("write the x when you want a clock") rather than a cleverer
 regex — because no regex can separate her two meanings here.
 
+### ✅ ANSWERED 2026-10-01 (Adiel) — sets × seconds, and ONE clock through the parts
+
+*"5 סטים, 30 שניות"* = each set is 30″ **including** work and change-over, so it is a 30″ interval ×5 with no separate rest. Multi-part strength = **one continuous clock** across the parts, with no rest between them unless one is written. Shipped as `detectSetsInterval` + `seamlessFromParts` (PARSER.md, the Hebrew-parts section).
+
+### ✅ Q7 ANSWERED 2026-10-01 (Noam) — AMRAP parts do NOT chain
+
+The first build of `seamlessFromParts` also laid AMRAP parts end to end (`part 1: amrap 10 / part 2: amrap 8` → `18′ · AMRAP 10′ → AMRAP 8′`). Noam's answer, word for word in meaning: *two parts UNDER one AMRAP run with no rest, obviously. Two separate AMRAPs back to back with no rest between them stay two clocks.* The rule now chains interval parts only. `amrap_parts_no_rest_two_clocks` locks the two clocks, and `one_amrap_over_parts_one_clock` locks the single-AMRAP shape (the preamble's `AMRAP 20′`). Recorded in `memory/project_2026-10-01_adiel_timer.md`.
+
 ### Q4 — The redundant `For Time` preamble button (answered 2026-08-08: suppress; trigger widened 2026-08-10).
 
 A bare format line above the parts (`for time:`) is dropped when the preamble
@@ -603,9 +611,10 @@ was debugged by rediscovering a slice of it. Line numbers are anchors as of
 
 ### `extractTimerConfigs` ~3464 — branch coverage ids
 
-`whole-cell` · `activity-fallback` · `part-split` · `part-inline-spec` ·
-`compound-chain` · `staged-part` · `header-cap`. All **seven** are asserted to be
-hit by ≥1 fixture. (`staged-part` added 2026-08-10 — the compound chain's
+`whole-cell` · `station-blocks` · `activity-fallback` · `sets-interval` ·
+`part-split` · `part-inline-spec` · `compound-chain` · `seamless-chain` ·
+`staged-part` · `header-cap`. All **ten** are asserted to be hit by ≥1 fixture
+(`sets-interval` + `seamless-chain` added 2026-10-01). (`staged-part` added 2026-08-10 — the compound chain's
 *suppression* is a branch too, and giving it an id is what keeps a future edit
 from quietly disabling the chain everywhere.)
 

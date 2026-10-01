@@ -410,7 +410,120 @@ const FIXTURES = [
     expectTimers: [],
     forbidTimers: ["Every 1′", "Every 30″", "1′/30″"],
     ignoreFacts: ["1 min", "30 sec"],
-    rows: [["", "WOD"], ["", "3 rounds of:\n1 min row\n30 sec plank\n10 burpees"]] },
+    rows: [["", "WOD"], ["", "3 rounds of:\n1 min row\n30 sec plank\n10 burpees"]] },  // ── Adiel, 2026-10-01: a strength part split into sub-parts, ONE clock ────
+  // His answers, verbatim in meaning: "5 סטים, 30 שניות" = each set is 30″
+  // TOTAL (work AND transition) — a 30″ interval ×5, no separate rest. And he
+  // wants ONE clock running straight through every part, not a clock per part:
+  //     חלק 1: 5 × 30″ → 2:30 · חלק 2: 5 × 45″ → 3:45 · חלק 3: EMOM 5 → 5:00
+  // = 11:15 back to back, no rest between parts unless one is WRITTEN.
+  // Four wordings of the same day (Hebrew number / Hebrew ordinal / English
+  // header; sets+seconds on one line / NxS / on two lines) must all resolve to
+  // the same schedule, continuous clock FIRST, the per-part clocks behind it.
+  // Then the controls: a part with no written length, a staged part, and a
+  // written rest.
+  { name: "adiel_parts_hebrew_sets_comma",
+    note: "Adiel 2026-10-01 — Hebrew 'חלק N' headers, 'N סטים, X שניות' on ONE line. Each set is the WHOLE interval (work + transition), so '5 סטים, 30 שניות' is 30″ ×5 = 2:30 with no rest. Parts run back to back with no rest written → ONE continuous 11:15 clock first, P1/P2/P3 behind it. Before 2026-10-01 'חלק' was not a part header at all (PART_HEADER_RE was English-only), so the cell was scanned whole and only 'EMOM 5′' came out — 6:15 of written work reached no clock.",
+    expectTimers: ["11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"],
+    expectTimerOrder: [["11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"]],
+    forbidTimers: ["EMOM 5′", "P1 · EMOM 1′", "P2 · EMOM 2′", "P3 · EMOM 3′"],
+    rows: [["", "WOD"],
+           ["STRENGTH", "חלק 1\n5 סטים, 30 שניות\n5 front squat\n\nחלק 2\n5 סטים, 45 שניות\n3 front squat\n\nחלק 3\nEMOM 5\n2 squat clean"]] },
+  { name: "adiel_parts_hebrew_ordinal_nx",
+    note: "Adiel 2026-10-01 — same day, ordinal headers ('חלק ראשון/שני/שלישי') and the 'NxX שניות' shorthand. ⚠️ lineSplitRe's concat repair used to cut '5x30 שניות' into '5x' | '30 שניות' (the x is a letter touching 'digit+space+word'), so the board PRINTED the spec on two lines and no line-scoped detector could read it. A line that OPENS with 'Nx' is a multiplier, not a word with a number glued to it; 'every 3:00x5 sets' (interval_blocks_chain_keeps_intervals) is not at line start and keeps its split byte-for-byte. 'EMOM 5 דקות' — the Hebrew unit after the EMOM number is decoration; the EMOM matcher reads the 5.",
+    expectTimers: ["11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"],
+    expectTimerOrder: [["11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"]],
+    rows: [["", "WOD"],
+           ["STRENGTH", "חלק ראשון\n5x30 שניות\n5 front squat\n\nחלק שני\n5x45 שניות\n3 front squat\n\nחלק שלישי\nEMOM 5 דקות\n2 squat clean"]] },
+  { name: "adiel_parts_english_sets_two_lines",
+    note: "Adiel 2026-10-01 — English 'Part N:' headers with the count and the length on SEPARATE lines ('5 סטים' / '30 שניות'), and part 3's EMOM written INLINE on its header ('Part 3: EMOM 5'). The two-line form is only read as an interval when the duration line is NOTHING but a duration — '5 sets' over '30 sec plank' is an activity line and stays the activity detector's.",
+    expectTimers: ["11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"],
+    expectTimerOrder: [["11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"]],
+    rows: [["", "WOD"],
+           ["STRENGTH", "Part 1:\n5 סטים\n30 שניות\n5 front squat\n\nPart 2:\n5 sets\n45 sec\n3 front squat\n\nPart 3: EMOM 5\n2 squat clean"]] },
+  { name: "adiel_parts_unwritten_length_no_chain",
+    note: "NEGATIVE CONTROL (no invented values). Part 2 writes '5 סטים' and NO length. A continuous clock needs every part's length, so there is no schedule to run — and auto-advancing through part 2 would invent its duration. Only the parts that wrote a length get their own clock; no continuous clock at all.",
+    expectTimers: ["P1 · 30″ ×5 (2:30)", "P3 · EMOM 5′"],
+    forbidTimers: ["6:15 · 30″ ×5 → EMOM 5′", "7:30 · 30″ ×5 → EMOM 5′"],
+    rows: [["", "WOD"],
+           ["STRENGTH", "חלק 1\n5 סטים, 30 שניות\n5 front squat\n\nחלק 2\n5 סטים\n3 front squat\n\nחלק 3\nEMOM 5\n2 squat clean"]] },
+  { name: "adiel_parts_staged_no_chain",
+    note: "NEGATIVE CONTROL (staged part). Part 2 adds 'ואז 400 m run' — a written sequence-transition marker inside a part whose header carries no length. The run is untimed, so part 3 does not start at a fixed offset; the existing staged-part rule (STAGE_MARKER_RE) suppresses the whole-cell clock exactly as it does for 'part N' cells. Every per-part clock survives.",
+    expectTimers: ["P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"],
+    forbidTimers: ["11:15 · 30″ ×5 → 45″ ×5 → EMOM 5′"],
+    rows: [["", "WOD"],
+           ["STRENGTH", "חלק 1\n5 סטים, 30 שניות\n5 front squat\n\nחלק 2\n5 סטים, 45 שניות\n3 front squat\nואז 400 m run\n\nחלק 3\nEMOM 5\n2 squat clean"]] },
+  { name: "adiel_parts_written_rest_in_chain",
+    note: "Adiel 2026-10-01: 'no rest between parts unless one is written'. A '1:00 rest' written at the end of part 1 becomes a REST phase between part 1 and part 2 of the one continuous clock: 2:30 + 1:00 + 3:45 + 5:00 = 12:15. The rest is HER number; with none written the hand-off is instant (the fixtures above).",
+    expectTimers: ["12:15 · 30″ ×5 → 1′ rest → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"],
+    expectTimerOrder: [["12:15 · 30″ ×5 → 1′ rest → 45″ ×5 → EMOM 5′", "P1 · 30″ ×5 (2:30)"]],
+    rows: [["", "WOD"],
+           ["STRENGTH", "חלק 1\n5 סטים, 30 שניות\n5 front squat\n1:00 rest\n\nחלק 2\n5 סטים, 45 שניות\n3 front squat\n\nחלק 3\nEMOM 5\n2 squat clean"]] },
+  // ── Hebrew REST, 2026-10-01 (Noam: "ההקשר של זיהוי 'מנוחה' בעברית צריך גם
+  // להיכנס"). Every rest matcher was English-only, so "2 דקות מנוחה" reached no
+  // clock — a written number silently dropped, the mirror form of the
+  // no-invented-values rule. The fact channel now reads Hebrew durations, so
+  // each of these would also fail the unexplained-facts assertion if dropped.
+  { name: "hebrew_rest_in_parts_chain",
+    note: "Adiel's parts with Hebrew rests in two word orders: '2 דקות מנוחה' (number first) closes part 1, 'ואז מנוחה של דקה' (rest first, 'של', the singular 'דקה' = one minute, behind a 'ואז') closes part 2. Both become rest phases of the ONE continuous clock: 2:30 + 2:00 + 3:45 + 1:00 + 5:00 = 14:15. ⚠️ The 'ואז' here sequences a REST, not untimed work, so it must not trip the staged-part suppression: a line that is nothing but a rest has a known length by definition.",
+    expectTimers: ["14:15 · 30″ ×5 → 2′ rest → 45″ ×5 → 1′ rest → EMOM 5′", "P1 · 30″ ×5 (2:30)", "P2 · 45″ ×5 (3:45)", "P3 · EMOM 5′"],
+    expectTimerOrder: [["14:15 · 30″ ×5 → 2′ rest → 45″ ×5 → 1′ rest → EMOM 5′", "P1 · 30″ ×5 (2:30)"]],
+    rows: [["", "WOD"],
+           ["STRENGTH", "חלק 1\n5 סטים, 30 שניות\n5 front squat\n2 דקות מנוחה\n\nחלק 2\n5 סטים, 45 שניות\n3 front squat\nואז מנוחה של דקה\n\nחלק 3\nEMOM 5\n2 squat clean"]] },
+  { name: "hebrew_rest_chained_amrap",
+    note: "The Hebrew twin of chained_amrap: 'מנוחה 2:00' and 'דקתיים מנוחה' (the dual form — two minutes) between three AMRAP 10s. The shared timeline classifier now reads Hebrew rests, so the existing uniform chain fires exactly as it does for 'rest 2:00'.",
+    expectTimers: ["AMRAP ×3 · 10′ work / 2′ rest"],
+    rows: [["", "WOD"], ["מטקון", "AMRAP 10\n10 Wall Balls\n10 T2B\nמנוחה 2:00\nAMRAP 10\n10 Wall Balls\n10 T2B\nדקתיים מנוחה\nAMRAP 10\n10 Wall Balls\n10 T2B"]] },
+  { name: "hebrew_rest_activity_interval",
+    note: "The Hebrew twin of activity_interval: '5 סבבים / 3 min run / 1 דקה מנוחה' is 3′ work / 1′ rest ×5. Both the multiplier ('סבבים') and the rest line are Hebrew.",
+    expectTimers: ["3′/1′ ×5"],
+    rows: [["", "CARDIO"], ["ריצה", "5 סבבים\n3 min run\n1 דקה מנוחה"]] },
+  // ── Hebrew WORK/REST specs, 2026-10-01 (Noam). "30 שניות עבודה 10 שניות
+  // מנוחה" had no reader at all. They go through detectActivityInterval (work +
+  // rest + a WRITTEN count), never through the English on/off block, whose
+  // last-resort round count is the invented `|| 5` — a Hebrew spec with no
+  // count gets NO clock, not a guessed one.
+  { name: "hebrew_work_rest_one_line",
+    note: "Everything on one line, count first: '8 סבבים: 30 שניות עבודה, 10 שניות מנוחה' → 30″/10″ ×8.",
+    expectTimers: ["30″/10″ ×8"],
+    rows: [["", "WOD"], ["", "8 סבבים: 30 שניות עבודה, 10 שניות מנוחה\nburpee\nair squat"]] },
+  { name: "hebrew_work_rest_two_lines_xN",
+    note: "Work and rest on their own lines, count as a bare 'x8' line beneath: '30 שניות עבודה' / '10 שניות מנוחה' / 'x8'.",
+    expectTimers: ["30″/10″ ×8"],
+    rows: [["", "WOD"], ["", "30 שניות עבודה\n10 שניות מנוחה\nx8\nburpee"]] },
+  { name: "hebrew_work_rest_word_first",
+    note: "Word first, count after: 'עבודה 40 שניות' / 'מנוחה 20 שניות' / '6 סבבים' → 40″/20″ ×6.",
+    expectTimers: ["40″/20″ ×6"],
+    rows: [["", "WOD"], ["", "עבודה 40 שניות\nמנוחה 20 שניות\n6 סבבים\nrow"]] },
+  { name: "hebrew_work_rest_minute_words",
+    note: "The exact Hebrew duration words and a trailing multiplier on the same line: 'דקה עבודה דקה מנוחה x5' → 1′/1′ ×5.",
+    expectTimers: ["1′/1′ ×5"],
+    rows: [["", "WOD"], ["", "דקה עבודה דקה מנוחה x5\nrow"]] },
+  { name: "hebrew_work_rest_no_count_no_clock",
+    note: "NEGATIVE CONTROL (no invented values): work and rest written, NO count anywhere. The English on/off block would guess rounds from the exercise lines and then fall back to `|| 5`; a Hebrew spec must not reach that guess. No clock, and both durations are deliberate misses.",
+    expectTimers: [],
+    forbidTimers: ["30″/10″ ×5", "30″/10″ ×2", "×5 · 30″ work / 10″ rest"],
+    ignoreFacts: ["30 שניות", "10 שניות"],
+    rows: [["", "WOD"], ["", "30 שניות עבודה 10 שניות מנוחה\nburpee\nair squat"]] },
+  { name: "sets_seconds_whole_cell",
+    note: "Adiel 2026-10-01, the same shape with NO part headers: '5 סטים, 30 שניות' alone in a cell is a 30″ interval ×5 (2:30). Reached through the whole-cell fallback (sets-interval), after every other detector found nothing.",
+    expectTimers: ["30″ ×5 (2:30)"],
+    rows: [["", "WOD"], ["", "5 סטים, 30 שניות\n10 burpee"]] },
+  { name: "sets_seconds_rest_beneath_not_ours",
+    note: "NEGATIVE CONTROL for the sets-interval shape: '5 sets / 30 sec / 1 min rest' writes a REST directly beneath the length, which makes it a work/rest interval (30″ on, 1′ off ×5?) — not Adiel's whole-set interval, and the bare '30 sec' (no activity) is not detectActivityInterval's shape either. Nothing may guess, so the cell stays clockless and both durations are DELIBERATE misses. If a coach really writes this, it is a question for her, not a regex.",
+    expectTimers: [],
+    forbidTimers: ["30″ ×5 (2:30)"],
+    ignoreFacts: ["30 sec", "1 min"],
+    rows: [["", "WOD"], ["", "5 sets\n30 sec\n1 min rest"]] },
+  { name: "one_amrap_over_parts_one_clock",
+    note: "Noam 2026-10-01: two parts UNDER one AMRAP run with no rest, obviously — it is ONE clock. 'AMRAP 20:' above 'חלק 1' / 'חלק 2' (no length on either part) → the preamble's AMRAP 20′ is the clock, and nothing chains or splits it. The contrast is amrap_parts_no_rest_two_clocks: two SEPARATE AMRAPs back to back stay two clocks.",
+    expectTimers: ["AMRAP 20′"],
+    forbidTimers: ["P1 · AMRAP 20′", "P2 · AMRAP 20′"],
+    rows: [["", "WOD"], ["", "AMRAP 20:\nחלק 1\n10 burpee\n15 wall ball\nחלק 2\n10 pull up\n20 d.u"]] },
+  { name: "amrap_parts_no_rest_two_clocks",
+    note: "Noam 2026-10-01: for now, two AMRAP parts with no rest written run as TWO clocks, not one continuous clock. Adiel's 'one clock through the parts' answer was given for an INTERVAL strength block; whether it holds for AMRAP parts is an OPEN question for the coach (TIMER_ROADMAP Q7, memory/project_open_question_amrap_parts.md). So seamlessFromParts takes interval parts only, and an AMRAP part refuses the chain. The per-part clocks are the whole answer here; forbidTimers locks the 18′ chain out until she answers.",
+    expectTimers: ["P1 · AMRAP 10′", "P2 · AMRAP 8′"],
+    forbidTimers: ["18′ · AMRAP 10′ → AMRAP 8′"],
+    rows: [["", "WOD"], ["", "part 1: amrap 10\n10 burpee\n15 wall ball\npart 2: amrap 8\n10 pull up\n20 d.u"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -490,6 +603,15 @@ const TIME_BADGE_CHECKS = [
   { line: "3000 m run", expect: [] },                   // METRES are never minutes
   { line: "1.5 pood kb swing", expect: [] },            // a load is not a duration
   { line: "1.5 REPS- 70-75%", expect: [] },             // the set-number fix stays amber
+  // Hebrew rest (2026-10-01): the clock reads it, so the board must paint it
+  // as a duration — not an amber rep count on the "2".
+  { line: "2 דקות מנוחה", expect: ["2 דקות"] },
+  { line: "מנוחה 90 שניות", expect: ["90 שניות"] },
+  { line: "1:30 מנוחה", expect: ["1:30"] },
+  { line: "מנוחה של דקה", expect: ["דקה"] },
+  { line: "דקתיים מנוחה", expect: ["דקתיים"] },
+  { line: "30 שניות עבודה, 10 שניות מנוחה x8", expect: ["30 שניות", "10 שניות"] },
+  { line: "עבודה 40 שניות", expect: ["40 שניות"] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,34 @@
+{
+  "data": {
+    "headers": [
+      "CARDIO"
+    ],
+    "rows": [
+      {
+        "label": "ריצה",
+        "cells": [
+          {
+            "header": "CARDIO",
+            "lines": [
+              "5 סבבים",
+              "3 min run",
+              "1 דקה מנוחה"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "ריצה",
+      "header": "CARDIO",
+      "timers": [
+        {
+          "label": "3′/1′ ×5",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

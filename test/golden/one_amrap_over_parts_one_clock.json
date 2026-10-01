@@ -1,0 +1,38 @@
+{
+  "data": {
+    "headers": [
+      "WOD"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "WOD",
+            "lines": [
+              "AMRAP 20:",
+              "חלק 1",
+              "10 burpee",
+              "15 wall ball",
+              "חלק 2",
+              "10 pull up",
+              "20 d.u"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "WOD",
+      "timers": [
+        {
+          "label": "AMRAP 20′",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}
