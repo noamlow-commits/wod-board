@@ -249,9 +249,9 @@ export const KNOWN = {
     "cashout": {
       "קאש אאוט": "BUG(step 6): Hebrew cashout spelling gets no CASHOUT marker — today: exercise|- ≠ sub-header|group-badge",
       "קאשאאוט:": "BUG(step 6): Hebrew cashout spelling gets no CASHOUT marker — today: sub-header|- ≠ sub-header|group-badge",
-      "buy in:": "DECIDE(Noam): is BUY-IN a block marker like CASHOUT? (audit c.2 S2) — today: sub-header|- ≠ sub-header|group-badge",
-      "buy-in -": "DECIDE(Noam): is BUY-IN a block marker like CASHOUT? (audit c.2 S2) — today: exercise|- ≠ sub-header|group-badge",
-      "BUY IN: 20 cal row": "DECIDE(Noam): is BUY-IN a block marker like CASHOUT? (audit c.2 S2) — today: exercise|- ≠ sub-header|group-badge"
+      "buy in:": "BUG(step 6): BUY-IN is a block marker exactly like CASHOUT — Noam 1.10: they are the opening and the closing of a workout — today: sub-header|- ≠ sub-header|group-badge",
+      "buy-in -": "BUG(step 6): BUY-IN is a block marker exactly like CASHOUT — Noam 1.10: they are the opening and the closing of a workout — today: exercise|- ≠ sub-header|group-badge",
+      "BUY IN: 20 cal row": "BUG(step 6): BUY-IN is a block marker exactly like CASHOUT — Noam 1.10: they are the opening and the closing of a workout — today: exercise|- ≠ sub-header|group-badge"
     },
     "emom_header": {
       "e 1:00 x 10": "BUG(step 6 FORMAT): this header spelling renders as an exercise — today: exercise ≠ sub-header",
