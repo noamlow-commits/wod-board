@@ -47,10 +47,10 @@ export const KNOWN = {
       "כל דקה במשך 10 דקות\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
       "every 60 sec x10\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
       "every 1:00 for 10 min\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
-      "EMOTM 10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: no clock [—]",
-      "EMOTM x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: no clock [—]",
-      "OTM x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: no clock [—]",
-      "every minute on the minute x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: no clock [—]"
+      "EMOTM 10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: SILENT no clock [—]",
+      "EMOTM x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: SILENT no clock [—]",
+      "OTM x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: SILENT no clock [—]",
+      "every minute on the minute x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: SILENT no clock [—]"
     },
     "e90x7": {
       "every 90 sec x7\n5 pull ups\n10 push ups": "BUG(step 2b): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: no clock [—]",
@@ -146,81 +146,35 @@ export const KNOWN = {
     }
   },
   "agree": {
-    "station_num": {
-      "1. 400 m run": "BUG(decision 1): a station number painted in the duration red — station numbers get their own colour — today: badged but not read: 1.",
-      "1) 400 m run": "BUG(decision 1): a station number painted in the duration red — station numbers get their own colour — today: badged but not read: 1."
-    },
     "station_kw": {
-      "1# amrap 2:": "BUG(step 3): the station's own AMRAP length is not badged — today: read but not badged: 2",
-      "#1 amrap 2:": "BUG(new, 1.10): the fact channel reads \"1 amrap\" (the station number) as the length, and so does the detector — today: read but not badged: 2",
-      "1. amrap 2:": "BUG(step 3): the station's own AMRAP length is not badged — today: read but not badged: 2; badged but not read: 1.",
-      "1) amrap 2:": "BUG(step 3): the station's own AMRAP length is not badged — today: read but not badged: 2; badged but not read: 1.",
-      "1 - amrap 2:": "BUG(step 3): the station's own AMRAP length is not badged — today: read but not badged: 2",
-      "1. max hold:": "BUG(decision 1): a station number painted in the duration red — station numbers get their own colour — today: badged but not read: 1."
+      "1 - amrap 2:": "BUG(step 3): the station's own AMRAP length is not badged — today: read but not badged: 2"
     },
     "subgroup": {
       "A1 amrap 4:": "BUG(step 3): the station's own AMRAP length is not badged — today: read but not badged: 4"
     },
-    "setline": {
-      "1. 5 reps": "BUG(decision 1): a station number painted in the duration red — station numbers get their own colour — today: badged but not read: 1."
-    },
-    "durations_badge": {
-      "2 mins rest": "BUG(step 3 badgeTokens): a duration the clock reads is not badged (amber rep count or plain) — today: read but not badged: 2",
-      "2 minutes rest": "BUG(step 3 badgeTokens): a duration the clock reads is not badged (amber rep count or plain) — today: read but not badged: 2",
-      "rest 2 min": "BUG(step 3 badgeTokens): a duration the clock reads is not badged (amber rep count or plain) — today: read but not badged: 2",
-      "plank 2 min": "BUG(step 3 badgeTokens): a duration the clock reads is not badged (amber rep count or plain) — today: read but not badged: 2",
-      "plank 2 דקות": "BUG(step 3 badgeTokens): a duration the clock reads is not badged (amber rep count or plain) — today: read but not badged: 2",
-      "2 דקות פלאנק": "BUG(step 3 badgeTokens): a duration the clock reads is not badged (amber rep count or plain) — today: read but not badged: 2"
-    },
     "durations_sec": {
-      "30 secs plank": "BUG(step 3 badgeTokens): a duration the clock reads is not badged (amber rep count or plain) — today: read but not badged: 30",
-      "30 שניות פלאנק": "BUG(step 3 badgeTokens): a duration the clock reads is not badged (amber rep count or plain) — today: read but not badged: 30",
-      "פלאנק 30 שניות": "BUG(step 3 badgeTokens): a duration the clock reads is not badged (amber rep count or plain) — today: read but not badged: 30",
       "30 rest": "BUG(decision 7, no guessing): the display assumes seconds for a bare \"30 rest\" — the detector reads no duration — today: badged but not read: 30 sec"
     },
-    "tc_badge": {
-      "14 דקות tc": "BUG(step 3 badgeTokens): a duration the clock reads is not badged (amber rep count or plain) — today: read but not badged: 14"
-    },
     "format_header": {
-      "AMRAP 12": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 12",
-      "amrap 12": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 12",
-      "12' AMRAP": "BUG(step 3 badgeTokens): the AMRAP length is not badged. SURFACED by step 2b (2026-10-01): the fact channel now reads \"12' AMRAP\" the way the detector does; the display gap is older than this entry — today: read but not badged: 12",
-      "AMRAP 12:": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 12",
-      "AMRAP: 12": "BUG(step 3 badgeTokens): the AMRAP length is not badged. SURFACED by step 2b (2026-10-01): the fact channel now reads \"AMRAP: 12\" the way the detector does; the display gap is older than this entry — today: read but not badged: 12",
-      "amrap 12 דקות": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 12",
-      "12 דקות AMRAP": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 12",
-      "AMRAP 12.5": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 12.5"
-    },
-    "emom_header": {
-      "EMOM 10": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 10",
-      "EMOM 10 דקות": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 10"
-    },
-    "sets_header": {
-      "5 sets": "BUG(decision 1): a count painted in the duration red — counts get their own colour — today: badged but not read: ×5",
-      "x5": "BUG(decision 1): a count painted in the duration red — counts get their own colour — today: badged but not read: ×5"
+      "AMRAP 12:": "BUG(step 3 badgeTokens): the format keyword is badged but its length is not — today: read but not badged: 12"
     },
     "parts_header": {
-      "part 1: AMRAP 8": "BUG(step 3, audit D10): a part header's inline timing is never badged — today: read but not badged: 8",
-      "חלק 1: AMRAP 8": "BUG(step 3, audit D10): a part header's inline timing is never badged — today: read but not badged: 8",
-      "Part 1 - 8 min": "BUG(audit F24): the fact channel reads \"1 - 8 min\" as a RANGE and ignores it — the part header's 8 min is never audited — today: badged but not read: 8 min",
-      "חלק 1: 8 דקות": "BUG(step 3, audit D10): a part header's inline timing is never badged — today: read but not badged: 8"
+      "Part 1 - 8 min": "BUG(audit F24): the fact channel reads \"1 - 8 min\" as a RANGE and ignores it — the part header's 8 min is never audited — today: badged but not read: 8 min"
     }
   },
   "category": {
     "station_num": {
-      "1. 400 m run": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: exercise|time-badge ≠ exercise|rep-number",
-      "1) 400 m run": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: exercise|time-badge ≠ exercise|rep-number",
-      "1: 400 m run": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: exercise|- ≠ exercise|rep-number",
-      "1.400 m run": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: exercise|- ≠ exercise|rep-number",
-      "station 1: 400 m run": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: exercise|- ≠ exercise|rep-number",
-      "תחנה 1: 400 m run": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: exercise|- ≠ exercise|rep-number"
+      "1 - 400 m run": "BUG(step 6, audit D9): a dash station number keeps the amber rep look. SURFACED by step 3 (2026-10-01): its siblings \"1#\"/\"1.\" got their own station colour; this spelling did not change. Not auto-converted because \"10 - 15 burpees\" is a rep RANGE, not station 10 — today: exercise|rep-number ≠ exercise|station-badge",
+      "1- 400 m run": "BUG(step 6, audit D9): a dash station number keeps the amber rep look. SURFACED by step 3 (2026-10-01): its siblings got their own station colour; \"N-\" is ambiguous with a rep range, so it was not auto-converted — today: exercise|rep-number ≠ exercise|station-badge",
+      "1: 400 m run": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: exercise|- ≠ exercise|station-badge",
+      "(1) 400 m run": "BUG(step 6, audit D9): a parenthesised station number keeps the amber look. SURFACED by step 3 (2026-10-01): its siblings got their own station colour; \"(1)\" was not converted (a \"(4)\" clean-progression complex uses the same shape) — today: exercise|rep-number ≠ exercise|station-badge",
+      "1.400 m run": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: exercise|- ≠ exercise|station-badge",
+      "station 1: 400 m run": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: exercise|- ≠ exercise|station-badge",
+      "תחנה 1: 400 m run": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: exercise|- ≠ exercise|station-badge"
     },
     "station_kw": {
-      "1. amrap 2:": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: exercise|time-badge ≠ exercise|rep-number",
-      "1) amrap 2:": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: exercise|time-badge ≠ exercise|rep-number",
-      "1 - amrap 2:": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: sub-header|- ≠ exercise|rep-number",
-      "1. max hold:": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: exercise|time-badge ≠ exercise|rep-number",
-      "1 - max hold:": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: sub-header|- ≠ exercise|rep-number"
+      "1 - amrap 2:": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: sub-header|- ≠ exercise|station-badge",
+      "1 - max hold:": "BUG(decision 1 + audit D9): every station-number spelling must render in ONE category with its own colour — today: sub-header|- ≠ exercise|station-badge"
     },
     "group": {
       "A: Bench press": "BUG(audit D9): group letter with this separator gets no group marker — today: exercise|- ≠ sub-header|group-badge",
@@ -239,7 +193,7 @@ export const KNOWN = {
       "1st set: 5 reps": "BUG(step 6): SET header in this spelling is not a SET marker — today: exercise|- ≠ sub-header|group-badge",
       "1.5 REPS": "SPEC: a wave set-number line (\"1.5 REPS\" = set 1 · 5 reps) is its own category (SET_NUM_TIGHT_RE) — today: exercise|rep-number ≠ sub-header|group-badge",
       "1- 5 REPS": "SPEC: a wave set-number line is its own category, not a SET header — today: exercise|rep-number ≠ sub-header|group-badge",
-      "1. 5 reps": "SPEC: a numbered set line is its own category, not a SET header — today: exercise|time-badge ≠ sub-header|group-badge"
+      "1. 5 reps": "SPEC: a numbered set line is its own category, not a SET header — today: exercise|station-badge ≠ sub-header|group-badge"
     },
     "rx": {
       "RX 22.5/15": "BUG(audit D13): \"rx: 22.5/15\" is a pill, this spelling a small badge — today: exercise|rx-badge ≠ exercise|-",
@@ -266,14 +220,14 @@ export const KNOWN = {
       "0:30 work / 0:10 rest x 8": "BUG(step 6 FORMAT): this header spelling renders as an exercise — today: exercise ≠ sub-header"
     },
     "sets_header": {
-      "5 rounds": "BUG(decision 1, audit D12): counts render in several categories — one category, its own colour — today: sub-header|- ≠ sub-header|time-badge",
-      "5 סטים": "BUG(decision 1, audit D12): counts render in several categories — one category, its own colour — today: exercise|rep-number ≠ sub-header|time-badge",
-      "5 סבבים": "BUG(decision 1, audit D12): counts render in several categories — one category, its own colour — today: exercise|rep-number ≠ sub-header|time-badge",
-      "5 Sets:": "BUG(decision 1, audit D12): counts render in several categories — one category, its own colour — today: sub-header|- ≠ sub-header|time-badge",
-      "5 rounds:": "BUG(decision 1, audit D12): counts render in several categories — one category, its own colour — today: sub-header|- ≠ sub-header|time-badge",
-      "5 RFT": "SPEC: RFT is a FORMAT (rounds for time), not a bare count — today: sub-header|- ≠ sub-header|time-badge",
-      "5 rounds for time": "SPEC: rounds-for-time is a FORMAT, not a bare count — today: sub-header|- ≠ sub-header|time-badge",
-      "x 5 sets": "BUG(decision 1, audit D12): counts render in several categories — one category, its own colour — today: exercise|- ≠ sub-header|time-badge"
+      "5 rounds": "BUG(decision 1, audit D12): counts render in several categories — one category, its own colour — today: sub-header|- ≠ sub-header|count-badge",
+      "5 סטים": "BUG(decision 1, audit D12): counts render in several categories — one category, its own colour — today: exercise|rep-number ≠ sub-header|count-badge",
+      "5 סבבים": "BUG(decision 1, audit D12): counts render in several categories — one category, its own colour — today: exercise|rep-number ≠ sub-header|count-badge",
+      "5 Sets:": "BUG(decision 1, audit D12): counts render in several categories — one category, its own colour — today: sub-header|- ≠ sub-header|count-badge",
+      "5 rounds:": "BUG(decision 1, audit D12): counts render in several categories — one category, its own colour — today: sub-header|- ≠ sub-header|count-badge",
+      "5 RFT": "SPEC: RFT is a FORMAT (rounds for time), not a bare count — today: sub-header|- ≠ sub-header|count-badge",
+      "5 rounds for time": "SPEC: rounds-for-time is a FORMAT, not a bare count — today: sub-header|- ≠ sub-header|count-badge",
+      "x 5 sets": "BUG(decision 1, audit D12): counts render in several categories — one category, its own colour — today: exercise|- ≠ sub-header|count-badge"
     },
     "parts_header": {
       "חלק א'": "SPEC(not yet): letter-numbered parts are listed as unsupported — today: exercise|- ≠ sub-header|-"

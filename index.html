@@ -652,6 +652,35 @@
       font-size: 90%;
     }
 
+    /* ── Decision 1 (Noam, 2026-10-01): counts and station numbers each get
+       their OWN colour, from the board's own palette families, instead of
+       borrowing red (= what the clock reads) or amber (= reps).
+       · station-badge — a station / item NUMBER ("1.", "1)", "1#", "#1",
+         "2+3#"): a FILLED orange pill (the WOD orange family, #ea580c). Filled,
+         so it never reads as an amber rep count, which is text-only.
+       · count-badge — a COUNT ("×5", "5 sets"): a violet pill (the CARDIO
+         violet family, --default-start #8b5cf6). */
+    .exercise-line .station-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #ea580c, #fb923c);
+      color: #fff;
+      padding: 0.05rem 0.5rem;
+      border-radius: 6px;
+      font-weight: 900;
+      font-size: 95%;
+      box-shadow: 0 0 0 1px rgba(234,88,12,0.4), 0 2px 6px rgba(234,88,12,0.25);
+    }
+    .exercise-line .count-badge {
+      display: inline-block;
+      background: rgba(139, 92, 246, 0.22);
+      color: #c4b5fd;
+      padding: 0.1rem 0.5rem;
+      border-radius: 6px;
+      font-weight: 800;
+      font-size: 90%;
+      box-shadow: 0 0 0 1px rgba(139,92,246,0.4);
+    }
+
     /* Part-structure markers (distinct from red=time, orange=reps).
        Cyan = "this is a workout PART": A/B/C group letters + A1/B2 sub-stations. */
     .exercise-line .group-badge {
@@ -3463,7 +3492,7 @@
     function isNoteLine(l, opts) {
       const t = (l || '').trim();
       if (!t || t === '__SPACER__') return false;
-      if (PART_HEADER_RE.test(t)) return false;             // "Part 2- מחליפים…" is a header, stays put
+      if (isStructuralLine(t)) return false;                 // part / group / set / station headers stay put (step 3)
       if (isHeIntervalSpec(t)) return false;                 // "מנוחה 2 דקות" / "עבודה 40 שניות" are the workout, stay put
       if (/^\*/.test(t)) return true;                        // "*"-note
       if (/\bgoal\b/i.test(t) || /מטרה/.test(t)) return true; // goal line
@@ -3481,6 +3510,20 @@
     // among the notes is hers, untouched; nothing is rewritten. A block that is
     // ALL notes (or has none) renders exactly as written.
     // Returns [{ line, idx, isNote, firstNote }].
+    // Warm-up zone per line, in WRITTEN order — ONE function for all three
+    // render paths (step 3, 2026-10-01). The spread and short-card paths
+    // called orderNotesLast with no zone at all, so a Hebrew warm-up line
+    // ("ריצה קלה") was a "note" there and rendered AFTER the CASHOUT.
+    function warmupZone(lines, startInWarmup) {
+      const at = [];
+      let w = !!startInWarmup;
+      (lines || []).forEach((line, k) => {
+        if (/warm\s*up/i.test(line)) w = true;
+        else if (PART_HEADER_RE.test(line) || /\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom|\b\d+\s*min(?:ute)?s?\s*[x×*]\s*\d+\b|\bteams?\s+of\s+\d/i.test(line)) w = false;
+        at[k] = w;
+      });
+      return at;
+    }
     function orderNotesLast(lines, inWarmupAt) {
       const out = [];
       let seg = [];
@@ -6693,6 +6736,57 @@
       return 'default';
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // ONE duration-badge pass for every line category (plan step 3, 2026-10-01).
+    // Each category used to badge durations its own way — or not at all — and
+    // the generic path wrapped a leading number as a REP before any duration
+    // rule could see it: "work: 40 sec", "1 minute rest", "30 שניות פלאנק",
+    // "20 sec" inside a SET line all showed the duration as an amber rep count
+    // while the clock read it as time. The rule now: a number bound to a time
+    // unit is a DURATION, in every category, and it is badged BEFORE any rep
+    // rule runs (a rep rule anchored at ^ then sees a <span> and stays off).
+    // Replacements touch only text OUTSIDE existing spans, so the passes are
+    // safe in any order and never nest.
+    function replaceOutsideSpans(html, re, repl) {
+      return html.split(/(<span[^>]*>[^<]*<\/span>)/)
+        .map((part, i) => (i % 2 ? part : part.replace(re, repl))).join('');
+    }
+    function badgeDurations(html) {
+      html = replaceOutsideSpans(html, /(?<![\d:])(\d{1,2}:\d{2})(?![\d:])/g, '<span class="time-badge">$1</span>');
+      html = replaceOutsideSpans(html, MIN_BADGE_RE, '<span class="time-badge">$1 min</span>');
+      html = replaceOutsideSpans(html, SEC_BADGE_RE, '<span class="time-badge">$1 sec</span>');
+      html = replaceOutsideSpans(html, HE_DUR_BADGE_RE, '<span class="time-badge">$1</span>');
+      return html;
+    }
+    // The format keywords the display badges — ONE list (the generic path's
+    // copy had drifted: no TBATA, so "1. tbata squats" showed no badge while
+    // the clock read Tabata).
+    const FORMAT_BADGE_RE = /\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM[x×]?|TABATA|TBATA|METCON|RFT|YGIG)\b/gi;
+    // Badge the keywords, then the LENGTH an AMRAP/EMOM carries ("AMRAP 12",
+    // "12 AMRAP") — the same number the shared format-length reader feeds the
+    // clock, so display and detection agree. Durations with a unit are already
+    // badged by badgeDurations and are left alone.
+    function badgeFormats(html) {
+      html = replaceOutsideSpans(html, FORMAT_BADGE_RE, '<span class="time-badge">$1</span>');
+      html = html.replace(/(<span class="time-badge">(?:AMRAP|EMOM)<\/span>)([^\S\r\n]*[:\-–]?[^\S\r\n]*)(\d{1,3}(?:[.,]\d+)?)(?![\d.,]|:\d)/gi,
+                          '$1$2<span class="time-badge">$3</span>');
+      html = html.replace(/(?<![\d:.,#>])(\d{1,3}(?:[.,]\d+)?['′]?)([^\S\r\n]*)(<span class="time-badge">AMRAP<\/span>)/gi,
+                          '<span class="time-badge">$1</span>$2$3');
+      return html;
+    }
+    // A STRUCTURAL line opens a block or names an item — it is never a note,
+    // whatever language its text is in (step 3: "A. סקוואט אחורי" was moved
+    // below its own exercises as a Hebrew explanation).
+    function isStructuralLine(t) {
+      t = (t || '').trim();
+      if (PART_HEADER_RE.test(t)) return true;
+      if (!/^\s*t\.?\s*c[\-\s:]/i.test(t) && !DU_ABBR_RE.test(t) && /^[A-Z]\s*[\.\-\)]/i.test(t)) return true; // A. / B- / C)
+      if (/^[A-Z]\d+\s*[\.\-\)]/i.test(t)) return true;                    // A1. / B2-
+      if (/^\s*(?:set|סט)\s*\d+/i.test(t) || /^\s*תחנה\s*\d+/.test(t)) return true; // Set 2 / סט 1 / תחנה 1
+      if (/^\s*\d+\s*[\.\)]\s+/.test(t) || STATION_LINE_RE.test(t)) return true; // 1. / 1) / 1# / #1
+      return false;
+    }
+
     function parseLine(text) {
       // Spacer (preserved empty line from sheet)
       if (text === '__SPACER__') {
@@ -6707,11 +6801,9 @@
         const badgeClass = kind === 'work' ? 'work-badge' : 'hold-badge';
         const badgeText = kind === 'work' ? 'WORK' : 'HOLD';
         // Parse the remainder of the line for rep/time highlights
-        let restHtml = escapeHtml(rest);
+        // Durations FIRST (step 3): "work: 40 sec" showed 40 as an amber rep.
+        let restHtml = badgeDurations(escapeHtml(rest));
         restHtml = restHtml.replace(/^(\d+[\-x×]?\d*)\s/, '<span class="rep-number">$1</span> ');
-        restHtml = restHtml.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
-        restHtml = restHtml.replace(MIN_BADGE_TIGHT_RE, '<span class="time-badge">$1 min</span>');
-        restHtml = restHtml.replace(SEC_BADGE_TIGHT_RE, '<span class="time-badge">$1 sec</span>');
         return {
           type: 'exercise',
           extraClass: kind === 'work' ? 'work-line' : 'hold-line',
@@ -6727,7 +6819,7 @@
       // so prose like "Set up the rig" / "Settle in" never matches.
       const setMatch = text.match(/^\s*set\s+(\d+)\s*[:\.\-\)]?\s*(.*)$/i);
       if (setMatch) {
-        let rest = escapeHtml(setMatch[2]);
+        let rest = badgeDurations(escapeHtml(setMatch[2]));   // "Set 1: 30 sec hold" (step 3)
         // Bold a leading rep count in the remainder ("5 Reps" → bold 5).
         rest = rest.replace(/^(\d+)\b/, '<span class="rep-number">$1</span>');
         return { type: 'sub-header', isGroupTitle: true, html: `<span class="group-badge">SET ${setMatch[1]}</span>${rest ? ' ' + rest : ''}` };
@@ -6745,7 +6837,7 @@
         pNum = pMatch ? (pMatch[1] || '') : null;
       }
       if (pMatch) {
-        let rest = escapeHtml(pMatch[2]);
+        let rest = badgeDurations(escapeHtml(pMatch[2]));     // step 3
         rest = rest.replace(/^(\d+)\b/, '<span class="rep-number">$1</span>');   // bold a leading rep count
         const badge = pNum ? `PARTNER ${pNum}` : 'PARTNER';
         return { type: 'sub-header', isGroupTitle: true, html: `<span class="group-badge">${badge}</span>${rest ? ' ' + rest : ''}` };
@@ -6761,7 +6853,7 @@
       // is one clock over both stages, and the fixture asserts exactly that.
       const cashMatch = text.match(/^\s*cash[\s\-]?out\b\s*[:\.\-\u2013\u2014\)]?\s*(.*)$/i);
       if (cashMatch) {
-        let rest = escapeHtml(cashMatch[1]);
+        let rest = badgeDurations(escapeHtml(cashMatch[1]));  // step 3
         rest = rest.replace(/^(\d+)\b/, '<span class="rep-number">$1</span>');
         return { type: 'sub-header', isGroupTitle: true,
                  html: `<span class="group-badge">CASHOUT</span>${rest ? ' ' + rest : ''}` };
@@ -6777,16 +6869,18 @@
         && text.match(/^([A-Z])\s*[\.\-\)]\s*(.*)/i);
       if (groupMatch) {
         const label = groupMatch[1].toUpperCase();
-        const rest = escapeHtml(groupMatch[2]);
+        // The tail gets the same duration + format pass as every category
+        // (step 3): "A. 12 min amrap" showed no badge at all.
+        const rest = badgeFormats(badgeDurations(escapeHtml(groupMatch[2])));
         return { type: 'sub-header', isGroupTitle: true, html: `<span class="group-badge">${label}</span>${rest ? ' ' + rest : ''}` };
       }
       // "part N" workout-block header — "part 1:", "Part 2: 8 min total".
       // Rendered uniformly (so every part looks the same) and flagged so the
       // column layout starts each part at the top of its own column.
       if (PART_HEADER_RE.test(text)) {
-        let partHtml = escapeHtml(text);
-        partHtml = partHtml.replace(MIN_BADGE_RE, '<span class="time-badge">$1 min</span>');
-        partHtml = partHtml.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
+        // Shared passes (step 3): the inline timing the clock reads ("part 1:
+        // amrap 14", "חלק 2: 8 דקות") is badged like it is everywhere else.
+        const partHtml = badgeFormats(badgeDurations(escapeHtml(text)));
         return { type: 'sub-header', isPartHeader: true, html: partHtml };
       }
       // A leading STATION NUMBER — "1. 600 m row", "2. amrap :", "3) 20 v-ups".
@@ -6838,12 +6932,12 @@
       // with rep-number style; now treated as a proper instruction).
       const setsLine = text.match(/^(\d+)\s+sets?\s*$/i);
       if (setsLine) {
-        return { type: 'sub-header', html: `<span class="time-badge">×${setsLine[1]}</span> sets` };
+        return { type: 'sub-header', html: `<span class="count-badge">×${setsLine[1]}</span> sets` };   // a COUNT, its own colour (decision 1)
       }
       // "x 3" / "× 3" / "X 3" alone — multiplier shorthand. Same treatment.
       const xMul = text.match(/^[xX×]\s*(\d+)\s*$/);
       if (xMul) {
-        return { type: 'sub-header', html: `<span class="time-badge">×${xMul[1]}</span>` };
+        return { type: 'sub-header', html: `<span class="count-badge">×${xMul[1]}</span>` };
       }
       // Bare "x" with nothing after — ambiguous junk left over from the
       // sheet (typically the coach started "x 3 sets" but the line broke
@@ -6868,7 +6962,7 @@
       // not recognised as a header at all.
       const isInstruction = (!isDescriptiveList && /\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM[x×]?|TABATA|TBATA|METCON|RFT|YGIG)\b/i.test(text))
         || /\be\s*\d+:\d{2}\s*mom\b/i.test(text)
-        || /^\d+\s*(rounds?|min|sec(onds?)?|sets?)\b/i.test(text)
+        || /^\d+\s*(rounds?|min(?:ute)?s?|sec(?:ond)?s?|sets?)\b/i.test(text)   // "1 minute rest" / "30 secs" too (step 3)
         || new RegExp(`^(?:${EVERY_WORD}|each)\\s+\\d`, 'i').test(text)
         || /\brounds?\s*(for time|x\s*\d)/i.test(text)
         || /^stay\s+\d/i.test(text)
@@ -6893,15 +6987,12 @@
         // Coach shorthand "e 1:30 mom" / "e1:30mom" → normalize to "EMOM 1:30"
         // so the EMOM badge below catches it instead of leaving stray "e"/"mom".
         html = html.replace(/\be\s*(\d{1,2}:\d{2})\s*mom\b/gi, 'EMOM $1');
-        // Keep time-badge highlighting inside instruction lines
-        html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM[x×]?|TABATA|TBATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
-        html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
-        html = html.replace(MIN_BADGE_TIGHT_RE, '<span class="time-badge">$1 min</span>');
-        html = html.replace(SEC_BADGE_RE, '<span class="time-badge">$1 sec</span>');
-        if (isHeIntervalSpec(text)) {
-          html = html.replace(HE_DUR_BADGE_RE, '<span class="time-badge">$1</span>');
-          html = html.replace(HE_DUR_WORD_BADGE_RE, '<span class="time-badge">$1</span>');
-        }
+        // The shared passes (step 3): durations, then format keywords + the
+        // length an AMRAP/EMOM carries. Hebrew duration WORDS ("דקה",
+        // "דקתיים") only on a Hebrew rest/work line, where they are a length
+        // and not prose.
+        html = badgeFormats(badgeDurations(html));
+        if (isHeIntervalSpec(text)) html = replaceOutsideSpans(html, HE_DUR_WORD_BADGE_RE, '<span class="time-badge">$1</span>');
         return { type: 'sub-header', html };
       }
 
@@ -6936,7 +7027,7 @@
 
       // Numbered list items at start ("1. complex...", "2) item") — badge like A1/A2.
       // Period/paren + whitespace differentiates from leading reps ("5 burpees") which use rep-number.
-      html = html.replace(/^(\d+)\s*[\.\)]\s+/, '<span class="time-badge">$1.</span> ');
+      html = html.replace(/^(\d+)\s*[\.\)]\s+/, '<span class="station-badge">$1.</span> ');   // its own colour (decision 1)
 
       // Same list, written tight: "1.5 REPS- 70-75%" → set number "1." + "5 REPS".
       // Amber rep-number (not the red badge above) so it matches the "2-"/"3-"/"4-"
@@ -6955,7 +7046,15 @@
       // "2+3#", "2-3#", "2,3#", "2 & 3#". Without the group the "+3" broke the
       // match and the whole line stayed plain white (unlike the bare "1#").
       // Also the hash-first order the coach uses ("#1", "#2").
-      html = html.replace(new RegExp(`^(\\s*)(${STATION_BODY})`), '$1<span class="rep-number">$2</span>');
+      // On ESCAPED html: "2 & 3#" arrives as "2 &amp; 3#", which STATION_BODY's
+      // [+\-,&] never matched — the merged station got an amber "2" rep instead
+      // of its marker (found 2026-10-01 by test/equivalence.mjs).
+      html = html.replace(new RegExp(`^(\\s*)(${STATION_BODY.replace('[+\\-,&]', '(?:[+\\-,&]|&amp;)')})`), '$1<span class="station-badge">$2</span>');   // decision 1
+
+      // Durations BEFORE the rep rules below (step 3): those rules are anchored
+      // at ^, so a leading "30 שניות" / "2 mins" badged here can no longer be
+      // wrapped as an amber rep count.
+      html = badgeDurations(html);
 
       // Highlight rep schemes at start of line: "22-16-10", "10-9-8-7-6-5-4-3-2-1"
       // (3+ numbers separated by dashes or dots)
@@ -6974,10 +7073,8 @@
       // "Rx+(24/20)") are already 💊 badges above and return before this.
       html = html.replace(/\brx\b\+?/gi, '<span class="rx-badge">$&</span>');
 
-      // Highlight time patterns
-      html = html.replace(/(\d{1,2}:\d{2})/g, '<span class="time-badge">$1</span>');
-      if (!isDescriptiveList) html = html.replace(/\b(EMOM|AMRAP|FOR TIME|TIME CAP|E\d*MOM[x×]?|TABATA|METCON|RFT|YGIG)\b/gi, '<span class="time-badge">$1</span>');
-      html = html.replace(SEC_BADGE_RE, '<span class="time-badge">$1 sec</span>');
+      // Format keywords + an AMRAP/EMOM length (durations were badged above).
+      if (!isDescriptiveList) html = badgeFormats(html);
       // Highlight time cap numbers — see TC_NUM_RE for the forms it covers.
       html = html.replace(TC_NUM_RE, '$1<span class="time-badge">$2</span>');
 
@@ -7109,15 +7206,7 @@
 
             // Warm-up zone per line, in WRITTEN order (display order below
             // moves notes, and must not change which lines are warm-up).
-            const warmAt = [];
-            {
-              let w = isUntitledWarmup;
-              cell.lines.forEach((line, k) => {
-                if (/warm\s*up/i.test(line)) w = true;
-                else if (PART_HEADER_RE.test(line) || /\bamrap\b|\bemom\b|for time|every\s+\d|e\dmom|e\d+mom|\b\d+\s*min(?:ute)?s?\s*[x×*]\s*\d+\b|\bteams?\s+of\s+\d/i.test(line)) w = false;
-                warmAt[k] = w;
-              });
-            }
+            const warmAt = warmupZone(cell.lines, isUntitledWarmup);
             let curGroupLetter = null; // active letter-group (A/B/C) for cohesion tagging
             for (const { line, idx: li, isNote, firstNote } of orderNotesLast(cell.lines, k => warmAt[k])) {
               if (li === promotedIdx) continue; // lifted into the section header
@@ -7476,7 +7565,8 @@
             }
             // Notes float below their block (orderNotesLast), tagged so the
             // renderer can style them; the split below sees them as lines.
-            for (const o of orderNotesLast(cell.lines)) allLines.push(o.isNote ? (o.firstNote ? '__NOTE1__' : '__NOTE__') + o.line : o.line);
+            const wz = warmupZone(cell.lines, !cell.header);
+            for (const o of orderNotesLast(cell.lines, k => wz[k])) allLines.push(o.isNote ? (o.firstNote ? '__NOTE1__' : '__NOTE__') + o.line : o.line);
           }
 
           const allText = allLines.join(' ');
@@ -7567,7 +7657,8 @@
                   <div class="card-body-col">${renderCol(col2Lines)}</div>
                 </div>`;
               } else {
-                const linesHTML = (safety ? cell.lines.map(line => ({ line })) : orderNotesLast(cell.lines))
+                const wz = warmupZone(cell.lines, isWarmupCard);
+                const linesHTML = (safety ? cell.lines.map(line => ({ line })) : orderNotesLast(cell.lines, k => wz[k]))
                   .map(o => renderLineHTML(o.isNote ? (o.firstNote ? '__NOTE1__' : '__NOTE__') + o.line : o.line)).join('');
                 bodyHTML = `<div class="card-body${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>`;
               }

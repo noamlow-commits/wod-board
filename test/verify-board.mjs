@@ -634,6 +634,27 @@ const TIME_BADGE_CHECKS = [
   { line: "1:30 מנוחה", expect: ["1:30"] },
   { line: "מנוחה של דקה", expect: ["דקה"] },
   { line: "דקתיים מנוחה", expect: ["דקתיים"] },
+  // ── Plan step 3 (2026-10-01): ONE duration pass, before the rep pass, on
+  // every category. Each of these showed the duration as an amber REP count
+  // (or nothing) while the clock read it as time.
+  { line: "work: 40 sec", expect: ["40 sec"] },
+  { line: "Work - 45 sec", expect: ["45 sec"] },
+  { line: "work: 2 min", expect: ["2 min"] },
+  { line: "hold: 30 sec", expect: ["30 sec"] },
+  { line: "1 minute rest", expect: ["1 min"] },
+  { line: "2 mins rest", expect: ["2 min"] },
+  { line: "rest 2 min", expect: ["2 min"] },
+  { line: "30 secs plank", expect: ["30 sec"] },
+  { line: "30 שניות פלאנק", expect: ["30 שניות"] },
+  { line: "2 דקות ריצה", expect: ["2 דקות"] },
+  { line: "5 סטים, 30 שניות", expect: ["30 שניות"] },
+  { line: "Part 1: amrap 14", expect: ["amrap", "14"] },
+  { line: "AMRAP 12", expect: ["AMRAP", "12"] },
+  { line: "EMOM 10", expect: ["EMOM", "10"] },
+  { line: "A. 12 min amrap", expect: ["12 min", "amrap"] },
+  { line: "Set 1: 30 sec hold", expect: ["30 sec"] },
+  { line: "10 burpees", expect: [] },                         // a rep count stays a rep count
+  { line: "3000 m run", expect: [] },
   { line: "30 שניות עבודה, 10 שניות מנוחה x8", expect: ["30 שניות", "10 שניות"] },
   { line: "עבודה 40 שניות", expect: ["40 שניות"] },
 ];
@@ -648,7 +669,8 @@ const TIME_BADGE_CHECKS = [
 // the AMRAP keyword) hijacked the line before it got its number badge, exactly
 // like the "A1. 4 Sets Of:" bug fixed in d656ec4.
 // Every line in a group must resolve to the SAME parseLine type AND carry the
-// leading red "N." badge.
+// leading "N." badge — the orange station-badge since 2026-10-01 (decision 1:
+// station numbers get their own colour, no longer the duration red).
 // ─────────────────────────────────────────────────────────────────────────
 const STATION_CATEGORY_GROUPS = [
   { name: "cardio 1./2./3./4. (coach 2026-08-04)",
@@ -699,7 +721,9 @@ const stationCatFails = [];
       // A station marker ("1#", "#1", "2+3#") gets the orange rep-number badge;
       // it's distinguished from a plain leading rep count ("12 reps", also
       // rep-number) by the "#" inside the span.
-      if (/rep-number">[^<]*#/.test(html)) return { line: c.line, expect: c.expect, actual: "station" };
+      // Since 2026-10-01 (decision 1) every station NUMBER has its own
+      // station-badge (filled orange): "1#", "#1", "2+3#", and "1." / "1)".
+      if (/station-badge">[^<]*#/.test(html)) return { line: c.line, expect: c.expect, actual: "station" };
       // The inline Rx/Rx+ scaling marker gets its own blue rx-badge span.
       if (/rx-badge/.test(html)) return { line: c.line, expect: c.expect, actual: "rx" };
       // A leading item NUMBER that carries its separator ("1.", "2-") — the set /
@@ -737,9 +761,12 @@ const stationCatFails = [];
           // the leading number badge every sibling must carry — red "N." for a
           // station list, amber "N."/"N-" for a bare-numbered set wave, amber
           // "N#"/"#N" for a #-marked station list
+          // Decision 1 (Noam, 2026-10-01): station numbers get their OWN
+          // colour, the filled orange station-badge, instead of borrowing the
+          // duration red ("1.") or the rep amber ("1#").
           numBadge: (g.badge === "rep"     ? /^<span class="rep-number">\d+[.\-]<\/span>/
-                   : g.badge === "station" ? /^<span class="rep-number">[^<]*#[^<]*<\/span>/
-                   : /^<span class="time-badge">\d+\.<\/span>/).test(p.html || ""),
+                   : g.badge === "station" ? /^<span class="station-badge">[^<]*#[^<]*<\/span>/
+                   : /^<span class="station-badge">\d+\.<\/span>/).test(p.html || ""),
         };
       }),
     })), STATION_CATEGORY_GROUPS);
@@ -750,7 +777,7 @@ const stationCatFails = [];
         g.rows.map((r) => `"${r.line}"=${r.type}`).join(", "));
     const noBadge = g.rows.filter((r) => !r.numBadge).map((r) => `"${r.line}"`);
     if (noBadge.length)
-      stationCatFails.push(`${g.name}: missing the leading ${g.badge === "station" ? 'amber "N#"' : g.badge === "rep" ? 'amber "N."' : 'red "N."'} badge → ${noBadge.join(", ")}`);
+      stationCatFails.push(`${g.name}: missing the leading ${g.badge === "station" ? 'station "N#"' : g.badge === "rep" ? 'amber "N."' : 'station "N."'} badge → ${noBadge.join(", ")}`);
   }
   await page.close();
 }
@@ -761,6 +788,34 @@ const stationCatFails = [];
 // a single A. group (A1/A2 sub-stations + detail lines) must stay ONE atomic
 // column — never torn A1|A2 across two columns — and an inline `@75%` load must
 // stay on its line.
+// ── Plan step 3 (2026-10-01): a STRUCTURAL line is never a note ──
+// isNoteLine moved Hebrew-dominant group / set / station headers BELOW the
+// exercises they open ("A. סקוואט אחורי" rendered after its own 5x5).
+const NOTE_NEVER_STRUCTURAL = ["A. סקוואט אחורי", "A1. סקוואט אחורי", "Set 2: מקסימום", "סט 1: 5 חזרות",
+  "תחנה 1: חתירה 500", "B. t.c 12", "1. ריצה 400", "1# חתירה", "#2 סקוואט"];
+// ...and the notes it must keep (the positive case, so the guard can't just
+// switch notes off): her Hebrew explanation, a * note, a goal line.
+const NOTE_STILL_NOTE = ["*המטרה לצבור כמה שיותר", "מטרה: לא לעצור", "נשארים בכל תחנה ארבע סטים"];
+// ── Decision 1 (2026-10-01): counts get their OWN colour (count-badge) ──
+const COUNT_BADGE_CHECKS = [
+  { line: "5 sets", expect: "×5" }, { line: "x 3", expect: "×3" }, { line: "× 4", expect: "×4" },
+];
+const structFails = [];
+{
+  const page = await context.newPage();
+  await page.goto(INDEX, { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof window.isNoteLine === "function", { timeout: 8000 });
+  const r = await page.evaluate(([a, b, c]) => ({
+    wrongNote: a.filter((l) => window.isNoteLine(l)),
+    lostNote: b.filter((l) => !window.isNoteLine(l)),
+    count: c.map((x) => ({ ...x, got: ((window.parseLine(x.line).html || "").match(/<span class="count-badge">([^<]*)<\/span>/) || [])[1] || null })),
+  }), [NOTE_NEVER_STRUCTURAL, NOTE_STILL_NOTE, COUNT_BADGE_CHECKS]);
+  for (const l of r.wrongNote) structFails.push(`structural line classified as a NOTE (moves below its block): "${l}"`);
+  for (const l of r.lostNote) structFails.push(`a real note is no longer a note: "${l}"`);
+  for (const x of r.count) if (x.got !== x.expect) structFails.push(`count "${x.line}" → count-badge ${JSON.stringify(x.got)}, expected "${x.expect}"`);
+  await page.close();
+}
+
 const layoutFails = [];
 {
   const benchRows = FIXTURES.find((f) => f.name === "superset_group_cohesion").rows;
@@ -1143,6 +1198,13 @@ if (stationCatFails.length === 0) {
   for (const f of stationCatFails) console.log(`❌ ${f}`);
 }
 
+console.log("\nStructural lines, notes and counts (plan step 3)");
+if (structFails.length === 0) {
+  console.log(`✅ ${NOTE_NEVER_STRUCTURAL.length} structural lines are never notes · ${NOTE_STILL_NOTE.length} real notes stay notes · ${COUNT_BADGE_CHECKS.length} counts in their own colour`);
+} else {
+  for (const f of structFails) console.log(`❌ ${f}`);
+}
+
 console.log("\nLayout assertions (group cohesion)");
 if (layoutFails.length === 0) {
   console.log("✅ superset stays one atomic column; inline @load intact; d.u neither badged nor split off");
@@ -1176,4 +1238,4 @@ if (INVENTED.length === 0) {
 }
 
 if (diff) console.log("\nReview each DIFF: if the change was intended, re-run with --update to accept it.");
-process.exit(diff > 0 || badgeFails.length > 0 || timeBadgeFails.length > 0 || stationCatFails.length > 0 || layoutFails.length > 0 || darkPaths.length > 0 || results.some((r) => r.status === "ERROR") ? 1 : 0);
+process.exit(diff > 0 || structFails.length > 0 || badgeFails.length > 0 || timeBadgeFails.length > 0 || stationCatFails.length > 0 || layoutFails.length > 0 || darkPaths.length > 0 || results.some((r) => r.status === "ERROR") ? 1 : 0);
