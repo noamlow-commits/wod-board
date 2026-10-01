@@ -2610,6 +2610,66 @@
     const minsToSec = (n) => Math.round(parseFloat(n) * 60);
     const secsToSec = (n) => Math.round(parseFloat(n));
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // FORMAT LENGTH — the ONE reader for the number a format keyword carries
+    // (audit 2026-10-01, plan step 2). "AMRAP 12" / "12 min AMRAP" / "EMOM 10"
+    // were read by THREE separate regexes — the timeline, detectTimers and the
+    // fact channel — that shared the same blind spots, so the wrong clocks were
+    // SILENT (the audit could not contradict a misread it repeated):
+    //   "AMRAP 150 sec" → 150′ · "12:30 AMRAP" → 30′ · "AMRAP 12:30" → 12′
+    //   "EMOM 1:30 x7"  → 1′   · "#1 amrap 2" → 1′ (the STATION number)
+    //   "12' AMRAP" over "10 burpees" → 10′ (a `\s` crossed the line break)
+    // All three now build from the fragments below, so they cannot disagree.
+    //
+    // Rules, each the narrowest that fixes a measured case:
+    //   · one LINE only — horizontal whitespace (LEN_HSP), never `\s`;
+    //   · M:SS is minutes:seconds; a unit decides min vs sec (English, Hebrew,
+    //     prime ′ / '); NO unit keeps the long-standing meaning: minutes;
+    //   · a number preceded by # : . , or a digit is never a length — it is a
+    //     station marker or the tail of another number (LEN_BEFORE_GUARD);
+    //   · a comma decimal ("2,5") only when a unit follows it — "AMRAP 2,5"
+    //     alone is ambiguous and is not read at all (no guessing, decision 7).
+    const LEN_HSP = '[^\\S\\r\\n]';
+    const LEN_UNIT = `(?:${UNIT_STRICT}\\b|${HE_SEC_WORD}${HE_END}|${HE_MIN_WORD}${HE_END}|['′](?![\\w'′]))`;
+    const LEN_NUM = `(\\d{1,3}:\\d{2}|${DUR_NUM_POS}(?:,\\d+(?=${LEN_HSP}*${LEN_UNIT}))?(?![.,]\\d))`;
+    const LEN_BEFORE_GUARD = '(?<![\\d:.,#])';
+    // A length token's seconds. `unit` may be undefined (→ minutes).
+    function lenSeconds(num, unit) {
+      const n = String(num || '').trim();
+      const ms = n.match(/^(\d+):(\d{2})$/);
+      if (ms) return parseInt(ms[1]) * 60 + parseInt(ms[2]);
+      const v = n.replace(',', '.');
+      return /^(?:sec|שני|שנ)/i.test(String(unit || '').trim()) ? secsToSec(v) : minsToSec(v);
+    }
+    // AMRAP + its length, either order. Groups: 1 num-before · 2 unit-before ·
+    // 3 num-after · 4 unit-after. `extra` is appended (detectTimers adds ×N).
+    const amrapLenRe = (extra, flags) => new RegExp(
+      `\\b(?:${LEN_BEFORE_GUARD}${LEN_NUM}${LEN_HSP}*(?:(${LEN_UNIT})${LEN_HSP}*)?AMRAP`
+      + `|AMRAP(?:${LEN_HSP}+|${LEN_HSP}*[:\\-–]${LEN_HSP}*)${LEN_NUM}(?:${LEN_HSP}*(${LEN_UNIT}))?)${extra || ''}`, flags);
+    const amrapLenSeconds = (m) => (m[1] ? lenSeconds(m[1], m[2]) : lenSeconds(m[3], m[4]));
+    // EMOM + its length. Two meanings, both written by her:
+    //   "EMOM 10" / "EMOM 10 min" / "10 min EMOM"  → 10′ total, 1′ interval
+    //   "EMOM 1:30 x7"                             → a 1:30 INTERVAL ×7
+    // A M:SS EMOM with no count has no written total → no clock (no guessing).
+    // Number-first needs a unit ("10 min EMOM"): a bare "10 EMOM" stays unread.
+    // Groups: 1 M · 2 SS · 3 count · 4 total-after · 5 unit-after · 6 total-before · 7 unit-before.
+    const emomLenRe = (flags) => new RegExp(
+      `\\bEMOM(?:${LEN_HSP}+|${LEN_HSP}*[:\\-–]${LEN_HSP}*)(?:(\\d{1,2}):(\\d{2})(?:${LEN_HSP}*[x×*]${LEN_HSP}*([1-9]\\d*))?`
+      + `|(\\d+)(?![.,:]\\d)(?:${LEN_HSP}*(${LEN_UNIT}))?)`
+      + `|${LEN_BEFORE_GUARD}\\b(\\d+)(?![.,:]\\d)${LEN_HSP}*(${LEN_UNIT})${LEN_HSP}*EMOM\\b`, flags);
+    // → { total, interval, rounds } in seconds, or null when nothing is written.
+    function emomLen(m) {
+      if (m[1] !== undefined) {
+        const iv = parseInt(m[1]) * 60 + parseInt(m[2]);
+        const n = m[3] ? parseInt(m[3]) : 0;
+        return n ? { total: iv * n, interval: iv, rounds: n, mmss: true } : null;
+      }
+      const num = m[4] !== undefined ? m[4] : m[6], unit = m[4] !== undefined ? m[5] : m[7];
+      if (/^(?:sec|שני|שנ)/i.test(String(unit || '').trim())) return null; // "EMOM 150 sec" — not a minute count
+      const total = parseInt(num) * 60;
+      return total ? { total, interval: 60, rounds: total / 60, mmss: false } : null;
+    }
+
     // PACE DESCRIPTORS — a duration sitting next to one of these is
     // deliberately clockless ("20 min easy row"): the word modifies HOW the work
     // is done, so the number reads as an intensity target rather than a clock
@@ -2779,8 +2839,8 @@
         if (!line || line === '__SPACER__') continue;
 
         // WORK: AMRAP  (N-minute AMRAP, or AMRAP N-minutes)
-        let wm = line.match(new RegExp(`\\b(?:(${DUR_NUM_POS})\\s*(?:${MIN_WORD}\\s+)?AMRAP|AMRAP\\s+(${DUR_NUM_POS}))\\b`, 'i'));
-        if (wm) { const sec = minsToSec(wm[1]||wm[2]); if (pushPhase(classified, { type:'work', seconds:sec, label:`AMRAP ${fmtDur(sec)}` })) continue; }
+        let wm = line.match(amrapLenRe('', 'i'));   // shared FORMAT LENGTH reader
+        if (wm) { const sec = amrapLenSeconds(wm); if (pushPhase(classified, { type:'work', seconds:sec, label:`AMRAP ${fmtDur(sec)}` })) continue; }
         // `intervalSeconds` on a WORK phase = the coach WROTE an interval inside
         // this block ("every 3:00 ×5", "EMOM 10"). A chain expands it back into
         // its own intervals instead of one flat slab — that boundary is the
@@ -2790,8 +2850,10 @@
         wm = line.match(new RegExp(`\\bE(\\d)MOM\\s+(${DUR_NUM})`, 'i'));
         if (wm) { const sec = minsToSec(wm[2]); if (pushPhase(classified, { type:'work', seconds:sec, intervalSeconds:parseInt(wm[1])*60, label:`E${wm[1]}MOM ${fmtDur(sec)}` })) continue; }
         // WORK: EMOM N
-        wm = line.match(new RegExp(`\\bEMOM\\s+(${DUR_NUM})`, 'i'));
-        if (wm) { const sec = minsToSec(wm[1]); if (pushPhase(classified, { type:'work', seconds:sec, intervalSeconds:60, label:`EMOM ${fmtDur(sec)}` })) continue; }
+        wm = line.match(emomLenRe('i'));            // shared FORMAT LENGTH reader
+        const em = wm && emomLen(wm);
+        if (em) { if (pushPhase(classified, { type:'work', seconds:em.total, intervalSeconds:em.interval,
+                                              label: em.mmss ? `EMOM ${fmtDur(em.interval)} ×${em.rounds}` : `EMOM ${fmtDur(em.total)}` })) continue; }
         // WORK: every X:XX ×N
         wm = line.match(everyRe('\\s+(\\d+):(\\d{2})\\s*[x×*]\\s*(\\d+)', 'i'));
         if (wm) { const iv=parseInt(wm[1])*60+parseInt(wm[2]); if (pushPhase(classified, { type:'work', seconds:iv*parseInt(wm[3]), intervalSeconds:iv, label:`Every ${wm[1]}:${wm[2]} ×${wm[3]}` })) continue; }
@@ -3240,10 +3302,22 @@
 
         // ── A format keyword carrying its own length: "AMRAP 14", "14 min
         // AMRAP", "EMOM 10", "E2MOM 18". These ARE durations. ──
-        re = new RegExp(`\\b(?:(${DUR_NUM_POS})\\s*(?:${MIN_WORD}\\s+)?AMRAP|AMRAP\\s+(${DUR_NUM_POS})`
-                      + `|E\\d?MOM\\s+(${DUR_NUM_POS})|EMOM\\s+(${DUR_NUM_POS}))\\b`, 'gi');
+        // AMRAP / EMOM through the SHARED format-length reader — the same
+        // lexing as detection, so a misread can no longer hide here
+        // (2026-10-01). An "EMOM 1:30" leaves its M:SS to the rule below.
+        re = amrapLenRe('', 'gi');
         while ((m = re.exec(line)) !== null) {
-          const n = parseFloat(m[1] || m[2] || m[3] || m[4]);
+          const sec = amrapLenSeconds(m);
+          if (sec && claim(m.index, m.index + m[0].length)) add('duration', sec, m[0], null);
+        }
+        re = emomLenRe('gi');
+        while ((m = re.exec(line)) !== null) {
+          const e = emomLen(m);
+          if (e && !e.mmss && claim(m.index, m.index + m[0].length)) add('duration', e.total, m[0], null);
+        }
+        re = new RegExp(`\\bE\\d+MOM\\s+(${DUR_NUM_POS})\\b`, 'gi');
+        while ((m = re.exec(line)) !== null) {
+          const n = parseFloat(m[1]);
           if (n && claim(m.index, m.index + m[0].length)) add('duration', minsToSec(n), m[0], null);
         }
 
@@ -3519,11 +3593,14 @@
       // ⚠️ The bare parenthetical form REQUIRES the closing ")" right after the
       // unit, so the "4 min"/"1 min" of a work/rest pair can never be swallowed
       // ("4 min work, 1 min rest x2 sets of all (40 min)" → 40, not 4).
+      // A decimal total is read WHOLE (2026-10-01, audit F5): "(7.5 min total)"
+      // used to read "5" — the `\d+` matched the fraction after the point.
+      // Returns minutes (fractional allowed; every caller multiplies by 60).
       const writtenTotalMin = () => {
-        const tm = text.match(/(\d+)[^\S\r\n]*min(?:ute)?s?[^\S\r\n]*total\b/i)
-                || text.match(/\btotal[^\S\r\n:\-]*[:\-]?[^\S\r\n]*(\d+)[^\S\r\n]*min(?:ute)?s?\b/i)
-                || text.match(/\((\d+)[^\S\r\n]*min(?:ute)?s?[^\S\r\n]*\)/i);
-        return tm ? parseInt(tm[1]) : 0;
+        const tm = text.match(/(?<![\d.])(\d+(?:\.\d+)?)[^\S\r\n]*min(?:ute)?s?[^\S\r\n]*total\b/i)
+                || text.match(/\btotal[^\S\r\n:\-]*[:\-]?[^\S\r\n]*(\d+(?:\.\d+)?)[^\S\r\n]*min(?:ute)?s?\b/i)
+                || text.match(/\((\d+(?:\.\d+)?)[^\S\r\n]*min(?:ute)?s?[^\S\r\n]*\)/i);
+        return tm ? minsToSec(tm[1]) / 60 : 0;
       };
       // An explicit round count the coach spells out — a PARENTHETICAL
       // "(6 Rounds)" or "6 rounds total". Like writtenTotalMin, it's a written
@@ -3728,8 +3805,9 @@
         const mult = ln.match(/[x×*]\s*(\d+)(?:\s*[\-–]\s*(\d+))?\s*(?:sets?|rounds?)?\b/i)
                   || ln.match(/\b(\d+)(?:\s*[\-–]\s*(\d+))?\s*(?:sets?|rounds?)\b/i);
         const unit = u => /^m/i.test(u) ? 60 : 1;
-        const workSec = parseInt(wr[1]) * unit(wr[2]);
-        const restSec = parseInt(wr[3]) * unit(wr[4]);
+        // parseFloat (2026-10-01, audit F5): "2.5 min work" ran 2′ of work.
+        const workSec = Math.round(parseFloat(wr[1]) * unit(wr[2]));
+        const restSec = Math.round(parseFloat(wr[3]) * unit(wr[4]));
         const cycleSec = workSec + restSec;
         // Written ×N off this line: higher end of a range ("5-4 sets" → 5).
         const writtenRounds = mult ? Math.max(parseInt(mult[1]), mult[2] ? parseInt(mult[2]) : 0) : 0;
@@ -3783,16 +3861,16 @@
       // (Without this the ×3 was silently dropped and the TV showed "AMRAP 10′".)
       let m;
       if (!chained) {
-        const amrapRe = new RegExp(`\\b(?:(${DUR_NUM_POS})\\s*(?:${MIN_WORD}\\s+)?AMRAP|AMRAP\\s+(${DUR_NUM_POS}))`
-                                 + `\\s*(?:[x×*]\\s*([1-9]\\d*))?\\s*:?`, 'gi');
+        // Shared FORMAT LENGTH reader (2026-10-01); group 5 = a trailing ×N.
+        const amrapRe = amrapLenRe(`${LEN_HSP}*(?:[x×*]${LEN_HSP}*([1-9]\\d*))?${LEN_HSP}*:?`, 'gi');
         // WHICH LINE the match sits on, so a station's own clock can be told
         // apart from the block's (see blockClocksFirst). `text` is `lines`
         // joined with a newline, so counting them before the match index is
         // exact — no re-scan, and no second source of truth for the split.
         const lineOf = idx => text.slice(0, idx).split('\n').length - 1;
         while ((m = amrapRe.exec(text)) !== null) {
-          const iv = minsToSec(m[1] || m[2]);
-          const rounds = m[3] ? parseInt(m[3]) : 1;
+          const iv = amrapLenSeconds(m);
+          const rounds = m[5] ? parseInt(m[5]) : 1;
           const onStation = STATION_LINE_RE.test((lines[lineOf(m.index)] || '').trim());
           if (rounds >= 2 && rounds <= 60) {
             results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
@@ -3865,7 +3943,7 @@
           const iv = ivMin * 60;
 
           let rounds   = m[2] ? parseInt(m[2]) : 0;   // "E2MOM ×9"
-          const totalMin = m[3] ? parseInt(m[3]) : 0; // "E2MOM 18 min"
+          const totalMin = m[3] ? minsToSec(m[3]) / 60 : 0; // "E2MOM 18 min" — "7.5" read whole (audit F5)
 
           if (!rounds && totalMin) rounds = Math.round((totalMin * 60) / iv);
           if (!rounds) rounds = rotationRounds(iv);   // the shared rotation logic
@@ -3873,16 +3951,20 @@
 
           const total = totalMin ? totalMin * 60 : iv * rounds;
           results.push({ type: 'emom', totalSeconds: total, intervalSeconds: iv,
-                         label: `E${ivMin}MOM ×${rounds} (${Math.round(total / 60)}′)` });
+                         label: `E${ivMin}MOM ×${rounds} (${fmtDur(total)})` });   // fmtDur: whole minutes byte-identical, "7:30" no longer rounds to 8′
         }
 
         // EMOM N — every occurrence becomes its own timer
-        const emomRe = /\bEMOM\s+(\d+)\s*:?/gi;
+        // Shared FORMAT LENGTH reader (2026-10-01): "EMOM 1:30 x7" is a 1:30
+        // interval ×7 — this used to read the "1" and run a 1′ clock, silently.
+        const emomRe = emomLenRe('gi');
         while ((m = emomRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
-          results.push({ type: 'emom', totalSeconds: parseInt(m[1]) * 60, intervalSeconds: 60,
-                         label: `EMOM ${m[1]}′` });
+          const e = emomLen(m);
+          if (!e) continue;               // "EMOM 1:30" with no count: nothing written to run
+          results.push({ type: 'emom', totalSeconds: e.total, intervalSeconds: e.interval,
+                         label: e.mmss ? `EMOM ${fmtDur(e.interval)} ×${e.rounds}` : `EMOM ${e.total / 60}′` });
         }
 
         // "e 1:30 mom x 8" / "e 1:30 x 7" — coach shorthand for EMOM, i.e. her
@@ -3926,12 +4008,14 @@
         while ((m = minXmRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
-          const eachMin = parseInt(m[1]);
+          // parseFloat, not parseInt (2026-10-01, audit F5): "every 1.5 min x7"
+          // ran a 1′ clock. fmtDur keeps whole minutes byte-identical ("4′").
+          const eachMin = parseFloat(m[1]);
           const rounds = parseInt(m[2]);
           if (eachMin >= 1 && eachMin <= 30 && rounds >= 2 && rounds <= 10) {
-            const iv = eachMin * 60;
+            const iv = minsToSec(eachMin);
             results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
-                           label: `${eachMin}′ ×${rounds} (${eachMin*rounds}′ total)` });
+                           label: `${fmtDur(iv)} ×${rounds} (${fmtDur(iv * rounds)} total)` });
           }
         }
 

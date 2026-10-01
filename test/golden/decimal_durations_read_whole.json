@@ -1,0 +1,86 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "2.5 min work 1 min rest x5"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "every 1.5 min x7"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "E2MOM 7.5 min",
+              "clean"
+            ]
+          },
+          {
+            "header": "4",
+            "lines": [
+              "every 1:00",
+              "5 burpee",
+              "(7.5 min total)"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "1",
+      "timers": [
+        {
+          "label": "×5 · 2:30 work / 1′ rest",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "2",
+      "timers": [
+        {
+          "label": "1:30 ×7 (10:30 total)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "3",
+      "timers": [
+        {
+          "label": "E2MOM ×4 (7:30)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "4",
+      "timers": [
+        {
+          "label": "Every 1:00 ×8 (8′)",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}
