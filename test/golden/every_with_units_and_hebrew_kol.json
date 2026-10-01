@@ -1,0 +1,173 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "every 90 sec x7"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "every minute x 10"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "כל 1:30 x7"
+            ]
+          },
+          {
+            "header": "4",
+            "lines": [
+              "כל דקה x10"
+            ]
+          },
+          {
+            "header": "5",
+            "lines": [
+              "כל דקה וחצי x7"
+            ]
+          },
+          {
+            "header": "6",
+            "lines": [
+              "EMOTM 10"
+            ]
+          },
+          {
+            "header": "7",
+            "lines": [
+              "OTM x10"
+            ]
+          },
+          {
+            "header": "8",
+            "lines": [
+              "every 90 sec",
+              "burpee"
+            ]
+          },
+          {
+            "header": "9",
+            "lines": [
+              "כל 2 דקות",
+              "burpee"
+            ]
+          },
+          {
+            "header": "10",
+            "lines": [
+              "כל הסבבים x5",
+              "burpee"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "1",
+      "timers": [
+        {
+          "label": "Every 1:30 ×7 (10:30)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "2",
+      "timers": [
+        {
+          "label": "Every 1′ ×10 (10′)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "3",
+      "timers": [
+        {
+          "label": "Every 1:30 ×7 (10:30)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "4",
+      "timers": [
+        {
+          "label": "Every 1′ ×10 (10′)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "5",
+      "timers": [
+        {
+          "label": "Every 1:30 ×7 (10:30)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "6",
+      "timers": [
+        {
+          "label": "EMOM 10′",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "7",
+      "timers": [
+        {
+          "label": "EMOM 10′",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "8",
+      "timers": []
+    },
+    {
+      "section": "—",
+      "header": "9",
+      "timers": []
+    },
+    {
+      "section": "—",
+      "header": "10",
+      "timers": []
+    }
+  ]
+}

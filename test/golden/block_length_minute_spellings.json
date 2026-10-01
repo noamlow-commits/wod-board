@@ -1,0 +1,119 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "10' row"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "10:00 row"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "10 דקות חתירה"
+            ]
+          },
+          {
+            "header": "4",
+            "lines": [
+              "2,5 min row"
+            ]
+          },
+          {
+            "header": "5",
+            "lines": [
+              "30 sec plank"
+            ]
+          },
+          {
+            "header": "6",
+            "lines": [
+              "150 sec row"
+            ]
+          },
+          {
+            "header": "7",
+            "lines": [
+              "row 10 min"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "1",
+      "timers": [
+        {
+          "label": "10′ row",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "2",
+      "timers": [
+        {
+          "label": "10′ row",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "3",
+      "timers": [
+        {
+          "label": "10′ חתירה",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "4",
+      "timers": [
+        {
+          "label": "2.5′ row",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "5",
+      "timers": []
+    },
+    {
+      "section": "—",
+      "header": "6",
+      "timers": []
+    },
+    {
+      "section": "—",
+      "header": "7",
+      "timers": []
+    }
+  ]
+}

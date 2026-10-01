@@ -40,27 +40,10 @@ export const KNOWN = {
       "For Time (cap 14)\n21-15-9\nthrusters\npull ups": "COACH(Q8): \"time cap N\"/\"cap N\"/\"N min cap\" — keep today's behaviour, ask the coach — today: SILENT cap 0 ≠ 840 [For Time]"
     },
     "emom10": {
-      "every minute x 10\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: SILENT no clock [—]",
-      "every minute for 10\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: SILENT no clock [—]",
-      "every minute for 10 min\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
-      "כל דקה x10\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: SILENT no clock [—]",
-      "כל דקה במשך 10 דקות\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
-      "every 60 sec x10\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
-      "every 1:00 for 10 min\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]",
-      "EMOTM 10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: SILENT no clock [—]",
-      "EMOTM x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: SILENT no clock [—]",
-      "OTM x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: SILENT no clock [—]",
-      "every minute on the minute x10\n5 pull ups\n10 push ups": "BUG(step 2b): another spelling of the SAME acronym (Every Minute On The Minute / On The Minute) — the 1′ interval is in the word, as with EMOM (Noam 1.10); added to the classes 1.10 as a recorded gap, not a regression — today: SILENT no clock [—]"
-    },
-    "e90x7": {
-      "every 90 sec x7\n5 pull ups\n10 push ups": "BUG(step 2b): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: no clock [—]",
-      "every 90 seconds x 7\n5 pull ups\n10 push ups": "BUG(step 2b): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: no clock [—]",
-      "כל 1:30 x7\n5 pull ups\n10 push ups": "BUG(step 2b): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: no clock [—]",
-      "כל דקה וחצי x7\n5 pull ups\n10 push ups": "BUG(step 2b): \"every\" reads only M:SS — seconds, decimal or Hebrew \"כל\" missed — today: SILENT no clock [—]"
+      "every 1:00 for 10 min\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]"
     },
     "e2mom6": {
-      "E2MOM 6\n5 thrusters\n10 burpees": "SPEC: \"E2MOM N\" = N total minutes (PARSER rotation rule) → ×3; the class's ×6 reading is the alternative — today: SILENT total 360 ≠ 720 [E2MOM ×3 (6′)]",
-      "every 2 min for 12 min\n5 thrusters\n10 burpees": "BUG(step 6): \"every N min for M min\" not read — today: no clock [—]"
+      "E2MOM 6\n5 thrusters\n10 burpees": "SPEC: \"E2MOM N\" = N total minutes (PARSER rotation rule) → ×3; the class's ×6 reading is the alternative — today: SILENT total 360 ≠ 720 [E2MOM ×3 (6′)]"
     },
     "int30_10x8": {
       "30/10 x8\nburpees": "SPEC: \"30/10\" is also how she writes male/female reps (\"12/10 cal\") — never a clock by itself — today: SILENT no clock [—]",
@@ -119,19 +102,12 @@ export const KNOWN = {
       "5 sets\n3 min run\n1,5 min rest": "BUG(step 2b): comma decimal \"1,5 min\" turns the interval into a stray count-up — today: type amrap ≠ tabata; work 0 ≠ 180; rest 0 ≠ 90; rounds 0 ≠ 5 [3′ run]"
     },
     "dec_block": {
-      "2,5 min row": "BUG(step 2b): leading block duration in this spelling — today: no clock [—]",
-      "2:30 row": "BUG(step 2b): leading block duration in this spelling — today: no clock [—]",
       "150 sec row": "BUG(step 2b): leading block duration in this spelling — today: no clock [—]",
-      "row 2.5 min": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
-      "2.5 דקות חתירה": "BUG(step 2b): leading block duration in this spelling — today: no clock [—]",
-      "2:30 min row": "BUG(step 2b): leading block duration in this spelling — today: no clock [—]"
+      "row 2.5 min": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]"
     },
     "block10": {
-      "10' row": "BUG(step 2b): leading block duration in this spelling — today: SILENT no clock [—]",
-      "10:00 row": "BUG(step 2b): leading block duration in this spelling — today: no clock [—]",
       "Row 10 min": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
       "row for 10 min": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
-      "10 דקות חתירה": "BUG(step 2b): leading block duration in this spelling — today: no clock [—]",
       "חתירה 10 דקות": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
       "row\n10 min": "SPEC: bare_block_duration_must_lead — a duration written after the work is not a block length — today: no clock [—]"
     },
@@ -140,7 +116,6 @@ export const KNOWN = {
       "warm up - 6 min\n10 CAL Row": "COACH(Q6): a block duration written without the x — deliberately clockless until she answers — today: no clock [—]",
       "warm up (6 min)\n10 CAL Row": "COACH(Q6): a block duration written without the x — deliberately clockless until she answers — today: no clock [—]",
       "חימום 6 דקות\n10 CAL Row": "COACH(Q6): a block duration written without the x — deliberately clockless until she answers — today: no clock [—]",
-      "6 דקות חימום\n10 CAL Row": "COACH(Q6): a block duration written without the x — deliberately clockless until she answers — today: no clock [—]",
       "WARM UP: 6:00\n10 CAL Row": "COACH(Q6): a block duration written without the x — deliberately clockless until she answers — today: no clock [—]",
       "Warm up 6'\n10 CAL Row": "COACH(Q6): a block duration written without the x — deliberately clockless until she answers — today: SILENT no clock [—]"
     }
