@@ -150,6 +150,14 @@ Only `t.c 14` / `tc 14` / `14 min tc` are caps today. `time cap 14`, `cap 14`, `
 
 `AMRAP 10 / burpee / 16 min tc` and `every 1:30 x7 / 1# / 2# / t.c 12` **drop the cap** today: it is read only when no other clock exists (`results.length === 0`). Noam doesn't know which reading is right. **Ask:** *when a cap sits in the same cell as another clock, is it a separate clock, or does it cap that block?* The audit plan's step 8 (arbitration) waits on this answer.
 
+### Q10 — `E2MOM 6`: minutes or rounds? 🟡 NEW 2026-10-02, for the coach
+Today `E2MOM N` is read as N total **minutes** (`E2MOM 6` → ×3), and `E2MOM xN` as N **rounds**. The audit's equivalence class wanted ×6 for the bare form. It is listed as SPEC in `test/equivalence-known.mjs` until she answers.
+
+### Q11 — `30 rest` with no unit 🟡 NEW 2026-10-02, for the coach
+The display renders a bare `N rest` as `N sec` (`restNoSec`). That is a unit nobody wrote, and decision 7 says no guessing. The question is whether a bare number beside "rest" is always seconds for her.
+
+> **The coach-facing questionnaire for Q1–Q3, Q5, Q6 and Q8–Q11, plus two display questions, is in `memory/coach_questions_2026-10-02.md`.** It is written in full sentences, with examples and tick-box answers, and has a table for recording her answers.
+
 ### Q4 — The redundant `For Time` preamble button (answered 2026-08-08: suppress; trigger widened 2026-08-10).
 
 A bare format line above the parts (`for time:`) is dropped when the preamble

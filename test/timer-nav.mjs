@@ -305,7 +305,64 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
     (await page.evaluate('applyPendingBuild()')) === false
     && (await page.evaluate('window.__reloads')) === 0);
 
+  // ── (ג) A clock FINISHED long ago no longer holds the board hostage
+  // (Noam, 2026-10-02: "the changes were not on the board this morning"). A
+  // finished clock stays 'finished' until someone resets it, so after the last
+  // class the gate read "busy" all night and the build never landed. Rule: a
+  // clock finished ≥ STALE_FINISH_MS ago, with nobody on the remote for as
+  // long, is no longer something anyone is reading — the reload may wipe it,
+  // and the 'timer' display mode it was shown in. Everything else still blocks.
+  const finishedAgo = (min) => `configureTimer('amrap',{totalSeconds:720}); timerState='finished'; timerFinishedAt = Date.now() - ${min} * 60000`;
+  for (const [name, setup, want] of [
+    ['a clock finished 16 min ago, remote untouched', finishedAgo(16), true],
+    ['…and shown in timer mode (a phone start switches to it)', `${finishedAgo(16)}; displayMode = 'timer'`, true],
+    ['a clock finished only 5 min ago', finishedAgo(5), false],
+    ['finished 16 min ago but the remote was touched 2 min ago', `${finishedAgo(16)}; _lastInteractionAt = Date.now() - 120000`, false],
+    ['finished 16 min ago but a section filter is applied', `${finishedAgo(16)}; sectionFilter = null`, false],
+    ['finished 16 min ago but a part is focused', `${finishedAgo(16)}; partFocusIndex = 1`, false],
+  ]) {
+    await page.evaluate(arm);
+    await page.evaluate(`(() => { ${setup}; })()`);
+    const fired = await page.evaluate('applyPendingBuild()');
+    ok(`${want ? 'DOES' : 'does NOT'} reload with ${name}`, fired === want, `fired=${fired}`);
+  }
+
+  // (ב) The gate says WHY it is waiting — the reason is stored and shown, so
+  // "it did not update" can be read off the wall instead of guessed at.
+  await page.evaluate(arm);
+  await page.evaluate(`(() => { sectionFilter = null; applyPendingBuild(); })()`);
+  const st = await page.evaluate(`(() => { try { return JSON.parse(localStorage.getItem('wodboard-update-state') || 'null'); } catch (e) { return null; } })()`);
+  ok('a blocked update records its reason', !!st && st.pending === '2' && /filter/i.test(st.blockedBy || ''), JSON.stringify(st));
+  const badge = await page.evaluate(`(() => { renderBuildBadge(); return (document.getElementById('buildBadge') || {}).textContent || ''; })()`);
+  ok('the running version is visible on the board (and a pending one)', /v1/.test(badge) && /v2/.test(badge), JSON.stringify(badge));
+
   await page.evaluate(`(() => { _pendingBuild = null; _doReload = () => location.reload(); })()`);
+}
+
+// ── (א) A STALE remote timer command is not replayed on load (2026-10-02) ──
+// lastTimerCommandTs starts '' on every load, so the FIRST poll applied the
+// last command ever stored in the TimerState tab — yesterday's "start" from
+// the phone switched the freshly loaded board into timer mode and started a
+// clock nobody asked for. After an auto-update reload that also made the board
+// "busy", so it would never update again. Rule: on the first poll a command is
+// applied only if it was issued within STALE_COMMAND_MS; otherwise it becomes
+// the baseline. A command issued while the board is up is applied as before.
+console.log('\nA stale remote timer command is not replayed on load');
+{
+  await page.evaluate(`(() => { resetTimer(); hideFloatingTimerBar(); displayMode = 'wod'; lastTimerCommandTs = ''; })()`);
+  const old = Date.now() - 10 * 60 * 60 * 1000;   // last night
+  await page.evaluate(`handleTimerStateResponse({ command: 'start', type: 'amrap', config: { totalSeconds: 600 }, ts: '${old}' })`);
+  ok('yesterday\'s "start" is NOT replayed on the first poll',
+    (await page.evaluate('timerState')) === 'idle' && (await page.evaluate('displayMode')) === 'wod');
+  await page.evaluate(`(() => { resetTimer(); lastTimerCommandTs = ''; displayMode = 'wod'; })()`);
+  await page.evaluate(`handleTimerStateResponse({ command: 'configure', type: 'amrap', config: { totalSeconds: 600 }, ts: String(Date.now() - 20000) })`);
+  ok('a command issued 20 s ago IS applied on the first poll (the coach just pressed it)',
+    (await page.evaluate('timerState')) === 'configured');
+  await page.evaluate(`(() => { resetTimer(); displayMode = 'wod'; })()`);
+  await page.evaluate(`handleTimerStateResponse({ command: 'configure', type: 'amrap', config: { totalSeconds: 300 }, ts: '${old + 1}' })`);
+  ok('once the board is up, a NEW command is applied whatever its clock skew',
+    (await page.evaluate('timerState')) === 'configured');
+  await page.evaluate(`(() => { resetTimer(); hideFloatingTimerBar(); displayMode = 'wod'; })()`);
 }
 
 // ── ONE countdown rule for every interval clock (coach 2026-09-22: "it doesn't
