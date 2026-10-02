@@ -808,13 +808,21 @@ Whole-minute labels stay byte-identical: the label goes through `fmtDur`, and ev
 - `test/equivalence.mjs`: timer divergences 102 → 84; silent ones 38 → 26.
 - `10 rounds EMOM` over `5 pull ups` used to read **EMOM 5′**. It is now clockless: nothing is written to run.
 
-**Step 2b, still open:** missing clocks.
-- `every 90 sec x7` / `every 60 sec x10`
-- `כל 1:30`
-- cap units: `14' tc`, `14 דקות tc`
-- other spellings of a block length: `10' row`, `10:00 row`
+**Step 2b, done 2026-10-01 (fixtures `every_with_units_and_hebrew_kol`, `block_length_minute_spellings`).** These are missing clocks: a written value that reached no clock at all. Each shape is read narrowly, and each has a negative control in the same fixture.
 
-Each widens what is read, so each needs its own review.
+- **`every` with a unit, and Hebrew `כל`.** The every matchers read the interval only as M:SS. These are now read:
+  - `every 90 sec x7` / `every 60 sec x10` / `every minute x 10` / `every minute for 10`
+  - `כל 1:30 x7` / `כל דקה x10` / `כל דקה וחצי x7` / `כל דקה במשך 10 דקות`
+
+  A count (`×N` / `N rounds`) or a total (`for N` / `במשך N דקות`) **must** be written. `every 90 sec` and `כל 2 דקות` alone get no clock (decision 7). `every M:SS` stays with the original matchers, so their labels are byte-identical. The new matcher runs inside the same consumed ranges, so no line is claimed twice.
+- **The EMOM acronym's other spellings:** `EMOTM`, `OTM`, `every minute on the minute`. They share `EMOM_WORD` in the shared reader, and the display badges them too.
+- **A leading block length in minute spellings:** `10' row`, `10:00 row`, `10 דקות חתירה`, `2,5 min row`, `6 דקות חימום`. The unit (or the M:SS colon) is **required**. A bare `12 min` with no activity, or `10 burpees`, never leads. **Minutes only:** a seconds lead (`30 sec plank`, `150 sec row`) is usually a hold inside a block, so it stays clockless. The trailing form without an x (`row 10 min`) stays clockless too (Q6).
+- **The fact channel reads a comma decimal whole.** It used to record `2,5 min` as `5 min`: an audit misread the detector did not share.
+
+Not in this step:
+- **Cap spellings** (`14' tc`, `14 דקות tc`, `T.C. 14`). The cap reader is shared with `partCapHints`, so it needs a separate review.
+- **`every 1:00 for 10 min`.** An M:SS interval followed by a written total: the M:SS matchers would have to learn "for N", and they have their own established labels.
+- **`AMRAP של 12 דקות` / `AMRAP (12 min)`.
 
 ### Per-part timer detection (added 2026-05-21)
 `extractTimerConfigs` is a **part-aware wrapper** around the core `detectTimers`. When a cell holds a multi-part workout (≥2 `part 1:` / `part 2:` / `part 3:` lines), each part is scanned independently and yields **its own timer button** — a series of timers.
