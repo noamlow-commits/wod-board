@@ -324,6 +324,31 @@ The layout pass asserts it on her verbatim sheet, and it fails on the old code.
 ⚠️ The same fixture surfaced a **timer gap**, left open for the coach: CARDIO `1`
 (`2 Rounds Of:` four `1 Min` + `A2. 7 Min`) gets no clock (`ignoreFacts`).
 
+### ⭐ Badge colour legend: one meaning per colour (2026-10-01, audit plan step 3, Noam's decision 1)
+
+| Colour | Class | Means | Examples |
+|---|---|---|---|
+| 🔴 red | `time-badge` | **what the clock reads**: a duration, a format keyword, an AMRAP/EMOM length, a cap | `40 sec`, `2 דקות`, `2:30`, `AMRAP` `12`, `t.c` `14` |
+| 🟠 filled orange | `station-badge` | a **station / item number** | `1.`, `1)`, `1#`, `#1`, `2+3#`, `2 & 3#` |
+| 🟣 violet | `count-badge` | a **count** | `×5` (from `5 sets`), `×3` (from `x 3`) |
+| 🟡 amber text | `rep-number` | **amount of work**: reps, ladders, distances, wave set numbers | `10` burpees, `21-15-9`, `1.` in `1.5 REPS` |
+| 🟦 cyan, filled | `group-badge` | a **block boundary** | `A`, `SET 1`, `PARTNER 2`, `CASHOUT` |
+| 🟦 cyan, light | `subgroup-badge` | an **item label inside a block** | `A1`, `B2` |
+| 🔵 blue | `rx-badge` / 💊 | Rx / load / scaling | `rx+`, `rx: 22.5/15` |
+| 🟢 / 🟠 | `work-badge` / `hold-badge` | WORK / HOLD | |
+| ⚪ slate | `.note-line` | a note, floated below its block | `*המטרה…` |
+
+Station numbers and counts took the new colours from the board's own palette families: the WOD orange `#ea580c` and the CARDIO violet `#8b5cf6`. **Decision 1 was explicit: separate counts from station numbers.** Until 2026-10-01 a station `1.` borrowed the duration red, `1#` borrowed the rep amber, and `×5` was red as if it were a duration. The station badge is **filled**, so at TV distance it never reads as an amber rep count, which is text only. ⚠️ Not converted, on purpose: a dash or parenthesised number (`1 -`, `1-`, `(1)`). `10 - 15 burpees` is a rep **range** and `(4)` is a clean-progression complex. These stay amber, and `test/equivalence.mjs` lists them (step 6).
+
+**The other three step-3 rules:**
+- **One duration pass, `badgeDurations()`, on every category, before any rep rule.** That covers WORK/HOLD, SET / PARTNER / CASHOUT, group and part-header tails, instructions and exercises. These all used to show the duration as an amber rep count, or showed nothing, while the clock read time: `work: 40 sec`, `1 minute rest`, `2 mins rest`, `rest 2 min`, `30 שניות פלאנק`, `Set 1: 30 sec hold`. The rep rules are anchored at `^`, so once a leading duration is badged they cannot see it. `replaceOutsideSpans()` keeps every pass from touching an existing badge.
+- **`badgeFormats()` badges the keywords and the AMRAP/EMOM length.** The length is the same number the shared format-length reader feeds the clock (`AMRAP` `12`, `12'` `AMRAP`). It uses one keyword list, `FORMAT_BADGE_RE`. The generic path's copy had drifted (no TBATA).
+- **A structural line is never a note (`isStructuralLine`).** That covers part / group / sub-group / `Set N` / `סט N` / `תחנה N` / station-number lines. Hebrew-dominant headers like `A. סקוואט אחורי` used to be classified as explanations and moved **below their own exercises**. **All three render paths share `warmupZone()`.** The spread and single-card paths used to pass no warm-up zone, so a Hebrew warm-up line rendered after the CASHOUT.
+
+Also fixed on the way: `2 & 3#` never got its station marker. `STATION_BODY` ran on escaped html, where `&` is `&amp;`. Found by `test/equivalence.mjs`.
+
+Measured: the display ⇄ detection mismatches in `test/equivalence.mjs` fell from 37 to 5. The 5 left are `:`-ending headers (step 6), `30 rest` (the display invents `sec`, an open question under decision 7) and `Part 1 - 8 min` (the fact channel reads it as a range, audit F24). All 80 goldens are byte-identical, because display changes do not touch the parse tree.
+
 ### Section Colors
 - WOD sections: orange gradient `#ea580c → #f97316`
 - CARDIO sections: purple gradient (default theme)
