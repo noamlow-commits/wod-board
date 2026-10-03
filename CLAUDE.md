@@ -116,7 +116,18 @@ hardcoded: that moment *is* what a reload reproduces. No baseline ⇒ no reload,
 so the gate fails closed.
 
 Both directions are asserted in `node test/timer-nav.mjs` (12 negative states +
-the positive + the reload-loop guard). ⚠️ **A gate that never fires looks
+the positive + the reload-loop guard).
+
+**2026-10-02: "the changes were not on the board this morning."** Three changes followed.
+
+- **A finished clock no longer blocks forever.** A clock stays `finished` until someone resets it, so after the last class the gate read "busy" all night. Rule: once the clock has been finished for **15 min** (`STALE_FINISH_MS`) **and** nobody has touched the remote for as long, the reload may wipe it. It may also wipe the `timer` display mode a phone start switched to. Every other view difference still blocks (Noam's call).
+- **A stale remote command is not replayed on load.** `lastTimerCommandTs` starts empty on every load, so the first poll applied the **last command ever stored** in TimerState. Yesterday's phone "start" switched the fresh board into timer mode and started a clock nobody asked for. After an auto-update reload, that also left the board busy, so it would never update again. Now the first poll applies a command only if it was issued within 2 min (`STALE_COMMAND_MS`). Later commands are applied as before.
+- **The gate says WHY.** `idleBlocker()` returns the reason; `boardIsIdle()` is `idleBlocker() === null`. A small dim badge sits bottom-left: `v162`, or `v162 → v163 ⏳ section filter` while an update waits. The last reason is also stored in `localStorage['wodboard-update-state']`. **To check a deploy at the gym, read the badge.** Key `7` still reloads by hand.
+
+All three are asserted in `timer-nav.mjs`:
+- 6 stale-finish cases, positive and negative.
+- The reason is recorded and the badge is visible.
+- 3 cases for the stale command. ⚠️ **A gate that never fires looks
 exactly like a gate that works**, which is why the positive case is tested too,
 via the `_doReload` indirection.
 

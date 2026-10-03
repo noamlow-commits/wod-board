@@ -2333,6 +2333,7 @@
     // TIMER SYSTEM — CrossFit workout timers
     // ════════════════════════════════════════
     let timerState = 'idle';    // idle | configured | countdown321 | running | paused | finished
+    let timerFinishedAt = 0;    // when the clock reached 'finished' (0 = not finished) — the auto-update gate reads it
     let timerType = null;       // amrap | fortime | emom | tabata | mix
     let timerConfig = {};       // type-specific config
     let timerStartedAt = 0;     // performance.now() when started/resumed
@@ -5088,6 +5089,7 @@
       timerType = type;
       timerConfig = config || {};
       timerState = 'configured';
+      timerFinishedAt = 0;
       timerElapsed = 0;
       timerRound = 1;
       timerInterval = 0;
@@ -5176,6 +5178,7 @@
       if (timerRafId) cancelAnimationFrame(timerRafId);
       timerRafId = null;
       timerState = 'idle';
+      timerFinishedAt = 0;
       timerType = null;
       timerConfig = {};
       timerElapsed = 0;
@@ -5418,6 +5421,7 @@
         if (timerRafId) cancelAnimationFrame(timerRafId);
         timerRafId = null;
         timerState = 'finished';
+        timerFinishedAt = Date.now();
         TimerAudio.finishSound();
         TimerAudio.say('time');
         renderTimerDisplay();
@@ -9132,6 +9136,26 @@
         done = true;
         delete window[cb];
         script.remove();
+        handleTimerStateResponse(data);
+      };
+
+      script.src = url;
+      script.onerror = () => { if (!done) { delete window[cb]; script.remove(); } };
+      document.body.appendChild(script);
+      setTimeout(() => { if (!done) { delete window[cb]; script.remove(); } }, 5000);
+    }
+
+    // ⭐ A STALE command is not replayed on load (2026-10-02). lastTimerCommandTs
+    // starts '' on every load, so the first poll applied the last command ever
+    // stored — yesterday's "start" from the phone switched the freshly loaded
+    // board into timer mode and started a clock nobody asked for. After an
+    // auto-update reload it also left the board "busy", so it would never
+    // update again. On the FIRST poll only, a command is applied if it was
+    // issued within STALE_COMMAND_MS (the coach just pressed it); otherwise it
+    // becomes the baseline. Later commands are applied as before — no clock-
+    // skew rule between her phone and the TV once the board is up.
+    const STALE_COMMAND_MS = 2 * 60 * 1000;
+    function handleTimerStateResponse(data) {
         if (!data || !data.ts) return;
         // `ts: '0'` is the BACKEND's sentinel for "no command has ever been
         // issued" — handleGetTimerState_ synthesises {command:'reset', ts:'0'}
@@ -9148,14 +9172,13 @@
         if (data.ts === '0') return;
         // Only process new commands
         if (data.ts === lastTimerCommandTs) return;
+        const firstPoll = lastTimerCommandTs === '';
         lastTimerCommandTs = data.ts;
+        if (firstPoll) {
+          const issued = Number(data.ts);
+          if (!(issued > 0) || Date.now() - issued > STALE_COMMAND_MS) return;   // old (or undatable): baseline only
+        }
         processTimerCommand(data);
-      };
-
-      script.src = url;
-      script.onerror = () => { if (!done) { delete window[cb]; script.remove(); } };
-      document.body.appendChild(script);
-      setTimeout(() => { if (!done) { delete window[cb]; script.remove(); } }, 5000);
     }
 
     function processTimerCommand(data) {
@@ -9257,26 +9280,69 @@
       } catch (e) { return null; }   // offline / flaky — never a reason to reload
     }
 
-    // "A reload right now would change nothing anyone can see."
-    function boardIsIdle() {
+    // ⭐ A FINISHED clock nobody is reading any more (Noam, 2026-10-02: "the
+    // changes were not on the board this morning"). A clock stays 'finished'
+    // until someone resets it, so after the last class the gate read "busy" all
+    // night and the deploy never landed. Once it has been finished this long
+    // AND nobody has touched the remote for as long, the reload may wipe it —
+    // and the 'timer' display mode it was shown in (a phone start switches the
+    // board to it). Every other difference from the boot view still blocks.
+    const STALE_FINISH_MS = 15 * 60 * 1000;
+    function finishedLongAgo() {
+      const now = Date.now();
+      return timerState === 'finished' && timerFinishedAt > 0
+        && now - timerFinishedAt >= STALE_FINISH_MS && now - _lastInteractionAt >= STALE_FINISH_MS;
+    }
+    // WHY a reload is not invisible right now, or null when it is. One
+    // predicate; the reason is stored and shown (renderBuildBadge) so "it did
+    // not update" can be read off the wall instead of guessed at (2026-10-02).
+    function idleBlocker() {
       // Any clock state but `idle` means a reload destroys something: a running
       // or paused workout, the 3-2-1 lead-in, a clock armed and about to start,
       // or a finished one the class is still reading its score off.
-      if (timerState !== 'idle') return false;
+      const staleFinish = finishedLongAgo();
+      if (timerState !== 'idle' && !staleFinish) return `clock ${timerState}`;
       const open = id => !!document.getElementById(id)?.classList.contains('open');
-      if (open('settingsModal') || open('timerSetupOverlay')) return false;
-      if (!_bootView) return false;
-      if (displayMode !== _bootView.displayMode) return false;
-      if (sectionFilter !== _bootView.sectionFilter) return false;
-      if (partFocusIndex !== _bootView.partFocusIndex) return false;
-      if (centerFocus !== _bootView.centerFocus) return false;
-      if (Date.now() - _lastInteractionAt < BUILD_QUIET_MS) return false;
-      return true;
+      if (open('settingsModal') || open('timerSetupOverlay')) return 'overlay open';
+      if (!_bootView) return 'no baseline';
+      if (displayMode !== _bootView.displayMode && !(staleFinish && displayMode === 'timer')) return `view ${displayMode}`;
+      if (sectionFilter !== _bootView.sectionFilter) return 'section filter';
+      if (partFocusIndex !== _bootView.partFocusIndex) return 'part focus';
+      if (centerFocus !== _bootView.centerFocus) return 'center focus';
+      if (Date.now() - _lastInteractionAt < BUILD_QUIET_MS) return 'remote in use';
+      return null;
+    }
+    // "A reload right now would change nothing anyone can see."
+    function boardIsIdle() { return idleBlocker() === null; }
+
+    // The running build (and a waiting one, with the reason) — small, dim,
+    // bottom-left. "Is the fix on the TV?" becomes a glance (2026-10-02).
+    function renderBuildBadge() {
+      let el = document.getElementById('buildBadge');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'buildBadge';
+        el.style.cssText = 'position:fixed;left:8px;bottom:4px;z-index:5;font:600 11px/1.2 system-ui,sans-serif;'
+          + 'color:#6b7280;opacity:.75;pointer-events:none;direction:ltr;';
+        document.body.appendChild(el);
+      }
+      const why = _pendingBuild ? idleBlocker() : null;
+      el.textContent = (_bootBuild ? 'v' + _bootBuild : '')
+        + (_pendingBuild ? ` → v${_pendingBuild} ⏳${why ? ' ' + why : ''}` : '');
+    }
+    function recordUpdateState(blockedBy) {
+      try {
+        localStorage.setItem('wodboard-update-state', JSON.stringify({
+          boot: _bootBuild, pending: _pendingBuild, blockedBy, at: new Date().toISOString().slice(0, 16) }));
+      } catch (e) { /* private mode / quota — the badge still shows it */ }
     }
 
     // Returns true if it actually triggered the reload (the harness reads this).
     function applyPendingBuild() {
-      if (!_pendingBuild || !boardIsIdle()) return false;
+      if (!_pendingBuild) return false;
+      const blocker = idleBlocker();
+      renderBuildBadge();
+      if (blocker) { recordUpdateState(blocker); return false; }
       // ⚠️ Reload-loop guard. If the reload does NOT land the new build — a
       // stale CDN copy, a cache that refuses to revalidate — the next check
       // sees the same mismatch and reloads again, forever, on a screen on a
@@ -9304,8 +9370,8 @@
       // the baseline and that one update skipped. The next deploy corrects it;
       // stamping the build into this file instead would buy the edge case at
       // the price of a second place to bump, which is the worse failure.
-      if (_bootBuild === null) { _bootBuild = live; return; }
-      if (live === _bootBuild) { _pendingBuild = null; return; }
+      if (_bootBuild === null) { _bootBuild = live; renderBuildBadge(); return; }
+      if (live === _bootBuild) { _pendingBuild = null; renderBuildBadge(); return; }
       _pendingBuild = live;
       applyPendingBuild();
     }
