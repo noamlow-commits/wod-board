@@ -339,6 +339,35 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
   await page.evaluate(`(() => { _pendingBuild = null; _doReload = () => location.reload(); })()`);
 }
 
+// ── 🔄 The reload button, top right (Noam, 2026-10-03: the gym remote is a
+// basic one with no number keys, so key 7 is out of reach). One press reloads
+// a resting board; with a clock on the wall the first press only ARMS it
+// ("press again"), so a stray press can never wipe a class's clock.
+console.log('\nThe 🔄 reload button (top right)');
+{
+  await page.evaluate('_autoUpdateTimers.forEach(clearInterval)');
+  const prep = `(() => { resetTimer(); hideFloatingTimerBar(); window.__reloads = 0; _doReload = () => { window.__reloads++; }; })()`;
+  await page.evaluate(prep);
+  ok('the button exists in the top bar, beside ⚙', await page.evaluate(`(() => {
+    const b = document.getElementById('reloadBtn'), s = document.getElementById('settingsBtn');
+    return !!b && b.parentElement === s.parentElement; })()`));
+  await page.evaluate(`document.getElementById('reloadBtn').click()`);
+  ok('one press reloads a resting board', (await page.evaluate('window.__reloads')) === 1);
+  for (const [name, setup] of [
+    ['a RUNNING clock', `configureTimer('amrap',{totalSeconds:720}); timerState='running'`],
+    ['an ARMED clock', `configureTimer('amrap',{totalSeconds:720})`],
+  ]) {
+    await page.evaluate(prep);
+    await page.evaluate(`(() => { ${setup}; })()`);
+    await page.evaluate(`document.getElementById('reloadBtn').click()`);
+    const first = await page.evaluate('window.__reloads');
+    await page.evaluate(`document.getElementById('reloadBtn').click()`);
+    const second = await page.evaluate('window.__reloads');
+    ok(`with ${name}: first press only arms, the second reloads`, first === 0 && second === 1, `first=${first} second=${second}`);
+  }
+  await page.evaluate(`(() => { resetTimer(); hideFloatingTimerBar(); _doReload = () => location.reload(); })()`);
+}
+
 // ── (א) A STALE remote timer command is not replayed on load (2026-10-02) ──
 // lastTimerCommandTs starts '' on every load, so the FIRST poll applied the
 // last command ever stored in the TimerState tab — yesterday's "start" from

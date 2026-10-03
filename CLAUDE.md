@@ -164,6 +164,8 @@ via the `_doReload` indirection.
 | Space | Start/pause/resume timer (timer mode only) |
 | Backspace | Reset timer (timer mode only) |
 | n | Skip to next phase (chained/EMOM clocks) — same as the ⏭ הבא button |
+| 7 | Full page reload (loads the latest deployed version) |
+| 🔄 button, top right | Same full reload, for the gym's basic remote with no number keys (2026-10-03). With a clock on the wall, the first press only arms it ("🔄 לחצי שוב", 4 s) and the second press reloads |
 | PageUp/PageDown, ChannelUp/ChannelDown | ◄ ► part navigation (board views only). **A stage change cancels any active clock** (2026-09-30) |
 
 ## Security

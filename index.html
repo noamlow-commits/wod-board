@@ -2021,6 +2021,7 @@
       <span class="refresh-dot" id="refreshDot" title="מחובר"></span>
       <span id="sectionFilterLabel" style="display:none;font-size:0.75rem;color:#fbbf24;font-weight:700;letter-spacing:0.05em;"></span>
       <button class="settings-btn" id="clearScoresBtn" title="נקה תוצאות היום" onclick="clearTodayScores()" style="display:none;font-size:1.1rem;color:#ef4444;">🗑</button>
+      <button class="settings-btn" id="reloadBtn" title="טען את הלוח מחדש (גרסה אחרונה)">🔄</button>
       <button class="settings-btn" id="fullscreenBtn" title="מסך מלא">⛶</button>
       <button class="settings-btn" id="settingsBtn" title="הגדרות">⚙</button>
     </div>
@@ -9445,6 +9446,26 @@
     document.getElementById('settingsBtn').addEventListener('click', openSettings);
 
     // Fullscreen toggle
+    // 🔄 Reload, top right (Noam, 2026-10-03). The gym remote is a basic one
+    // with no number keys, so key 7 is out of reach. This is the same full
+    // reload, one press away. With a clock on the wall (running, paused, in its
+    // 3-2-1, armed or finished) the first press only ARMS the button for 4 s,
+    // and the button says so; a stray press never wipes a class's clock.
+    {
+      const rb = document.getElementById('reloadBtn');
+      let armedUntil = 0;
+      rb.addEventListener('click', () => {
+        const clockOnWall = timerState !== 'idle';
+        if (clockOnWall && Date.now() > armedUntil) {
+          armedUntil = Date.now() + 4000;
+          rb.textContent = '🔄 לחצי שוב';
+          setTimeout(() => { if (Date.now() >= armedUntil) rb.textContent = '🔄'; }, 4100);
+          return;
+        }
+        armedUntil = 0;
+        _doReload();
+      });
+    }
     document.getElementById('fullscreenBtn').addEventListener('click', () => {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen();
