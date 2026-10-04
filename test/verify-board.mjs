@@ -562,6 +562,20 @@ const FIXTURES = [
     expectTimers: ["P1 · AMRAP 10′", "P2 · AMRAP 8′"],
     forbidTimers: ["18′ · AMRAP 10′ → AMRAP 8′"],
     rows: [["", "WOD"], ["", "part 1: amrap 10\n10 burpee\n15 wall ball\npart 2: amrap 8\n10 pull up\n20 d.u"]] },
+  { name: "warmup_name_then_duration_no_x",
+    note: "Coach's real sheet (2026-10-04, VERBATIM, WOD column '1'): 'warm up: 8 MIN' over four movements — the TV showed NO clock. Roadmap Q6 had kept a block duration without the x clockless on purpose, because 'A. Deadlift Prog-8 min' may be an estimate, not a clock. Noam 2026-10-04 answered it for WARM-UPS ONLY: a warm-up / cool-down / חימום is a block by NAME, so a length written right after the name (':' '-' '(' or nothing between) is the block's length. Q6 stays open for every other name — station_labels_with_keywords keeps 'A. Deadlift Prog-8 min' clockless. Column 2 is the shape ALONE in its cell. Column 3 is the negative control: no unit and no M:SS ('warm up 6') is not a length. '20 sec' holds inside a warm-up are prescriptions, not clocks.",
+    expectTimers: ["8′ warm up", "6′ WARM UP"],
+    forbidTimers: ["6′ warm up"],
+    ignoreFacts: ["20 sec"],
+    rows: [["", "1", "2", "3"],
+           ["WOD", "warm up: 8 MIN\n10 m r. deadlift b-stace walk\n10 Cat-Cow\n20 sec Glute Bridge\n20 sec Hollow Hold\n\n", "WARM UP: 6:00", "warm up 6\n10 CAL Row"]] },
+  { name: "every_unit_chains_to_amrap",
+    note: "Coach's real CARDIO cell (2026-10-04, VERBATIM, column '2'): 'every 6 minx 3 sets (18 min)' · '2:00 min rest' · 'amrap 18'. The TV showed TWO clocks, AMRAP first (source order of the detectors, not of the sheet), and neither chained — Noam: 'the model is clear, 18 min then 2 min rest then AMRAP — it could be one clock'. Cause: buildWorkoutTimeline read 'every' only as M:SS, so the first block was never a phase and the cell had one work phase. It now reads 'every N min ×M' too (the x may touch the unit — 'minx' is hers). The chain keeps the 6′ beat (three 6′ phases) and the AMRAP is ONE 18′ phase — an AMRAP has no beat, so nothing is invented. A beatless phase must be a NAMED block (AMRAP/TC): du_is_not_group_d's summary line '9 min work, 1:00 rest' must not become a scheduled block.",
+    expectTimers: ["Every 6′ ×3 · 2′ rest · AMRAP 18′ (38′)"],
+    forbidTimers: ["AMRAP 18′", "6′ ×3 (18′ total)"],
+    rows: [["", "1", "2"],
+           ["CARDIO", "30 sec work 15 sec rest:\n1# box step up\n2# half burpee\n3# down dog to push ups\n4# squat jump",
+            "every 6 minx 3 sets (18 min)\n2 sets:\n10 cal\n8 burpee over rower/ db\n10 box jump\n\n2:00 min rest\n\namrap 18\n100-200-300-400-500...... m run\n10-20-30-40-50m..... walking lung\n5-6-7-8-9-10..... push up"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────

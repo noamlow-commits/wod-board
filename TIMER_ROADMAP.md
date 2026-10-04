@@ -114,6 +114,20 @@ cleverer regex.
 
 ### Q6 — Does she ever write a block duration with NO multiplier? 🔴 NEW 2026-08-21
 
+> **🟡 2026-10-04 — answered by Noam for WARM-UPS ONLY (sw v165).** Her sheet
+> read `warm up: 8 MIN` and the TV had no clock. A warm-up / cool-down / חימום
+> is a block by *name*, so a length written right after the name (`:` `-` `(`
+> or nothing) is its length: `8′ warm up`. A unit is required unless M:SS
+> (`warm up 6` stays clockless). Every other name — `A. Deadlift Prog-8 min`,
+> `Row 10 min` — is still Q6 and still clockless. Fixture
+> `warmup_name_then_duration_no_x`.
+>
+> **Same day, CARDIO 2:** `every 6 minx 3 sets (18 min)` · `2:00 min rest` ·
+> `amrap 18` is now ONE clock, `Every 6′ ×3 · 2′ rest · AMRAP 18′ (38′)`.
+> `buildWorkoutTimeline` read `every` only as M:SS, so the cell never chained
+> and showed two clocks, AMRAP first. A beatless phase (AMRAP/TC) may now join
+> an interval chain as one phase. Fixture `every_unit_chains_to_amrap`.
+
 `WARM UP x 6 min` now gets its clock, and `8 min WARM UP :` always did. What
 still does **not** is the bare trailing form with no `x`:
 

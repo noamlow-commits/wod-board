@@ -1,0 +1,66 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "warm up: 8 MIN",
+              "10 m r. deadlift b-stace walk",
+              "10 Cat-Cow",
+              "20 sec Glute Bridge",
+              "20 sec Hollow Hold"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "WARM UP: 6:00"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "warm up 6",
+              "10 CAL Row"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "1",
+      "timers": [
+        {
+          "label": "8′ warm up",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": [
+        {
+          "label": "6′ WARM UP",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "3",
+      "timers": []
+    }
+  ]
+}

@@ -2908,6 +2908,15 @@
         // WORK: every X:XX ×N
         wm = line.match(everyRe('\\s+(\\d+):(\\d{2})\\s*[x×*]\\s*(\\d+)', 'i'));
         if (wm) { const iv=parseInt(wm[1])*60+parseInt(wm[2]); if (pushPhase(classified, { type:'work', seconds:iv*parseInt(wm[3]), intervalSeconds:iv, label:`Every ${wm[1]}:${wm[2]} ×${wm[3]}` })) continue; }
+        // WORK: every N min ×M — the same block with a UNIT instead of M:SS
+        // (CARDIO 2, 2026-10-04: `every 6 minx 3 sets (18 min)` / `2:00 min rest`
+        // / `amrap 18`). Only M:SS was read here, so the first block never
+        // became a phase and the cell could not chain — two clocks, started by
+        // hand, for a sequence Noam reads as one. The x may touch the unit
+        // ("minx", her spelling); the count must be written.
+        wm = line.match(everyRe(`\\s+(${DUR_NUM})\\s*(min(?:ute)?s?|sec(?:ond)?s?)\\s*[x×*]\\s*(\\d+)`, 'i'));
+        if (wm) { const iv = /^sec/i.test(wm[2]) ? secsToSec(wm[1]) : minsToSec(wm[1]);
+                  if (iv >= 10 && pushPhase(classified, { type:'work', seconds:iv*parseInt(wm[3]), intervalSeconds:iv, label:`Every ${fmtDur(iv)} ×${wm[3]}` })) continue; }
         // WORK: "N min work" / "N minute(s) work" — bare time block (no AMRAP/EMOM keyword)
         wm = line.match(new RegExp(`\\b(${DUR_NUM})\\s*${MIN_WORD}\\s+work\\b`, 'i'));
         if (wm) { const sec=minsToSec(wm[1]); if (pushPhase(classified, { type:'work', seconds:sec, label:`${fmtDur(sec)} work` })) continue; }
@@ -3036,13 +3045,28 @@
       // numbers, only regrouped. All-or-nothing: one work phase without a
       // written interval and we fall through to the flat chain rather than
       // guess a beat for it.
-      const expandable = tlWork.every(p => p.intervalSeconds > 0
-                                        && p.seconds % p.intervalSeconds === 0
-                                        && p.seconds / p.intervalSeconds >= 1);
+      //
+      // Mixed (2026-10-04): an interval block chained to a block with NO beat
+      // of its own — `every 6 min x3` · `2:00 rest` · `amrap 18`. The AMRAP
+      // becomes ONE phase of its written length; that invents nothing (an
+      // AMRAP has no internal beat to guess), while the flat chain would erase
+      // the 6′ beat. At least one work phase must carry an interval, and every
+      // interval must divide its block — otherwise the flat chain as before.
+      // A beatless phase must be a NAMED format block (AMRAP / TC): a bare
+      // "9 min work, 1:00 rest" above two EMOMs is her summary of the
+      // structure, not a third block (du_is_not_group_d), and must not be
+      // scheduled as one.
+      const hasIv = p => p.intervalSeconds > 0;
+      const namedBlock = p => /^(?:AMRAP|TC)\b/.test(p.label || '');
+      const expandable = tlWork.some(hasIv)
+        && tlWork.every(p => hasIv(p) ? (p.seconds % p.intervalSeconds === 0
+                                         && p.seconds / p.intervalSeconds >= 1)
+                                      : namedBlock(p));
       if (expandable) {
         const phases = [];
         for (const p of timeline) {
           if (p.type === 'rest') { phases.push({ type: 'rest', seconds: p.seconds }); continue; }
+          if (!hasIv(p)) { phases.push({ type: 'work', seconds: p.seconds, label: p.label }); continue; }
           const n = p.seconds / p.intervalSeconds;
           for (let k = 0; k < n; k++) phases.push({ type: 'work', seconds: p.intervalSeconds, label: p.label });
         }
@@ -4525,9 +4549,23 @@
           const trail = (!(lead && leadOk) && firstLn)
             ? firstLn.match(new RegExp(`^(.*[^\\s\\d])\\s+[x×*]\\s*(${DUR_NUM})\\s*${MIN_WORD}\\s*[.:]?$`, 'i'))
             : null;
-          if ((lead && leadOk) || trail) {
-            const mins = (lead && leadOk) ? lenSeconds(lead[1]) / 60 : parseFloat(trail[2]);
-            const act = ((lead && leadOk) ? lead[2] : trail[1]).trim();
+          // THIRD shape — the block NAME, then nothing but its length, no "x"
+          // (Noam, 2026-10-04, answering roadmap Q6 for warm-ups only). Her
+          // sheet read `warm up: 8 MIN` and the TV showed no clock. A warm-up /
+          // cool-down is a block by name, so a length written right after it
+          // is the block's length; `A. Deadlift Prog-8 min` (a station, where
+          // the 8 may be an estimate) stays clockless — Q6 is still open for
+          // every other name. The remainder must be ONLY the length: a unit is
+          // required unless it is M:SS, so `warm up 2 rounds` never matches.
+          const named = (!(lead && leadOk) && !trail && firstLn)
+            ? firstLn.match(new RegExp(`^(warm[\\s-]?up|cool[\\s-]?down|חימום)${LEN_HSP}*[:\\-–(]?${LEN_HSP}*`
+                + `${LEN_NUM}${LEN_HSP}*(${LEN_UNIT})?${LEN_HSP}*\\)?${LEN_HSP}*[.:]?$`, 'i'))
+            : null;
+          const namedOk = !!named && (!!named[3] || /:/.test(named[2]));
+          if ((lead && leadOk) || trail || namedOk) {
+            const mins = (lead && leadOk) ? lenSeconds(lead[1]) / 60
+              : trail ? parseFloat(trail[2]) : lenSeconds(named[2], named[3]) / 60;
+            const act = ((lead && leadOk) ? lead[2] : trail ? trail[1] : named[1]).trim();
             // Anti-double-count, replacing the old blanket `results.length === 0`.
             // A block duration names the block and is followed by PROSE ("leg
             // mobility", "leg and lat activation"). If the remainder instead

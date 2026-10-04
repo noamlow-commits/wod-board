@@ -1,0 +1,64 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "30 sec work 15 sec rest:",
+              "1# box step up",
+              "2# half burpee",
+              "3# down dog to push ups",
+              "4# squat jump"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "every 6 minx 3 sets (18 min)",
+              "2 sets:",
+              "10 cal",
+              "8 burpee over rower/ db",
+              "10 box jump",
+              "__SPACER__",
+              "2:00 min rest",
+              "__SPACER__",
+              "amrap 18",
+              "100-200-300-400-500...... m run",
+              "10-20-30-40-50m..... walking lung",
+              "5-6-7-8-9-10..... push up"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "CARDIO",
+      "header": "1",
+      "timers": [
+        {
+          "label": "30″/15″ ×4",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "CARDIO",
+      "header": "2",
+      "timers": [
+        {
+          "label": "Every 6′ ×3 · 2′ rest · AMRAP 18′ (38′)",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

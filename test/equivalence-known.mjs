@@ -110,14 +110,6 @@ export const KNOWN = {
       "row for 10 min": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
       "חתירה 10 דקות": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
       "row\n10 min": "SPEC: bare_block_duration_must_lead — a duration written after the work is not a block length — today: no clock [—]"
-    },
-    "warmup": {
-      "WARM UP 6 min\n10 CAL Row": "COACH(Q6): a block duration written without the x — deliberately clockless until she answers — today: no clock [—]",
-      "warm up - 6 min\n10 CAL Row": "COACH(Q6): a block duration written without the x — deliberately clockless until she answers — today: no clock [—]",
-      "warm up (6 min)\n10 CAL Row": "COACH(Q6): a block duration written without the x — deliberately clockless until she answers — today: no clock [—]",
-      "חימום 6 דקות\n10 CAL Row": "COACH(Q6): a block duration written without the x — deliberately clockless until she answers — today: no clock [—]",
-      "WARM UP: 6:00\n10 CAL Row": "COACH(Q6): a block duration written without the x — deliberately clockless until she answers — today: no clock [—]",
-      "Warm up 6'\n10 CAL Row": "COACH(Q6): a block duration written without the x — deliberately clockless until she answers — today: SILENT no clock [—]"
     }
   },
   "agree": {
