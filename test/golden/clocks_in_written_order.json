@@ -1,0 +1,44 @@
+{
+  "data": {
+    "headers": [
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "every 6 minx 3 sets (18 min)",
+              "2 sets:",
+              "10 cal",
+              "8 burpee over rower/ db",
+              "10 box jump",
+              "__SPACER__",
+              "amrap 18",
+              "100-200-300-400-500...... m run",
+              "5-6-7-8-9-10..... push up"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "CARDIO",
+      "header": "2",
+      "timers": [
+        {
+          "label": "6′ ×3 (18′ total)",
+          "type": "emom"
+        },
+        {
+          "label": "AMRAP 18′",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}

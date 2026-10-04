@@ -28,12 +28,12 @@
       "header": "3",
       "timers": [
         {
-          "label": "AMRAP 4′",
-          "type": "amrap"
-        },
-        {
           "label": "5′ ×3 (15′ total)",
           "type": "emom"
+        },
+        {
+          "label": "AMRAP 4′",
+          "type": "amrap"
         }
       ]
     }

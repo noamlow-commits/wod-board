@@ -3643,8 +3643,19 @@
     //
     // This is also detectTimers' single exit transform: `_stationScoped` is
     // stripped here, so the marker can never reach a caller or a golden.
+    //
+    // WRITTEN ORDER first (Noam, 2026-10-04: "it must follow the order of
+    // writing"). CARDIO 2 read `every 6 min x3` above `amrap 18`, and the TV
+    // offered the AMRAP first because the AMRAP scan runs before the every
+    // scan. Every clock a detector found on a line carries `_line`; those are
+    // stable-sorted by it WITHIN their own slots. A whole-cell clock (chain,
+    // minute map) has no single line, so it keeps its slot.
     function blockClocksFirst(cfgs) {
-      const strip = ({ _stationScoped, ...c }) => c;
+      const tagged = cfgs.map((c, i) => [c, i]).filter(([c]) => Number.isInteger(c._line) && c._line >= 0);
+      const sorted = tagged.slice().sort((a, b) => a[0]._line - b[0]._line || a[1] - b[1]);
+      cfgs = cfgs.slice();
+      tagged.forEach(([, slot], k) => { cfgs[slot] = sorted[k][0]; });
+      const strip = ({ _stationScoped, _line, ...c }) => c;
       const nested = cfgs.filter(c => c._stationScoped);
       if (nested.length === 0 || nested.length === cfgs.length) return cfgs.map(strip);
       return cfgs.filter(c => !c._stationScoped).concat(nested).map(strip);
@@ -3658,6 +3669,10 @@
       if (!lines || lines.length === 0) return [];
       const results = [];
       const text = lines.join('\n');
+      // WHERE each clock is written, so the cell's clocks come out in the
+      // coach's order, not in the order the detectors run (see blockClocksFirst).
+      const lineOfIdx = idx => text.slice(0, idx).split('\n').length - 1;
+      const lineAt = re => lines.findIndex(l => re.test(l || ''));
 
       // Global time cap — line-by-line via the canonical matcher (see
       // capSecondsFromLine for the newline-crossing bug it prevents).
@@ -3966,11 +3981,11 @@
           const rounds = m[5] ? parseInt(m[5]) : 1;
           const onStation = STATION_LINE_RE.test((lines[lineOf(m.index)] || '').trim());
           if (rounds >= 2 && rounds <= 60) {
-            results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
+            results.push({ _line: lineOfIdx(m.index), type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
                            label: `AMRAP ×${rounds} · ${fmtDur(iv)} (${fmtDur(iv * rounds)})`,
                            _stationScoped: onStation });
           } else {
-            results.push({ type: 'amrap', totalSeconds: iv, label: `AMRAP ${fmtDur(iv)}`,
+            results.push({ _line: lineOfIdx(m.index), type: 'amrap', totalSeconds: iv, label: `AMRAP ${fmtDur(iv)}`,
                            _stationScoped: onStation });
           }
         }
@@ -4043,7 +4058,7 @@
           if (rounds < 1 || rounds > 60) continue;    // nothing written → no timer
 
           const total = totalMin ? totalMin * 60 : iv * rounds;
-          results.push({ type: 'emom', totalSeconds: total, intervalSeconds: iv,
+          results.push({ _line: lineOfIdx(m.index), type: 'emom', totalSeconds: total, intervalSeconds: iv,
                          label: `E${ivMin}MOM ×${rounds} (${fmtDur(total)})` });   // fmtDur: whole minutes byte-identical, "7:30" no longer rounds to 8′
         }
 
@@ -4056,7 +4071,7 @@
           consume(m);
           const e = emomLen(m);
           if (!e) continue;               // "EMOM 1:30" with no count: nothing written to run
-          results.push({ type: 'emom', totalSeconds: e.total, intervalSeconds: e.interval,
+          results.push({ _line: lineOfIdx(m.index), type: 'emom', totalSeconds: e.total, intervalSeconds: e.interval,
                          label: e.mmss ? `EMOM ${fmtDur(e.interval)} ×${e.rounds}` : `EMOM ${e.total / 60}′` });
         }
 
@@ -4088,7 +4103,7 @@
           consume(m);
           const iv = parseInt(m[1])*60 + parseInt(m[2]);
           const rounds = parseInt(m[3]);
-          results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
+          results.push({ _line: lineOfIdx(m.index), type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
                          label: `EMOM ${m[1]}:${m[2]} ×${rounds}` });
         }
 
@@ -4107,7 +4122,7 @@
           const rounds = parseInt(m[2]);
           if (eachMin >= 1 && eachMin <= 30 && rounds >= 2 && rounds <= 10) {
             const iv = minsToSec(eachMin);
-            results.push({ type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
+            results.push({ _line: lineOfIdx(m.index), type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
                            label: `${fmtDur(iv)} ×${rounds} (${fmtDur(iv * rounds)} total)` });
           }
         }
@@ -4138,7 +4153,7 @@
           const rounds = totalMin ? Math.round((totalMin * 60) / iv)
                                   : (writtenTotalRounds() || Math.max(r1, r2));
           if (iv >= 30 && iv <= 30*60 && rounds >= 2 && rounds <= 20) {
-            results.push({ type: 'emom', totalSeconds: totalMin ? totalMin * 60 : iv * rounds,
+            results.push({ _line: lineOfIdx(m.index), type: 'emom', totalSeconds: totalMin ? totalMin * 60 : iv * rounds,
                            intervalSeconds: iv, label: `${m[1]}:${m[2]} ×${rounds}` });
           }
         }
@@ -4170,7 +4185,7 @@
           const rounds = totalMin ? Math.round((totalMin * 60) / iv) : (writtenTotalRounds() || parseInt(m[3]));
           if (rounds < 1 || rounds > 60) continue;
           const total = totalMin ? totalMin * 60 : iv * rounds;
-          results.push({ type: 'emom', totalSeconds: total, intervalSeconds: iv,
+          results.push({ _line: lineOfIdx(m.index), type: 'emom', totalSeconds: total, intervalSeconds: iv,
                          label: `Every ${m[1]}:${m[2]} ×${rounds} (${Math.round(total / 60)}′)` });
         }
 
@@ -4193,7 +4208,7 @@
           const rounds = rotationRounds(iv, true);
           if (!rounds) {                             // nothing written…
             if (effCapSeconds > 0 && iv < effCapSeconds) {   // …but a cap: pace under it
-              results.push({ type: 'emom', totalSeconds: effCapSeconds, intervalSeconds: iv,
+              results.push({ _line: lineOfIdx(m.index), type: 'emom', totalSeconds: effCapSeconds, intervalSeconds: iv,
                              label: `Every ${m[1]}:${m[2]} (TC ${Math.floor(effCapSeconds / 60)}′)` });
             }
             continue;                                // …and no cap → no timer
@@ -4201,7 +4216,7 @@
           if (rounds < 1 || rounds > 60) continue;
           const totalMin = writtenTotalMin();
           const total = totalMin ? totalMin * 60 : iv * rounds;
-          results.push({ type: 'emom', totalSeconds: total, intervalSeconds: iv,
+          results.push({ _line: lineOfIdx(m.index), type: 'emom', totalSeconds: total, intervalSeconds: iv,
                          label: `Every ${m[1]}:${m[2]} ×${rounds} (${Math.round(total / 60)}′)` });
         }
         // ── "every" with a UNIT, and the Hebrew "כל" (plan step 2b, 2026-10-01) ──
@@ -4241,7 +4256,7 @@
             if (!total) total = iv * rounds;
             if (total > 90 * 60) continue;
             consume(m);
-            results.push({ type: 'emom', totalSeconds: total, intervalSeconds: iv,
+            results.push({ _line: lineOfIdx(m.index), type: 'emom', totalSeconds: total, intervalSeconds: iv,
                            label: `Every ${fmtDur(iv)} ×${rounds} (${fmtDur(total)})` });
           }
         }
@@ -4378,7 +4393,7 @@
           // absurd clock from a mis-read line rather than showing a wrong one.
           if (cycleSec * rounds <= 90 * 60) {
             const ivLabel = `${fmtDur(workSec)}/${fmtDur(restSec)} ×${rounds}`;
-            results.push({
+            results.push({ _line: lineAt(/\d[^\n]*\b(?:work|on|rest|off)\b/i),
               type: 'tabata', workSeconds: workSec, restSeconds: restSec,
               rounds, label: hasTabataWord ? `Tabata ${ivLabel}` : ivLabel,
               ...(inventedRounds ? { roundsInvented: true } : {})
@@ -4393,7 +4408,7 @@
       // format but wrote no durations of her own. Moved below the custom block
       // on 2026-08-03; before that it pre-empted her written values.
       if (hasTabataWord && !results.some(r => r.type === 'tabata')) {
-        results.push({ type: 'tabata', workSeconds: 20, restSeconds: 10, rounds: 8, label: 'Tabata' });
+        results.push({ _line: lineAt(/\b(?:tabata|tbata)\b/i), type: 'tabata', workSeconds: 20, restSeconds: 10, rounds: 8, label: 'Tabata' });
       }
 
       // FOR TIME — also matches RFT ("Rounds For Time", e.g. "5 RFT") and
@@ -4410,9 +4425,9 @@
         // truncated to "12 RFT (T…" — hiding the one number that says how long
         // the block runs, and leaving a rep COUNT looking like the clock. The
         // duration is what the coach needs at a glance, so it leads.
-        results.push({ type: 'fortime', capSeconds: effCapSeconds, label: effCapSeconds ? `TC ${fmtDur(effCapSeconds)} · ${roundsLbl}` : roundsLbl });
+        results.push({ _line: lineAt(/\bfor\s+time\b|\b\d+\s*RFT\b/i), type: 'fortime', capSeconds: effCapSeconds, label: effCapSeconds ? `TC ${fmtDur(effCapSeconds)} · ${roundsLbl}` : roundsLbl });
       } else if (capSeconds > 0 && results.length === 0) {
-        results.push({ type: 'fortime', capSeconds: capSeconds, label: `TC ${fmtDur(capSeconds)}` });
+        results.push({ _line: lines.findIndex(l => capSecondsFromLine(l || '') > 0), type: 'fortime', capSeconds: capSeconds, label: `TC ${fmtDur(capSeconds)}` });
       }
 
       // Bare "N min work" / "M:SS work" — last-resort fallback for self-paced time
@@ -4425,14 +4440,14 @@
         while ((m = minWorkRe.exec(text)) !== null) {
           const mins = parseFloat(m[1]);
           if (mins >= 1 && mins <= 90) {
-            results.push({ type: 'amrap', totalSeconds: minsToSec(mins), label: `${fmtDur(minsToSec(mins))} work` });
+            results.push({ _line: lineOfIdx(m.index), type: 'amrap', totalSeconds: minsToSec(mins), label: `${fmtDur(minsToSec(mins))} work` });
           }
         }
         const mmssWorkRe = /(?<![:\d])(\d+):(\d{2})\s+work\b/gi;
         while ((m = mmssWorkRe.exec(text)) !== null) {
           const total = parseInt(m[1]) * 60 + parseInt(m[2]);
           if (total >= 30 && total <= 90 * 60) {
-            results.push({ type: 'amrap', totalSeconds: total, label: `${m[1]}:${m[2]} work` });
+            results.push({ _line: lineOfIdx(m.index), type: 'amrap', totalSeconds: total, label: `${m[1]}:${m[2]} work` });
           }
         }
       }
@@ -4604,7 +4619,7 @@
                 && !new RegExp(`\\b(?:rest|${PACE_DESCRIPTOR})\\b`, 'i').test(act)) {
               // Trailing punctuation the coach left on a header line ("WARM UP :")
               // is hers to write, not ours to print on a 1080p TV button.
-              results.push({ type: 'amrap', totalSeconds: minsToSec(mins),
+              results.push({ _line: lines.findIndex(l => (l || '').trim() === firstLn), type: 'amrap', totalSeconds: minsToSec(mins),
                              label: `${mins}′ ${act.replace(/[\s:.\-–—]+$/, '')}` });
             }
           }
@@ -8338,6 +8353,12 @@
           const fields = rows.filter((_, i) => !isFooter(items[i])).join('');
           const footer = rows.filter((_, i) => isFooter(items[i])).join('');
           body.innerHTML = `<div class="tsu-fields">${fields}</div><div class="tsu-footer">${footer}</div>`;
+          // Every step button (±5″ included) as wide as the widest one. A fixed
+          // rem guess for "−1:00" was right on one machine's font and 7px short
+          // on the gym's Windows font — so measure instead of guessing.
+          const stepBtns = [...body.querySelectorAll('.tsu-step:not(.tsu-step-type)')];
+          const widest = Math.max(0, ...stepBtns.map(b => b.getBoundingClientRect().width));
+          if (widest > 0) stepBtns.forEach(b => { b.style.minWidth = `${Math.ceil(widest)}px`; });
           const fr = body.querySelector('.tsu-fields .tsu-focus'); if (fr) fr.scrollIntoView({ block: 'nearest' });
         }
       },

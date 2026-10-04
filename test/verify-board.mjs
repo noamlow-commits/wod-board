@@ -576,6 +576,12 @@ const FIXTURES = [
     rows: [["", "1", "2"],
            ["CARDIO", "30 sec work 15 sec rest:\n1# box step up\n2# half burpee\n3# down dog to push ups\n4# squat jump",
             "every 6 minx 3 sets (18 min)\n2 sets:\n10 cal\n8 burpee over rower/ db\n10 box jump\n\n2:00 min rest\n\namrap 18\n100-200-300-400-500...... m run\n10-20-30-40-50m..... walking lung\n5-6-7-8-9-10..... push up"]] },
+  { name: "clocks_in_written_order",
+    note: "Noam 2026-10-04: 'it must follow the order of writing'. The same CARDIO 2 cell WITHOUT the rest line, so nothing chains and the cell keeps two clocks. Before, the AMRAP came first only because the AMRAP scan runs above the every scan inside detectTimers, and index 0 is the board's default clock. Each detector now tags the line it read (`_line`), and blockClocksFirst stable-sorts the tagged clocks by it. expectTimerOrder locks the position, because presence assertions are blind to order.",
+    expectTimers: ["6′ ×3 (18′ total)", "AMRAP 18′"],
+    expectTimerOrder: [["6′ ×3 (18′ total)", "AMRAP 18′"]],
+    rows: [["", "2"],
+           ["CARDIO", "every 6 minx 3 sets (18 min)\n2 sets:\n10 cal\n8 burpee over rower/ db\n10 box jump\n\namrap 18\n100-200-300-400-500...... m run\n5-6-7-8-9-10..... push up"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
