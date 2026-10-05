@@ -1,0 +1,71 @@
+{
+  "data": {
+    "headers": [
+      "3",
+      "4",
+      "5"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "3",
+            "lines": [
+              "2:00 min work, 2 min rest x 4 sets",
+              "5 burpee box step over",
+              "10 db\"s push press",
+              "max cal",
+              "חצי מתחילים ב",
+              "2 דקות, ככה יהיה מספיק חתירות לכולם"
+            ]
+          },
+          {
+            "header": "4",
+            "lines": [
+              "2:00 min work, 2 min rest x 4 sets"
+            ]
+          },
+          {
+            "header": "5",
+            "lines": [
+              "1 min work, 1:30 min rest x 3 sets"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "3",
+      "timers": [
+        {
+          "label": "×4 · 2′ work / 2′ rest",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "4",
+      "timers": [
+        {
+          "label": "×4 · 2′ work / 2′ rest",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "5",
+      "timers": [
+        {
+          "label": "×3 · 1′ work / 1:30 rest",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}
