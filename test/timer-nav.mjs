@@ -539,6 +539,58 @@ console.log('\nA stale remote timer command is not replayed on load');
      && r.d === 'work:45:10/15' && r.e === 'work:60:11/15' && r.f === 'work:60:15/15', JSON.stringify(r));
 }
 
+// ── The buttons stay where they are (coach, 2026-10-11: "the buttons move
+// when you go from screen to screen"). Measured on a real render at 1080p:
+// the bottom nav slid 63px every time a clock appeared or a stage change
+// cleared it (⏸ 🔊 ⏹ toggled display:none on a center-anchored bar), and the
+// clock's ⏹ עצור sat at three different heights (AMRAP / interval / ⏭ shown).
+// Rule: no control may change the size of the box that positions the others.
+{
+  const p2 = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+  await p2.addInitScript(() => localStorage.setItem('wodboard-gym-pin', '1986'));
+  await p2.route('**/*', r => (r.request().url().startsWith('file:') ? r.continue() : r.abort()));
+  await p2.goto(INDEX);
+  await p2.waitForFunction('typeof renderWorkout === "function"');
+  await p2.evaluate(() => {
+    renderWorkout(parseAppsScriptData([['', '1', '2'],
+      ['WOD', 'warm up: 7 MIN\n10 air squat', '2:00 min work, 2 min rest x 4 sets\n5 burpee'],
+      ['CARDIO', 'AMRAP 12\n10 wall ball', 'every 2 min x 6\n2 reps']]));
+    setDisplayMode('wod'); updateTvNav();
+  });
+  const NAV = ['tvPrev', 'tvNext', 'tvCenterBtn', 'tvTimerBtn', 'tvTimerSetupBtn'];
+  const pos = (ids) => p2.evaluate((ids) => ids.map(id => {
+    const e = document.getElementById(id); const r = e.getBoundingClientRect();
+    return getComputedStyle(e).visibility === 'hidden' || r.width === 0 ? null : [Math.round(r.x), Math.round(r.y)];
+  }), ids);
+  const STATES = [
+    ['all parts', ''],
+    ['► part', 'navigatePart(1)'],
+    ['⊙', 'toggleCenterFocus()'],
+    ['AMRAP 3-2-1', "configureTimer('amrap',{minutes:12}); timerState='countdown321'; timerCountdownNum=3; showFloatingTimerBar(); updateFloatingTimerBar();"],
+    ['AMRAP running', "timerState='running'; timerStartedAt=performance.now(); updateFloatingTimerBar();"],
+    ['⊙ off', 'toggleCenterFocus()'],
+    ['► clears', 'navigatePart(1)'],
+    ['interval running', "configureTimer('tabata',{work:120,rest:120,rounds:4}); timerState='running'; timerStartedAt=performance.now(); showFloatingTimerBar(); updateFloatingTimerBar();"],
+    ['interval paused', "timerState='paused'; updateFloatingTimerBar();"],
+    ['finished', "timerState='finished'; updateFloatingTimerBar();"],
+    ['CARDIO', "setTvSection('CARDIO')"],
+  ];
+  const navSeen = new Set(), stopSeen = new Set(), skipSeen = new Set();
+  for (const [, js] of STATES) {
+    if (js) await p2.evaluate(js);
+    await p2.waitForTimeout(450);
+    navSeen.add(JSON.stringify(await pos(NAV)));
+    const [stop, skip] = await pos(['ftbStopBtn', 'ftbSkipBtn']);
+    // ±1px: the clock box is centered by translateX(-50%), so an odd width rounds.
+    if (stop) stopSeen.add(`${Math.round(stop[0] / 3)},${stop[1]}`);
+    if (skip) skipSeen.add(`${Math.round(skip[0] / 3)},${skip[1]}`);
+  }
+  ok('fixed buttons: ◄ ► ⊙ ▶ ⏱＋ never move across stages, ⊙, clock on/off, WOD↔CARDIO', navSeen.size === 1, [...navSeen].join(' | '));
+  ok('fixed buttons: the clock\'s ⏹ עצור sits in ONE place for AMRAP, 3-2-1, interval, paused and finished', stopSeen.size === 1, [...stopSeen].join(' | '));
+  ok('fixed buttons: ⏭ הבא appears in place (no neighbour moves when it shows)', skipSeen.size === 1, [...skipSeen].join(' | '));
+  await p2.close();
+}
+
 await browser.close();
 console.log(`\n──────────────────────────────────────────────\n${pass} pass · ${fail} fail`);
 process.exit(fail ? 1 : 0);

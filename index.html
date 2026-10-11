@@ -307,8 +307,13 @@
       order: 2;
     }
     /* Timer control buttons in nav panel */
-    .tv-timer-controls { display: none; }
-    .tv-timer-controls.visible { display: flex; gap: 0.3rem; align-items: center; }
+    /* ⏸ 🔊 ⏹ keep their box when no clock runs — visibility, not display (2026-10-11,
+       coach: "the buttons move from screen to screen"). With display:none the
+       centered nav grew 127px whenever a clock appeared and shrank on every stage
+       change (which clears the clock), sliding ◄ ► ⊙ 63px each way. Same rule as
+       option B for #tvTimerBtn: nothing in the nav may change its width. */
+    .tv-timer-controls { display: flex; gap: 0.3rem; align-items: center; visibility: hidden; }
+    .tv-timer-controls.visible { visibility: visible; }
     .tv-timer-controls button {
       background: rgba(255,255,255,0.08);
       border: 1px solid rgba(255,255,255,0.12);
@@ -1816,7 +1821,25 @@
       letter-spacing: 0.04em;
     }
     #ftbSkipBtn:hover { filter: brightness(1.1); }
-    #ftbSkipBtn.hidden { display: none; }
+    #ftbSkipBtn.hidden { visibility: hidden; }
+    /* ⏭ הבא and ⏹ עצור sit side by side in ONE row that never changes size
+       (2026-10-11). They used to stack in the clock's column, so ⏹ jumped 41px
+       whenever ⏭ appeared, and both jumped when the phase/round lines filled in
+       after the 3-2-1 lead-in. Now: a fixed row, ⏭ hidden by visibility, and the
+       phase/round lines below reserve their height even when empty. */
+    .ftb-actions {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      margin-top: 0.35rem;
+    }
+    .ftb-actions #ftbSkipBtn, .ftb-actions #ftbStopBtn { margin: 0; }
+    .timer-dock #ftbType, .timer-dock #ftbPhase, .timer-dock #ftbRound {
+      line-height: 1.15;
+      min-height: 1.15em;
+    }
 
     /* ── Key diagnostic viewer (hidden by default; debug the TV remote) ──── */
     #keyDiagOverlay {
@@ -2088,8 +2111,10 @@
       <span id="ftbTime"></span>
       <span id="ftbRound"></span>
       <div id="ftbProgress"></div>
-      <button id="ftbSkipBtn" class="hidden" onclick="skipTimerPhase();" title="עבור למקטע הבא — למשל כשכולם סיימו לפני מגבלת הזמן (מקש n)">⏭ הבא</button>
-      <button id="ftbStopBtn" onclick="coachStopTimer();hideFloatingTimerBar();" title="עצור את הטיימר (OK / Backspace)">⏹ עצור</button>
+      <div class="ftb-actions">
+        <button id="ftbSkipBtn" class="hidden" onclick="skipTimerPhase();" title="עבור למקטע הבא — למשל כשכולם סיימו לפני מגבלת הזמן (מקש n)">⏭ הבא</button>
+        <button id="ftbStopBtn" onclick="coachStopTimer();hideFloatingTimerBar();" title="עצור את הטיימר (OK / Backspace)">⏹ עצור</button>
+      </div>
     </div>
   </div>
 
