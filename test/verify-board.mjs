@@ -646,6 +646,11 @@ const BADGE_CHECKS = [
   { line: "D-U", expect: "none" },                                // …hyphen spelling
   { line: "D. Upper body", expect: "group-badge" },               // ⚠️ CONTROL: a REAL group D still wins (the \b after the "u" is what draws the line)
   { line: "D. Ukemi drills", expect: "group-badge" },             // …control 2: "U" starting a word is not the abbreviation
+  { line: "12/10 cal row/bike", expect: "none" },                 // calories M/F = work, not a load: a regular exercise line (Noam 2026-10-12)
+  { line: "15/12 cal", expect: "none" },
+  { line: "20/15 reps", expect: "none" },
+  { line: "24/16 kb swing", expect: "rx-pill" },                  // ⚠️ CONTROL: a load pair keeps its blue pill
+  { line: "rx: 42.5/ 35", expect: "rx-pill" },                    // …and so does the rx line itself
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -772,6 +777,8 @@ const stationCatFails = [];
       // station-badge (filled orange): "1#", "#1", "2+3#", and "1." / "1)".
       if (/station-badge">[^<]*#/.test(html)) return { line: c.line, expect: c.expect, actual: "station" };
       // The inline Rx/Rx+ scaling marker gets its own blue rx-badge span.
+      // The whole-line blue 💊 prescription pill (rx line, or a load pair "24/16 kb").
+      if (html.includes("💊")) return { line: c.line, expect: c.expect, actual: "rx-pill" };
       if (/rx-badge/.test(html)) return { line: c.line, expect: c.expect, actual: "rx" };
       // A leading item NUMBER that carries its separator ("1.", "2-") — the set /
       // station numbering of a numbered list, amber like a rep count. The

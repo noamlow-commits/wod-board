@@ -7164,7 +7164,11 @@
 
       // Weight prescription line: "30/50 sandbag", "24/16 ktb", "70/50 lb", "1.5/1 pood".
       // Two numbers split by "/" + equipment word — same blue Rx badge.
-      if (/^\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\s+\S/.test(text)) {
+      // ⛔ Not when the pair is a WORK amount (2026-10-12, Noam: "only the rx is
+      // blue, the row is regular"): "12/10 cal row/bike" is calories men/women,
+      // an exercise line, not a load. Same for reps and distances.
+      if (/^\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\s+\S/.test(text)
+          && !/^\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\s*(?:k?cals?|calories|reps?|m|meters?|metres?|km)\b/i.test(text)) {
         return { type: 'exercise', html: `<span style="display:inline-block;max-width:100%;background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;border-radius:6px;padding:0.15rem 0.5rem;font-weight:700;">💊 ${escapeHtml(text)}</span>` };
       }
 
@@ -7216,8 +7220,9 @@
       // Highlight distance reps with no space before unit: "1000m run", "500m run", "5km".
       // Coach writes both "1000 m run" and "1000m run" — both should bold the digits.
       html = html.replace(/^(\d+)(m|km)(\s|$)/i, '<span class="rep-number">$1</span>$2$3');
-      // Highlight numbers at start of line (reps)
-      html = html.replace(/^(\d+[\-x×]?\d*)\s/, '<span class="rep-number">$1</span> ');
+      // Highlight numbers at start of line (reps). "12/10" too — a men/women
+      // pair of reps/calories ("12/10 cal row", 2026-10-12) reads like its siblings.
+      html = html.replace(/^(\d+[\-x×\/]?\d*)\s/, '<span class="rep-number">$1</span> ');
 
       // RX / RX+ scaling marker inline in an exercise line — "rx+ 4000 m run"
       // (2026-07-27). Standalone word only: \b on both sides of "rx" (the "+"
