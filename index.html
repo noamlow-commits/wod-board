@@ -9397,6 +9397,47 @@
       return timerState === 'finished' && timerFinishedAt > 0
         && now - timerFinishedAt >= STALE_FINISH_MS && now - _lastInteractionAt >= STALE_FINISH_MS;
     }
+    // ── The view survives an auto-update reload (2026-10-12) ──
+    // Saved right before the reload, restored at the end of the next startApp()
+    // and then deleted. Only the AUTO-update carries it: 🔄 / key 7 are a
+    // deliberate fresh start. A stale finish shown in 'timer' mode is the one
+    // part NOT carried — the reload is what clears that clock off the wall.
+    const CARRY_VIEW_KEY = 'wodboard-carry-view';
+    const CARRY_VIEW_MAX_AGE_MS = 2 * 60 * 1000;
+    function canCarryView() {
+      try { sessionStorage.setItem('wodboard-carry-probe', '1'); sessionStorage.removeItem('wodboard-carry-probe'); return true; }
+      catch (e) { return false; }
+    }
+    function carryViewAcrossReload() {
+      const mode = (displayMode === 'timer' && finishedLongAgo() && _bootView) ? _bootView.displayMode : displayMode;
+      try { sessionStorage.setItem(CARRY_VIEW_KEY, JSON.stringify({ displayMode: mode, sectionFilter, partFocusIndex, centerFocus, at: Date.now() })); }
+      catch (e) { /* canCarryView() said yes a moment ago; worst case the view resets */ }
+    }
+    // Returns the view it restored, or null. Runs once, before the baseline is
+    // captured, so the baseline IS the restored view.
+    function restoreCarriedView() {
+      let v = null;
+      try { v = JSON.parse(sessionStorage.getItem(CARRY_VIEW_KEY) || 'null'); sessionStorage.removeItem(CARRY_VIEW_KEY); }
+      catch (e) { return null; }
+      if (!v || !(Date.now() - (v.at || 0) < CARRY_VIEW_MAX_AGE_MS)) return null;
+      const MODES = ['wod', 'split', 'scoreboard', 'pr', 'timer'];
+      if (MODES.includes(v.displayMode) && v.displayMode !== displayMode) setDisplayMode(v.displayMode);
+      if (v.displayMode === 'wod' || v.displayMode === 'split') {
+        const sections = getSectionLabels().map(x => x.toUpperCase());
+        sectionFilter = (v.sectionFilter && sections.includes(String(v.sectionFilter).toUpperCase())) ? v.sectionFilter : null;
+        applySectionFilter();
+        const max = getMaxParts();
+        // The sheet may have changed under the reload: a part that no longer
+        // exists is not invented — fall back to the whole board.
+        partFocusIndex = (Number.isInteger(v.partFocusIndex) && v.partFocusIndex >= 0 && v.partFocusIndex < max) ? v.partFocusIndex : null;
+        centerFocus = partFocusIndex !== null && !!v.centerFocus;
+        applyPartFocus();
+        applyCenterFocus();
+        updateTvNav();
+      }
+      return { displayMode, sectionFilter, partFocusIndex, centerFocus };
+    }
+
     // WHY a reload is not invisible right now, or null when it is. One
     // predicate; the reason is stored and shown (renderBuildBadge) so "it did
     // not update" can be read off the wall instead of guessed at (2026-10-02).
@@ -9409,10 +9450,18 @@
       const open = id => !!document.getElementById(id)?.classList.contains('open');
       if (open('settingsModal') || open('timerSetupOverlay')) return 'overlay open';
       if (!_bootView) return 'no baseline';
-      if (displayMode !== _bootView.displayMode && !(staleFinish && displayMode === 'timer')) return `view ${displayMode}`;
-      if (sectionFilter !== _bootView.sectionFilter) return 'section filter';
-      if (partFocusIndex !== _bootView.partFocusIndex) return 'part focus';
-      if (centerFocus !== _bootView.centerFocus) return 'center focus';
+      // ⭐ The VIEW no longer blocks (Noam, 2026-10-12: "update automatically
+      // in centered mode too, as long as no clock runs"). The reload carries
+      // the view across (carryViewAcrossReload → restoreCarriedView), so a
+      // centred stage, a focused part, WOD/CARDIO and the display mode come
+      // back exactly as they were — the reload stays invisible. Only when the
+      // view CANNOT be carried (no sessionStorage) do the old checks apply.
+      if (!canCarryView()) {
+        if (displayMode !== _bootView.displayMode && !(staleFinish && displayMode === 'timer')) return `view ${displayMode}`;
+        if (sectionFilter !== _bootView.sectionFilter) return 'section filter';
+        if (partFocusIndex !== _bootView.partFocusIndex) return 'part focus';
+        if (centerFocus !== _bootView.centerFocus) return 'center focus';
+      }
       if (Date.now() - _lastInteractionAt < BUILD_QUIET_MS) return 'remote in use';
       return null;
     }
@@ -9461,6 +9510,7 @@
         sessionStorage.setItem('wodboard-build-tried', _pendingBuild);
       } catch (e) { /* private mode / quota — proceed, but only this once */ }
       console.log('[AUTO-UPDATE] v' + _bootBuild + ' → v' + _pendingBuild + ' · board idle · reloading');
+      carryViewAcrossReload();
       _doReload();
       return true;
     }
@@ -9537,6 +9587,10 @@
 
       // Apply display mode (now runs AFTER data is rendered)
       setDisplayMode(displayMode);
+
+      // An auto-update reload carried the view across — put it back BEFORE the
+      // baseline is captured (first startApp only; key r / 8 re-run startApp).
+      if (!_autoUpdateStarted) restoreCarriedView();
 
       // LAST: the board is now in exactly the state a reload would reproduce,
       // which is the baseline the auto-update gate compares against.

@@ -131,6 +131,16 @@ All three are asserted in `timer-nav.mjs`:
 exactly like a gate that works**, which is why the positive case is tested too,
 via the `_doReload` indirection.
 
+**2026-10-12: "update automatically in centered mode too, as long as no clock runs" (Noam).** The view no longer blocks the update. It is **carried across the reload** instead:
+- `carryViewAcrossReload()` saves `displayMode`, the section, the part and the centring to `sessionStorage['wodboard-carry-view']` right before the auto-update reload.
+- `restoreCarriedView()` puts them back at the end of the first `startApp()`, **before** the baseline is captured.
+- A part the new sheet no longer has falls back to the whole board. Nothing is invented.
+- A note older than 2 min is ignored.
+- A stale finish shown in `timer` mode goes back to the board, not to the dead clock.
+- 🔄 and key 7 carry nothing: they are a deliberate fresh start.
+- What still blocks: any clock, an open overlay, the remote touched in the last 60 s. If `sessionStorage` is unavailable, the old view checks apply again.
+- Asserted in `timer-nav.mjs` (the carry and restore cases). Verified once end-to-end with a real `location.reload()`.
+
 ## Target Environment
 
 ### TV (index.html)

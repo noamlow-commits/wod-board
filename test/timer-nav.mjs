@@ -276,10 +276,6 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
     ['a FINISHED clock still on screen', `configureTimer('amrap',{totalSeconds:720}); timerState='finished'`],
     ['the settings modal open', `document.getElementById('settingsModal').classList.add('open')`],
     ['the timer-setup overlay open', `document.getElementById('timerSetupOverlay').classList.add('open')`],
-    ['a non-default display mode', `displayMode = 'pr'`],
-    ['a section filter applied', `sectionFilter = null`],
-    ['a part focused', `partFocusIndex = 1`],
-    ['center-focus on', `centerFocus = true`],
     ['someone touching the remote', `_lastInteractionAt = Date.now()`],
   ]) {
     await page.evaluate(arm);
@@ -289,6 +285,27 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
     const reloads = await page.evaluate('window.__reloads');
     ok(`does NOT reload with ${name}`, idle === false && fired === false && reloads === 0);
   }
+
+  // ⭐ 2026-10-12 (Noam: "update automatically in centered mode too, as long
+  // as no clock runs"). A view that differs from the boot view NO LONGER
+  // blocks — the reload carries it across. These four were negatives until
+  // today; each must now reload AND leave the carried view behind.
+  for (const [name, setup, check] of [
+    ['center-focus on a part', `partFocusIndex = 1; centerFocus = true`, v => v.partFocusIndex === 1 && v.centerFocus === true],
+    ['a part focused, not centred', `partFocusIndex = 1`, v => v.partFocusIndex === 1 && v.centerFocus === false],
+    ['a section filter', `sectionFilter = null`, v => v.sectionFilter === null],
+    ['a non-default display mode', `displayMode = 'pr'`, v => v.displayMode === 'pr'],
+  ]) {
+    await page.evaluate(arm);
+    await page.evaluate(`(() => { sessionStorage.removeItem('wodboard-carry-view'); ${setup}; })()`);
+    const fired = await page.evaluate('applyPendingBuild()');
+    const carried = await page.evaluate(`JSON.parse(sessionStorage.getItem('wodboard-carry-view') || 'null')`);
+    ok(`DOES reload with ${name} — and carries the view across`, fired === true && !!carried && check(carried), JSON.stringify({ fired, carried }));
+  }
+  // …but a clock still blocks, centred or not.
+  await page.evaluate(arm);
+  await page.evaluate(`(() => { partFocusIndex = 1; centerFocus = true; configureTimer('amrap',{totalSeconds:720}); timerState='running'; })()`);
+  ok('does NOT reload centred with a RUNNING clock', (await page.evaluate('applyPendingBuild()')) === false);
 
   // No baseline ⇒ no reload. The gate fails CLOSED, which is what makes it safe
   // to leave the capture inside startApp rather than hardcode the defaults.
@@ -318,8 +335,8 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
     ['…and shown in timer mode (a phone start switches to it)', `${finishedAgo(16)}; displayMode = 'timer'`, true],
     ['a clock finished only 5 min ago', finishedAgo(5), false],
     ['finished 16 min ago but the remote was touched 2 min ago', `${finishedAgo(16)}; _lastInteractionAt = Date.now() - 120000`, false],
-    ['finished 16 min ago but a section filter is applied', `${finishedAgo(16)}; sectionFilter = null`, false],
-    ['finished 16 min ago but a part is focused', `${finishedAgo(16)}; partFocusIndex = 1`, false],
+    ['finished 16 min ago with a section filter (carried across since 2026-10-12)', `${finishedAgo(16)}; sectionFilter = null`, true],
+    ['finished 16 min ago with a part focused (carried across)', `${finishedAgo(16)}; partFocusIndex = 1`, true],
   ]) {
     await page.evaluate(arm);
     await page.evaluate(`(() => { ${setup}; })()`);
@@ -330,9 +347,9 @@ console.log('\nAuto-update reloads only when a reload would be INVISIBLE');
   // (ב) The gate says WHY it is waiting — the reason is stored and shown, so
   // "it did not update" can be read off the wall instead of guessed at.
   await page.evaluate(arm);
-  await page.evaluate(`(() => { sectionFilter = null; applyPendingBuild(); })()`);
+  await page.evaluate(`(() => { _lastInteractionAt = Date.now(); applyPendingBuild(); })()`);
   const st = await page.evaluate(`(() => { try { return JSON.parse(localStorage.getItem('wodboard-update-state') || 'null'); } catch (e) { return null; } })()`);
-  ok('a blocked update records its reason', !!st && st.pending === '2' && /filter/i.test(st.blockedBy || ''), JSON.stringify(st));
+  ok('a blocked update records its reason', !!st && st.pending === '2' && /remote/i.test(st.blockedBy || ''), JSON.stringify(st));
   const badge = await page.evaluate(`(() => { renderBuildBadge(); return (document.getElementById('buildBadge') || {}).textContent || ''; })()`);
   ok('the running version is visible on the board (and a pending one)', /v1/.test(badge) && /v2/.test(badge), JSON.stringify(badge));
 
@@ -589,6 +606,64 @@ console.log('\nA stale remote timer command is not replayed on load');
   ok('fixed buttons: the clock\'s ⏹ עצור sits in ONE place for AMRAP, 3-2-1, interval, paused and finished', stopSeen.size === 1, [...stopSeen].join(' | '));
   ok('fixed buttons: ⏭ הבא appears in place (no neighbour moves when it shows)', skipSeen.size === 1, [...skipSeen].join(' | '));
   await p2.close();
+}
+
+// ── The carried view comes BACK after the reload (2026-10-12) ──
+// carry → (reload) → restoreCarriedView on a real render: the centred stage,
+// the section and the part are what the class sees again; a part the new
+// sheet no longer has is not invented; a stale finish in 'timer' mode is not
+// carried; an old note is ignored; and 🔄 (manual) carries nothing.
+{
+  const p3 = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+  await p3.addInitScript(() => localStorage.setItem('wodboard-gym-pin', '1986'));
+  await p3.route('**/*', r => (r.request().url().startsWith('file:') ? r.continue() : r.abort()));
+  await p3.goto(INDEX);
+  await p3.waitForFunction('typeof renderWorkout === "function"');
+  const render = `renderWorkout(parseAppsScriptData([['', '1', '2', '3'],
+      ['WOD', 'warm up: 7 MIN\\n10 air squat', 'every 2:30 x 5\\n5 back squat', 'for time\\n7 rft:\\n8 thrusters'],
+      ['CARDIO', 'tabata\\nair squat', 'amrap 18\\n20 burpee', 'cash out\\n20 sit ups']]));`;
+  const fresh = `(() => { ${render} displayMode = 'wod'; setDisplayMode('wod'); sectionFilter = null; applySectionFilter(); partFocusIndex = null; centerFocus = false; applyPartFocus(); applyCenterFocus(); })()`;
+  const state = `({ displayMode, sectionFilter, partFocusIndex, centerFocus,
+      overlayOpen: document.getElementById('tvCenterOverlay').classList.contains('open') })`;
+
+  await p3.evaluate(fresh);
+  await p3.evaluate(`(() => { setTvSection('WOD'); navigatePart(1); navigatePart(1); })()`);
+  await p3.waitForTimeout(300);
+  const before = await p3.evaluate(state);
+  await p3.evaluate('carryViewAcrossReload()');
+  await p3.evaluate(fresh);                                  // what a reload produces
+  const restored = await p3.evaluate('restoreCarriedView()');
+  await p3.waitForTimeout(300);
+  const after = await p3.evaluate(state);
+  ok('carried view: centred part 2 of WOD comes back after the reload',
+     before.centerFocus === true && before.partFocusIndex === 1 && before.overlayOpen
+     && after.sectionFilter === 'WOD' && after.partFocusIndex === 1 && after.centerFocus === true && after.overlayOpen
+     && !!restored, JSON.stringify({ before, after }));
+  ok('carried view: read once, then gone', (await p3.evaluate(`sessionStorage.getItem('wodboard-carry-view')`)) === null);
+
+  // A part the new sheet no longer has → the whole board, not an invented part.
+  await p3.evaluate(`sessionStorage.setItem('wodboard-carry-view', JSON.stringify({ displayMode: 'wod', sectionFilter: 'WOD', partFocusIndex: 7, centerFocus: true, at: Date.now() }))`);
+  await p3.evaluate(fresh); await p3.evaluate('restoreCarriedView()');
+  const gone = await p3.evaluate(state);
+  ok('carried view: a part that no longer exists falls back to the whole board', gone.partFocusIndex === null && gone.centerFocus === false && !gone.overlayOpen, JSON.stringify(gone));
+
+  // An old note (a reload that happened long ago) is ignored.
+  await p3.evaluate(`sessionStorage.setItem('wodboard-carry-view', JSON.stringify({ displayMode: 'wod', sectionFilter: 'WOD', partFocusIndex: 1, centerFocus: true, at: Date.now() - 10 * 60000 }))`);
+  await p3.evaluate(fresh);
+  ok('carried view: a stale note is ignored', (await p3.evaluate('restoreCarriedView()')) === null && (await p3.evaluate('partFocusIndex')) === null);
+
+  // A stale finish shown in timer mode: the reload clears it — 'timer' is not carried.
+  await p3.evaluate(`(() => { _bootView = { displayMode: 'wod', sectionFilter: null, partFocusIndex: null, centerFocus: false };
+      configureTimer('amrap',{totalSeconds:720}); timerState = 'finished'; timerFinishedAt = Date.now() - 16 * 60000; _lastInteractionAt = 0;
+      displayMode = 'timer'; carryViewAcrossReload(); resetTimer(); })()`);
+  const tm = await p3.evaluate(`JSON.parse(sessionStorage.getItem('wodboard-carry-view') || 'null')`);
+  ok('carried view: a stale finish in timer mode goes back to the board, not to the dead clock', tm && tm.displayMode === 'wod', JSON.stringify(tm));
+  await p3.evaluate(`sessionStorage.removeItem('wodboard-carry-view')`);
+
+  // 🔄 is a deliberate fresh start: it carries nothing.
+  await p3.evaluate(`(() => { _doReload = () => {}; partFocusIndex = 1; centerFocus = true; document.getElementById('reloadBtn').click(); })()`);
+  ok('🔄 (manual reload) carries no view', (await p3.evaluate(`sessionStorage.getItem('wodboard-carry-view')`)) === null);
+  await p3.close();
 }
 
 await browser.close();
