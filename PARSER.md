@@ -9,6 +9,8 @@ Regression-tested by `test/verify-board.mjs` (see `test/README.md`).
 
 ## Layout System (index.html)
 
+**Column labels are her column numbers. Never renumber them (fixed 2026-10-12).** The coach reported that what she wrote in column 3 showed up in column 2. `renderWorkout` renumbered numeric headers 1,2,3… to close gaps, so in a row with column 2 empty, column 3's work went under "2". Each block now shows the header it was written under, and an empty column is simply absent. Asserted in verify-board's layout pass ("column labels", 4 cases; all fail on the old code).
+
 ### Newspaper Flow
 Content flows in flex columns. Smart column breaks prefer section headers at top of columns.
 Spanning headers: when a section spills into multiple columns, its header spans all those columns.
