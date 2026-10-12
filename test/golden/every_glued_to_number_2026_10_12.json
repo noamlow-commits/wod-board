@@ -1,0 +1,66 @@
+{
+  "data": {
+    "headers": [
+      "2",
+      "3",
+      "4"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "Strength:",
+              "Back Squat",
+              "__SPACER__",
+              "every2:30 x 5",
+              "5 reps",
+              "70–78%"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "every2:30 x5"
+            ]
+          },
+          {
+            "header": "4",
+            "lines": [
+              "everyone 2:30 x 5 push ups"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": [
+        {
+          "label": "Every 2:30 ×5 (13′)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "3",
+      "timers": [
+        {
+          "label": "Every 2:30 ×5 (13′)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "4",
+      "timers": []
+    }
+  ]
+}

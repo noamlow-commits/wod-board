@@ -2568,6 +2568,9 @@
     //   coach actually typed. The golden fixture evey_typo_explicit_rounds
     //   catches exactly that inversion.
     const EVERY_WORD = 'ev(?:er|re|e|r)y';
+    // Every caller writes its tail with `\\s*`, not `\\s+`: she glues the number
+    // to the word ("every2:30 x 5", WOD 2026-10-12 — the strength block got no
+    // clock). The tail still has to START with a number, so "everyone" is safe.
     const everyRe = (tail, flags) => new RegExp(`\\b${EVERY_WORD}${tail}`, flags);
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -2939,7 +2942,7 @@
         if (em) { if (pushPhase(classified, { type:'work', seconds:em.total, intervalSeconds:em.interval,
                                               label: em.mmss ? `EMOM ${fmtDur(em.interval)} ×${em.rounds}` : `EMOM ${fmtDur(em.total)}` })) continue; }
         // WORK: every X:XX ×N
-        wm = line.match(everyRe('\\s+(\\d+):(\\d{2})\\s*[x×*]\\s*(\\d+)', 'i'));
+        wm = line.match(everyRe('\\s*(\\d+):(\\d{2})\\s*[x×*]\\s*(\\d+)', 'i'));
         if (wm) { const iv=parseInt(wm[1])*60+parseInt(wm[2]); if (pushPhase(classified, { type:'work', seconds:iv*parseInt(wm[3]), intervalSeconds:iv, label:`Every ${wm[1]}:${wm[2]} ×${wm[3]}` })) continue; }
         // WORK: every N min ×M — the same block with a UNIT instead of M:SS
         // (CARDIO 2, 2026-10-04: `every 6 minx 3 sets (18 min)` / `2:00 min rest`
@@ -2947,7 +2950,7 @@
         // became a phase and the cell could not chain — two clocks, started by
         // hand, for a sequence Noam reads as one. The x may touch the unit
         // ("minx", her spelling); the count must be written.
-        wm = line.match(everyRe(`\\s+(${DUR_NUM})\\s*(min(?:ute)?s?|sec(?:ond)?s?)\\s*[x×*]\\s*(\\d+)`, 'i'));
+        wm = line.match(everyRe(`\\s*(${DUR_NUM})\\s*(min(?:ute)?s?|sec(?:ond)?s?)\\s*[x×*]\\s*(\\d+)`, 'i'));
         if (wm) { const iv = /^sec/i.test(wm[2]) ? secsToSec(wm[1]) : minsToSec(wm[1]);
                   if (iv >= 10 && pushPhase(classified, { type:'work', seconds:iv*parseInt(wm[3]), intervalSeconds:iv, label:`Every ${fmtDur(iv)} ×${wm[3]}` })) continue; }
         // WORK: "N min work" / "N minute(s) work" — bare time block (no AMRAP/EMOM keyword)
@@ -3645,7 +3648,7 @@
       if (!orphanCap) return hints;
       // Rule 2 — exactly one capless work block (For-Time keyword or a bare
       // "every X:XX", in lines or header) may receive the orphaned cap.
-      const everyBare = everyRe('\\s+\\d+:\\d{2}', 'i');
+      const everyBare = everyRe('\\s*\\d+:\\d{2}', 'i');
       const recipients = [];
       for (let i = 0; i < cells.length; i++) {
         if (cellCap(cells[i])) continue; // has its own cap → not a recipient
@@ -4211,7 +4214,7 @@
         // don't "fix" the asymmetry again without asking her.
         //
         // A written total still wins (no-invented-timer-values).
-        const everyExpRe = everyRe('\\s+(\\d+):(\\d{2})\\s*[x×*]\\s*(\\d+)', 'gi');
+        const everyExpRe = everyRe('\\s*(\\d+):(\\d{2})\\s*[x×*]\\s*(\\d+)', 'gi');
         while ((m = everyExpRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
@@ -4236,7 +4239,7 @@
         // "every" is PACING under the cap: one timer whose TOTAL is the cap,
         // interval kept for the beeps — the final partial interval is expected.
         // No cap either → no timer.
-        const everyImpRe = everyRe('\\s+(\\d+):(\\d{2})', 'gi');
+        const everyImpRe = everyRe('\\s*(\\d+):(\\d{2})', 'gi');
         while ((m = everyImpRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
@@ -7113,7 +7116,7 @@
       const isInstruction = (!isDescriptiveList && /\b(EMOM|EMOTM|OTM|AMRAP|FOR TIME|TIME CAP|E\d*MOM[x×]?|TABATA|TBATA|METCON|RFT|YGIG)\b/i.test(text))
         || /\be\s*\d+:\d{2}\s*mom\b/i.test(text)
         || /^\d+\s*(rounds?|min(?:ute)?s?|sec(?:ond)?s?|sets?)\b/i.test(text)   // "1 minute rest" / "30 secs" too (step 3)
-        || new RegExp(`^(?:${EVERY_WORD}|each)\\s+\\d`, 'i').test(text)
+        || new RegExp(`^(?:${EVERY_WORD}|each)\\s*\\d`, 'i').test(text)
         || /\brounds?\s*(for time|x\s*\d)/i.test(text)
         || /^stay\s+\d/i.test(text)
         || /\bcomplete\s+\d+\s*rounds?\b/i.test(text)
