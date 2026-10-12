@@ -536,6 +536,12 @@ const FIXTURES = [
     expectTimers: ["1′/1′ ×5", "30″/10″ ×8", "40″/20″ ×6", "30″ ×5 (2:30)"],
     rows: [["", "1", "2", "3", "4"],
            ["", "דקה עבודה דקה מנוחה x5", "8 סבבים: 30 שניות עבודה, 10 שניות מנוחה", "6 סבבים של עבודה 40 שניות מנוחה 20 שניות", "5 סטים, 30 שניות"]] },
+  { name: "every_glued_to_number_2026_10_12",
+    note: "REGRESSION 2026-10-12 (gym TV, WOD part 2): 'every2:30 x 5' — the number glued to the word — got NO clock. Every every-reader required whitespace after the word. Column 2 is the verbatim cell; 3 is the shape alone; 4 is the negative control ('everyone' is not 'every').",
+    expectTimers: ["Every 2:30 ×5 (13′)", "Every 2:30 ×5 (13′)"],
+    ignoreFacts: ["2:30"],   // column 4 only: 'everyone' is the intended miss
+    rows: [["", "2", "3", "4"],
+           ["WOD", "      \nStrength: \nBack Squat \n\nevery2:30 x 5 \n5 reps @ 70–78%\n", "every2:30 x5", "everyone 2:30 x 5 push ups"]] },
   { name: "mss_work_min_rest_2026_10_05",
     note: "REGRESSION 2026-10-05 (gym TV, today's metcon): '2:00 min work, 2 min rest x 4 sets' — M:SS on the work side, 'N min' on the rest side. Both work/rest readers took the '00' after the colon as the number: a 0′/2′ ×4 clock. A side is now M:SS whole or a number + unit, never starting mid-number. Column 3 is the verbatim cell; columns 4-5 are the shape alone and mirrored.",
     expectTimers: ["×4 · 2′ work / 2′ rest", "×4 · 2′ work / 2′ rest", "×3 · 1′ work / 1:30 rest"],
