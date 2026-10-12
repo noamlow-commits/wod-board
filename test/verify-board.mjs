@@ -1037,6 +1037,50 @@ const layoutFails = [];
   }
 }
 
+// ── Column labels are HER column numbers (2026-10-12) ──
+// Reported that week: "what was entered in column 3 showed up in column 2".
+// renderWorkout renumbered numeric headers 1,2,3… to close gaps, so a row with
+// an empty column 2 put column 3's work under "2". Each block must sit under
+// the number of the column it was written in.
+{
+  const page5 = await context.newPage();
+  await page5.goto(INDEX, { waitUntil: "domcontentloaded" });
+  await page5.waitForFunction(() => typeof window.renderWorkout === "function", { timeout: 8000 });
+  const W1 = "7 min warmup\n2 - 3 rounds:\n10 cossack squats\n10 air squats";
+  const W2 = "Strength:\nBack Squat\nevery 2:30 x 5\n5 reps @ 70%";
+  const W3 = "Metcon:\nfor time\n7 rft:\n8 thrusters\n10 ttb";
+  const CASES = [
+    ["column 2 empty", [["b", "", "1", "2", "3"], ["", "WOD", W1, "", W3], ["", "CARDIO", "tabata\nair squat", "amrap 18\n20 burpee", "cash out\n20 sit ups"]],
+      { WOD: [["1", "7 min warmup"], ["3", "Metcon:"]], CARDIO: [["1", "tabata"], ["2", "amrap"], ["3", "CASHOUT"]] }],
+    ["column 2 only spaces", [["b", "", "1", "2", "3"], ["", "WOD", W1, "   ", W3]],
+      { WOD: [["1", "7 min warmup"], ["3", "Metcon:"]] }],
+    ["column 1 empty", [["b", "", "1", "2", "3"], ["", "WOD", "", W2, W3]],
+      { WOD: [["2", "Strength:"], ["3", "Metcon:"]] }],
+    ["CARDIO column 2 empty under a full WOD", [["b", "", "1", "2", "3"], ["", "WOD", W1, W2, W3], ["", "CARDIO", "tabata\nair squat", "", "cash out\n20 sit ups"]],
+      { WOD: [["1", "7 min"], ["2", "Strength:"], ["3", "Metcon:"]], CARDIO: [["1", "tabata"], ["3", "CASHOUT"]] }],
+  ];
+  for (const [name, rows, want] of CASES) {
+    const got = await page5.evaluate((rows) => {
+      window.renderWorkout(window.parseAppsScriptData(rows));
+      const out = {};
+      for (const r of document.querySelectorAll("#wodArea .workout-row")) {
+        out[r.dataset.section] = [...r.querySelectorAll(".part-block")].map((b) => {
+          const h = b.querySelector(".flow-section-header");
+          const first = [...b.querySelectorAll(".exercise-line")].map((e) => (e.textContent || "").trim()).find(Boolean) || "";
+          return [h ? h.textContent.trim() : "", first];
+        });
+      }
+      return out;
+    }, rows);
+    for (const [sec, blocks] of Object.entries(want)) {
+      const g = got[sec] || [];
+      const ok = g.length === blocks.length && blocks.every(([hd, starts], i) => g[i] && g[i][0] === hd && g[i][1].startsWith(starts));
+      if (!ok) layoutFails.push(`column labels (${name}) ${sec}: want ${JSON.stringify(blocks)} got ${JSON.stringify(g)}`);
+    }
+  }
+  await page5.close();
+}
+
 // Detection-branch coverage, accumulated across every fixture.
 const PATH_IDS = new Set();
 const INVENTED = [];

@@ -7308,8 +7308,11 @@
 
         if (useFlowLayout) {
           // Build one continuous list of items with section ownership
-          // Renumber numeric headers sequentially (1,2,3...) to avoid gaps (e.g., "1","3" → "1","2")
-          let seqNum = 0;
+          // ⛔ NO renumbering (2026-10-12, reported by the coach that week: "what I
+          // wrote in column 3 showed up in column 2"). Numeric headers used to
+          // be renumbered 1,2,3… to close gaps, so a row with column 2 empty put
+          // column 3's work under "2". The column number is HER label — the
+          // athletes read "3" on the sheet and on the wall. Show it as written.
           const allItems = [];
           let currentSection = '';
           const cellTimerConfigs = {}; // map section → extracted timer config
@@ -7356,8 +7359,7 @@
             if (isUntitledWarmup) {
               allItems.push({ type: 'header', section: currentSection, html: 'WARM UP', isWarmupHeader: true });
             } else if (isNumericHeader) {
-              seqNum++;
-              allItems.push({ type: 'header', section: currentSection, html: escapeHtml(promotedTitle || String(seqNum)) });
+              allItems.push({ type: 'header', section: currentSection, html: escapeHtml(promotedTitle || cell.header) });
             } else {
               allItems.push({ type: 'header', section: currentSection, html: escapeHtml(promotedTitle || cell.header) });
             }
