@@ -3991,9 +3991,19 @@
         const rounds = sane(derivedRounds) ? derivedRounds
                      : sane(writtenRounds) ? writtenRounds : 0;
         if (rounds) {
+          // The work blocks ARE written AMRAPs (2026-10-16, Noam: end with the
+          // last AMRAP): "10 min work,1:30 restx3" over three "Amrap 10" —
+          // exactly one AMRAP of the work length per round. Then this is the
+          // same workout as "Amrap 10 / 1:30 rest / Amrap 10 / …", which the
+          // timeline chain already ends on the last AMRAP (skipLastRest) — the
+          // two spellings must give the same clock (33:00, not 34:30). A plain
+          // interval ("2 min work, 2 min rest x 4") keeps its written last rest.
+          const amrapRe = amrapLenRe('', 'i');
+          const amrapsOfWorkLen = lines.filter(l => { const m = (l || '').match(amrapRe); return m && amrapLenSeconds(m) === workSec; }).length;
+          const endsOnLastAmrap = amrapsOfWorkLen === rounds;
           results.push({
             type: 'tabata', workSeconds: workSec, restSeconds: restSec,
-            rounds, skipLastRest: false,
+            rounds, skipLastRest: endsOnLastAmrap,
             label: `×${rounds} · ${fmtDur(workSec)} work / ${fmtDur(restSec)} rest`
           });
           return blockClocksFirst(results); // the interval line is the timer for this block
