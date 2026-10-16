@@ -1,0 +1,84 @@
+{
+  "data": {
+    "headers": [
+      "2",
+      "3",
+      "4"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "Teams of 2:",
+              "10 min work,1:30 restx3",
+              "__SPACER__",
+              "‏Amrap 10,",
+              "30 m farmer carry",
+              "20 m s. Run",
+              "5 kb’s push up",
+              "__SPACER__",
+              "Amrap 10:",
+              "Partner 1:  sandbag hold",
+              "Partner 2: complex sandbag",
+              "2 Sandbag clean over the shoulder",
+              "3 squat",
+              "__SPACER__",
+              "Amrap 10:",
+              "20 cal row",
+              "5 db’s burpee box step up"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "10 min work,1:30 restx3",
+              "burpee"
+            ]
+          },
+          {
+            "header": "4",
+            "lines": [
+              "30 work 10 rest x8",
+              "burpee"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": [
+        {
+          "label": "×3 · 10′ work / 1:30 rest",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "3",
+      "timers": [
+        {
+          "label": "×3 · 10′ work / 1:30 rest",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "4",
+      "timers": [
+        {
+          "label": "30″/10″ ×8",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}
