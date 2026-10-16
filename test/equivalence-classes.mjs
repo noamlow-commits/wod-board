@@ -40,7 +40,9 @@ add("emom10", "EMOM 10 (1:00 x 10)", { type: "emom", interval: 60, total: 600 },
   ].map(v => v + "\n5 pull ups\n10 push ups"));
 add("e90x7", "Every 1:30 x 7 (10:30)", { type: "emom", interval: 90, total: 630 },
   ["every 1:30 x 7", "every 1:30 x7", "Every 1:30 x 7 rounds", "e 1:30 x 7", "E1:30MOM x7", "e1:30mom x 7", "every 90 sec x7", "every 90 seconds x 7",
-   "every 1.5 min x 7", "every 1:30 for 7 rounds", "every 1:30 x 7 sets", "כל 1:30 x7", "כל דקה וחצי x7", "every 1:30 (7 rounds)", "EMOM 1:30 x7", "EMOM 1:30 x 7", "emom 1:30 ×7"
+   "every 1.5 min x 7", "every 1:30 for 7 rounds", "every 1:30 x 7 sets", "כל 1:30 x7", "כל דקה וחצי x7", "every 1:30 (7 rounds)", "EMOM 1:30 x7", "EMOM 1:30 x 7", "emom 1:30 ×7",
+   // Her real spacing (2026-10-12): the number glued to the word.
+   "every1:30 x7", "every1:30 x 7"
   ].map(v => v + "\n5 pull ups\n10 push ups"));
 add("e2mom6", "E2MOM x 6 (12:00)", { type: "emom", interval: 120, total: 720 },
   ["E2MOM x6", "E2MOM 6", "E2MOM x 6 rounds", "E2MOM 12", "E2MOM 12 min", "every 2:00 x6", "every 2 min x 6", "every 2 minutes x 6", "e 2:00 x 6", "evry 2:00 x6", "EVERY 2:00 X 6", "e2mom x 6", "every 2 min for 12 min"
@@ -55,7 +57,9 @@ add("int30_10x8", "Interval 30 work / 10 rest x 8", { type: "tabata", work: 30, 
    "30 seconds work 10 seconds rest x 8\nburpees", "30s work 10s rest x8\nburpees", "30″ work 10″ rest x8\nburpees", "30\" on 10\" off x8\nburpees",
    "8 סבבים: 30 שניות עבודה, 10 שניות מנוחה\nburpees", "30 שניות עבודה 10 שניות מנוחה x8\nburpees", "30 שניות עבודה\n10 שניות מנוחה\nx8\nburpees",
    "עבודה 30 שניות\nמנוחה 10 שניות\n8 סבבים\nburpees", "8 rounds of 30 sec work, 10 sec rest\nburpees", "8 sets of 30 sec on 10 sec off\nburpees",
-   "x8\n30 sec work\n10 sec rest\nburpees", "30 sec work, 10 rest x8\nburpees"]);
+   "x8\n30 sec work\n10 sec rest\nburpees", "30 sec work, 10 rest x8\nburpees",
+   // Her real spacing (2026-10-05/16): no space after the comma, x glued to "rest", M:SS sides.
+   "30 sec work,10 sec rest x8\nburpees", "30 sec work, 10 sec restx8\nburpees", "0:30 work,0:10 restx8\nburpees", "0:30 min work, 10 sec rest x8\nburpees"]);
 add("tabata", "Tabata (20/10 x 8)", { type: "tabata", work: 20, rest: 10, rounds: 8 },
   ["tabata\nburpees", "Tabata\nburpees", "TABATA\nburpees", "tabata 8 rounds\nburpees", "Tabata x8\nburpees", "tbata\nburpees", "tabata burpees",
    "20/10 x8\nburpees", "20 sec work 10 sec rest x8\nburpees", "Tabata 20/10 x8\nburpees", "Tabata 4 min\nburpees", "טבטה\nburpees"]);
@@ -63,7 +67,8 @@ add("int3_1x5", "3 min run / 1 min rest x 5", { type: "tabata", work: 180, rest:
   ["5 sets\n3 min run\n1 min rest", "5 סבבים\n3 דקות ריצה\nדקה מנוחה", "5 סטים\n3 דקות ריצה\n1 דקה מנוחה", "x5\n3 min run\n1 min rest",
    "5 rounds\n3 min run\n1 min rest", "5 sets:\n3 min run\n1 min rest", "5 x 3 min run / 1 min rest", "3 min run / 1 min rest x5",
    "3 min run, 1 min rest x 5", "5 sets\n3:00 run\n1:00 rest", "5 sets\n3 min run\nrest 1 min", "5 sets\n3 mins run\n1 min rest",
-   "3 min on 1 min off x5\nrun", "5 rounds:\n3 min run\n1:00 rest", "3 min work 1 min rest x5\nrun", "5 סבבים:\n3 דקות ריצה\n1 דקה מנוחה"]);
+   "3 min on 1 min off x5\nrun", "5 rounds:\n3 min run\n1:00 rest", "3 min work 1 min rest x5\nrun", "5 סבבים:\n3 דקות ריצה\n1 דקה מנוחה",
+   "3 min work,1 min rest x5\nrun", "3:00 min work, 1 min rest x5\nrun", "3 min work,1:00 restx5\nrun"]);
 
 // ── Sets-interval 30" x5 ──
 add("sets30x5", "Sets interval 30 sec x 5 (no rest)", { type: "emom", interval: 30, total: 150 },
@@ -118,6 +123,16 @@ add("parts_fortime_next", "For Time parts TC 8 + TC 6 (next line)", { type: "for
   PL.slice(0, 9).map(([a, b]) => partsF(a, b, false)));
 
 // ── Decimals and units in three seats: AMRAP length, activity rest, standalone block ──
+// ── Work/rest ×3 over three written AMRAP 10 (WOD 2026-10-16) ──
+// ONE workout, two spellings: the spec line over K AMRAPs, or the AMRAPs with
+// the rests written between them. Both end on the last AMRAP (33:00). The
+// first variant is her cell as written: no space after the comma, an M:SS
+// rest with no unit, the x glued to "rest", an RLM mark before "Amrap".
+const A3 = (head) => `${head}Amrap 10\n30 m farmer carry\n\nAmrap 10:\n3 squat\n\nAmrap 10:\n20 cal row`;
+add("wr_over_amraps", "10 min work / 1:30 rest x3 over three AMRAP 10 (33:00)", { type: "tabata", work: 600, rest: 90, rounds: 3, total: 1980 },
+  [A3("Teams of 2:\n10 min work,1:30 restx3\n\n\u200f"), A3("10 min work, 1:30 rest x3\n"), A3("10 min work, 1:30 min rest x 3\n"),
+   A3("10 min work,1:30 min rest x3\n"), A3("10:00 work, 1:30 rest x3\n"),
+   "Amrap 10\n30 m farmer carry\n1:30 rest\nAmrap 10\n3 squat\n1:30 rest\nAmrap 10\n20 cal row"]);
 add("dec_amrap", "AMRAP of 2:30", { type: "amrap", total: 150 },
   ["AMRAP 2.5 min", "AMRAP 2,5 min", "AMRAP 2:30", "AMRAP 150 sec", "AMRAP 2.5", "2.5 min AMRAP", "AMRAP 2.5 דקות", "AMRAP 2 וחצי דקות", "AMRAP 2:30 min"].map(v => v + EX));
 add("dec_rest", "3 min run / 1:30 rest x5", { type: "tabata", work: 180, rest: 90, rounds: 5 },
