@@ -556,6 +556,30 @@ console.log('\nA stale remote timer command is not replayed on load');
      && r.d === 'work:45:10/15' && r.e === 'work:60:11/15' && r.f === 'work:60:15/15', JSON.stringify(r));
 }
 
+// ── "N work, M rest ×K" over K written AMRAPs ends on the last AMRAP
+// (Noam, 2026-10-16). Her WOD part 2: "10 min work,1:30 restx3" over three
+// "Amrap 10". Same workout as "Amrap 10 / 1:30 rest / …", which the timeline
+// chain ends on the last AMRAP — so 33:00, not 34:30. A plain interval keeps
+// its written last rest (2′/2′ ×4 = 16:00), and ×3 over only TWO AMRAPs is not
+// that shape (34:30 stays).
+{
+  const r = await page.evaluate(() => {
+    const total = (cell) => { const d = parseAppsScriptData([['', '2'], ['WOD', cell]]); const x = d.rows[0].cells[0];
+      const c = (extractTimerConfigs(x.lines, x.header, 0) || [])[0]; if (!c) return null;
+      configureTimer(c.type, c); const t = getTimerTotalMs() / 1000; timerType = null; timerConfig = {}; timerState = 'idle'; return t; };
+    return {
+      today: total('Teams of 2:\n10 min work,1:30 restx3\n\n‏Amrap 10, \n30 m farmer carry\n\nAmrap 10:\n3 squat\n\nAmrap 10: \n20 cal row'),
+      lines: total('Amrap 10\n30 m farmer carry\n1:30 rest\nAmrap 10\n3 squat\n1:30 rest\nAmrap 10\n20 cal row'),
+      plain: total('2:00 min work, 2 min rest x 4 sets\n5 burpee'),
+      twoOfThree: total('10 min work, 1:30 rest x3\nAmrap 10\n10 burpee\nAmrap 10\n5 pull ups'),
+    };
+  });
+  ok('work/rest ×3 over three AMRAP 10 ends on the last AMRAP: 33:00', r.today === 1980, JSON.stringify(r));
+  ok('…the same clock as the AMRAP / rest / AMRAP spelling', r.today === r.lines, JSON.stringify(r));
+  ok('a plain interval keeps its written last rest (2′/2′ ×4 = 16:00)', r.plain === 960, JSON.stringify(r));
+  ok('×3 over only two AMRAPs is not that shape (34:30 stays)', r.twoOfThree === 2070, JSON.stringify(r));
+}
+
 // ── The buttons stay where they are (coach, 2026-10-11: "the buttons move
 // when you go from screen to screen"). Measured on a real render at 1080p:
 // the bottom nav slid 63px every time a clock appeared or a stage change
