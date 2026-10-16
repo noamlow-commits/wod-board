@@ -70,6 +70,29 @@ Coach freely reorders, adds, and removes columns. Never assume column index.
 - Short single-line cells (≤30 chars) without a named header → section label
 - Long/multi-line cells or cells under named headers → workout content
 
+### Her spacing is not meaning (added 2026-10-16)
+**Four clocks in two weeks were lost to how she types, not to what she means.** Each one showed a wrong clock or none at all:
+
+| date | what she wrote | what the board showed | why |
+|---|---|---|---|
+| 10-05 | `2:00 min work, 2 min rest x 4 sets` | `0′/2′ ×4` | an M:SS side was read from the `00` after the colon |
+| 10-12 | `every2:30 x 5` | no clock | every `every` reader required a space after the word |
+| 10-16 | `10 min work,1:30 restx3` over three `Amrap 10` | 3 separate AMRAPs, no rest | a comma glued to a word was refused (guard meant for the decimal `2,5`); an M:SS side required a unit; `restx3` has no word boundary |
+| 10-16 | the same, once read | 34:30 (a rest after the last AMRAP) | the line spelling did not end the way `AMRAP / rest / AMRAP` already did |
+
+**Rules:**
+- A missing or extra space, a comma with no space after it, an `x` glued to a word, and a number glued to a keyword are **spellings, not meanings**. A reader must accept them or say why not.
+- A guard against one shape (a decimal `2,5`, a mid-number match) must be **as narrow as that shape**. Refuse a comma *between digits*, not every comma.
+- An M:SS value carries its own unit (the colon). A plain number still needs one.
+- Two spellings of one workout must give **the same clock, length included**.
+
+**Process when a clock is wrong on the TV:**
+1. Read her cell **verbatim** from the sheet, including stray marks such as the RLM `\u200f`.
+2. Reproduce it with the real parser.
+3. Add a fixture with the verbatim cell, the shape alone in its cell, and a negative control.
+4. **Add her exact spelling to its class in `test/equivalence-classes.mjs`.** That ratchet is what makes the fix permanent: the 15 spellings added on 10-16 fail 11 times on the code from before these fixes (v166).
+5. Check that the new tests fail on the old code. A test that never fails proves nothing.
+
 ### Data Source — Apps Script, not gviz
 **Do not use the gviz API for workout content.** It returns NULL for some columns (known bug, cause unknown).
 Use the `getWorkoutSheet` Apps Script endpoint which reads via `getDataRange().getValues()`.
