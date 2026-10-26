@@ -173,6 +173,11 @@ via the `_doReload` indirection.
 - `autoFit` binary search (0.4–2.5x scale) runs on every render
 - autoFit needs **two retries** (150ms + 400ms) — flex layout takes time to stabilize
 - `overflow: hidden` on `.card-body` — never `overflow: auto`
+- **Her layout is her blank lines, not our counters (2026-10-26).** "The whole column split in this part isn't logical." A 7-line warm-up was torn across two columns because the column count included the header and the blank lines, so 7 lines read as 9 > 8. Rules:
+  - Every layout count (columns, balance, minimum per side) uses **real content lines** only. Never count the header or spacers.
+  - A short block after her **last blank line** is "after that". It is never packed beside the block before it. If the part really is split, it goes under the columns (`.flow-span-footer`).
+  - Before shipping a layout change, look at a screenshot of **her actual sheet** at 1920×1080, not only at the fixtures.
+  - Asserted in verify-board's layout pass ("warm-up", "closing block").
 - **Buttons never move (2026-10-11, coach).** No control may change the size of a box that positions other controls. Hide with `visibility`, not `display:none`, and reserve the height of lines that are sometimes empty. The bottom nav slid 63px whenever a clock appeared or was cleared. The clock's ⏹ sat at 3 heights. Both are asserted in `timer-nav.mjs` ("fixed buttons").
 
 ### Mobile (score.html, my.html)

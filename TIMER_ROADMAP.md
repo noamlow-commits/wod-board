@@ -164,6 +164,8 @@ Only `t.c 14` / `tc 14` / `14 min tc` are caps today. `time cap 14`, `cap 14`, `
 
 `AMRAP 10 / burpee / 16 min tc` and `every 1:30 x7 / 1# / 2# / t.c 12` **drop the cap** today: it is read only when no other clock exists (`results.length === 0`). Noam doesn't know which reading is right. **Ask:** *when a cap sits in the same cell as another clock, is it a separate clock, or does it cap that block?* The audit plan's step 8 (arbitration) waits on this answer.
 
+**Partly answered 2026-10-26 (Noam), for ONE shape only:** a `For Time` block plus an every/EMOM clock in the same cell, where the written cap **equals** the every clock's total (`Every 2:00 x7` with `Time Cap: 14 minutes`). The For Time is done inside the windows, so the every clock is the only clock. Fixture `fortime_inside_every_window_2026_10_26`. A cap that does not match, or no cap at all, still yields both clocks. The general question is still open.
+
 ### Q10 — `E2MOM 6`: minutes or rounds? 🟡 NEW 2026-10-02, for the coach
 Today `E2MOM N` is read as N total **minutes** (`E2MOM 6` → ×3), and `E2MOM xN` as N **rounds**. The audit's equivalence class wanted ×6 for the bare form. It is listed as SPEC in `test/equivalence-known.mjs` until she answers.
 

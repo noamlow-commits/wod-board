@@ -1,0 +1,112 @@
+{
+  "data": {
+    "headers": [
+      "2",
+      "3",
+      "4",
+      "5"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "for time:",
+              "50 deadlift",
+              "50 burpee",
+              "__SPACER__",
+              "Every 2:00 x7",
+              "8 heavy kbs",
+              "__SPACER__",
+              "Time Cap: 14 minutes"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "for time:",
+              "50 deadlift",
+              "50 burpee",
+              "Every 2:00 x7",
+              "8 heavy kbs",
+              "t.c 14"
+            ]
+          },
+          {
+            "header": "4",
+            "lines": [
+              "for time:",
+              "50 deadlift",
+              "50 burpee",
+              "Every 2:00 x7",
+              "8 heavy kbs"
+            ]
+          },
+          {
+            "header": "5",
+            "lines": [
+              "for time:",
+              "50 deadlift",
+              "50 burpee",
+              "Every 2:00 x7",
+              "8 heavy kbs",
+              "Time Cap: 20 minutes"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": [
+        {
+          "label": "Every 2:00 ×7 (14′)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "3",
+      "timers": [
+        {
+          "label": "Every 2:00 ×7 (14′)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "4",
+      "timers": [
+        {
+          "label": "For Time",
+          "type": "fortime"
+        },
+        {
+          "label": "Every 2:00 ×7 (14′)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "5",
+      "timers": [
+        {
+          "label": "For Time",
+          "type": "fortime"
+        },
+        {
+          "label": "Every 2:00 ×7 (14′)",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}
