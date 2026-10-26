@@ -6828,7 +6828,7 @@
           } else {
             // Content cell — use column header, or fallback to column letter
             // Filter out lines that are bare URLs (e.g. emergency links stored in the sheet)
-            const rawLines = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*(?!\d|bw\b|rpe\b)/i))
+            const rawLines = val.split(/\n/).flatMap(l => l.trim().split(/\s*@(?!\s*(?:\d|bw\b|rpe\b))\s*/i))
               // NOTE: an inline load qualifier ("x 6 reps @75%", "Deadlift @100kg",
               // "@BW", "@RPE8") stays ON its line — the negative lookahead only
               // splits `@` that is NOT introducing a weight/%/RM. Splitting a bare
@@ -7596,7 +7596,14 @@
                 else { if (!inNonGroup) nonGroupRuns++; inNonGroup = true; }
               }
               const independentBlocks = segLetters.size + nonGroupRuns;
-              let numCols = Math.max(1, Math.ceil(colSize / MAX_PER_COL));
+              // Column count from REAL lines (2026-10-26, Noam: "the whole column
+              // split in this part isn't logical"). It was items — the section
+              // header and every blank-line spacer counted as content — so her
+              // 7-line warm-up (header + 2 rounds + 4 exercises + blank + 1)
+              // read as 9 > 8 and tore the round's exercises across two columns.
+              // The same trap the minSide comment below describes, fixed there
+              // and never here.
+              let numCols = Math.max(1, Math.ceil(segReal / MAX_PER_COL));
               // A structured section divides in two on the wide TV even when it
               // would fit in one column.
               if (numCols === 1 && independentBlocks >= 2 && segReal >= 6) numCols = 2;
@@ -9214,7 +9221,7 @@
           if (!label && val.length <= LABEL_MAX_LEN && lineCount === 1 && !isNamedHeader) {
             label = val;
           } else {
-            const rawLines2 = val.split(/\n/).flatMap(l => l.trim().split(/\s*@\s*(?!\d|bw\b|rpe\b)/i))
+            const rawLines2 = val.split(/\n/).flatMap(l => l.trim().split(/\s*@(?!\s*(?:\d|bw\b|rpe\b))\s*/i))
               .flatMap(l => l.split(lineSplitRe()))
               .map(l => l.trim());
             const lines = [];
