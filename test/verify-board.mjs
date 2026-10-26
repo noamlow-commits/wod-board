@@ -1088,6 +1088,35 @@ const layoutFails = [];
   await page5.close();
 }
 
+// ── A closing block after a blank line sits UNDER the part (2026-10-26) ──
+// Her WOD warm-up: "2 rounds" of four exercises, a blank line, "spine
+// mobility". The newspaper split packed that line into column 2 right after
+// the round's exercises — it read as a fifth exercise of the rounds. Now a
+// short block (≤2 lines) closing a multi-column part, after a blank, is drawn
+// across the part below its columns (.flow-span-footer).
+{
+  const page6 = await context.newPage();
+  await page6.goto(INDEX, { waitUntil: "domcontentloaded" });
+  await page6.waitForFunction(() => typeof window.renderWorkout === "function", { timeout: 8000 });
+  const WARM = "warmup \n2 rounds \n10 good morning \n8-8 single leg hip thrust \n6 scapular pullup \n4 strict knees to elbow \n\nspine mobility\n";
+  const footerOf = (rows) => page6.evaluate((rows) => {
+    window.renderWorkout(window.parseAppsScriptData(rows));
+    // A lone cell renders without part-blocks (spread layout) — search the row then.
+    const b = document.querySelector('#wodArea .part-block[data-part-idx="0"]') || document.querySelector("#wodArea .workout-row");
+    const t = (els) => [...els].map((e) => (e.textContent || "").trim()).filter(Boolean);
+    return { footer: t(b.querySelectorAll(".flow-span-footer .exercise-line")), cols: t(b.querySelectorAll(".flow-span-cols .exercise-line")) };
+  }, rows);
+  const today = await footerOf([["b", "", "1", "2", "3"], ["", "WOD", WARM, "\nDeadlift \n\n5-5-5 @ 65%\n3-3-3 @ 75%+\n\nrest: 2-3 min", "for time:\n50 deadlift\n50 burpee\n\nEvery 2:00 x7\n8 heavy kbs\n\n\nTime Cap: 14 minutes"]]);
+  if (JSON.stringify(today.footer) !== JSON.stringify(["spine mobility"]) || today.cols.includes("spine mobility") || !today.cols.some((l) => /strict knees/.test(l)))
+    layoutFails.push(`closing block: "spine mobility" not under the warm-up — ${JSON.stringify(today)}`);
+  // Negative controls: no blank line → nothing lifted; a 3-line closing block is real content, stays in the columns.
+  const noBlank = await footerOf([["b", "", "1", "2"], ["", "WOD", WARM.replace("\n\nspine", "\nspine"), "for time:\n50 burpee"]]);
+  if (noBlank.footer.length) layoutFails.push(`closing block: lifted without a blank line — ${JSON.stringify(noBlank)}`);
+  const three = await footerOf([["b", "", "1", "2"], ["", "WOD", WARM + "cat cow\nthread the needle\n", "for time:\n50 burpee"]]);
+  if (three.footer.length) layoutFails.push(`closing block: a 3-line block was lifted — ${JSON.stringify(three)}`);
+  await page6.close();
+}
+
 // Detection-branch coverage, accumulated across every fixture.
 const PATH_IDS = new Set();
 const INVENTED = [];
