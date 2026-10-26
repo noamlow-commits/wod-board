@@ -9,6 +9,8 @@ Regression-tested by `test/verify-board.mjs` (see `test/README.md`).
 
 ## Layout System (index.html)
 
+**A closing block after a blank line sits under the part (added 2026-10-26).** Her WOD warm-up was `2 rounds`, four exercises, a blank line, then `spine mobility`. The newspaper split packed that last line into column 2, right after the round's exercises, where it read as a fifth exercise of the rounds. The blank line is her "after that". Rule: in a part split into sub-columns, a block of **≤2 real lines** after the **last blank line**, with content before it, is lifted out of the last column into `.flow-span-footer`. The footer runs across the whole part, at the bottom, under a dashed rule. A block of 3+ lines, or one with no blank line before it, stays in the columns. Group and part headers are never lifted. The same rule puts a closing `rest: 2-3 min` or `Time Cap: 14 minutes` along the bottom. Asserted in verify-board's layout pass ("closing block", with 2 negative controls; fails on the old code).
+
 **Column labels are her column numbers. Never renumber them (fixed 2026-10-12).** The coach reported that what she wrote in column 3 showed up in column 2. `renderWorkout` renumbered numeric headers 1,2,3… to close gaps, so in a row with column 2 empty, column 3's work went under "2". Each block now shows the header it was written under, and an empty column is simply absent. Asserted in verify-board's layout pass ("column labels", 4 cases; all fail on the old code).
 
 ### Newspaper Flow

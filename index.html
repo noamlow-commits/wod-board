@@ -476,6 +476,14 @@
     .flow-span-cols > .flow-col {
       flex: 1;
     }
+    /* A closing block written after a blank line sits UNDER the part's columns,
+       across its full width (2026-10-26: "spine mobility" after the warm-up rounds). */
+    .flow-span-footer {
+      flex: 0 0 auto;
+      margin-top: 0.5rem;
+      padding-top: 0.35rem;
+      border-top: 1px dashed rgba(255,255,255,0.18);
+    }
     .flow-section-header {
       font-size: calc(1.2rem * var(--font-scale));
       font-weight: 900;
@@ -7694,14 +7702,42 @@
             const sizeStyle = `flex: 0 0 ${widthPct}%; max-width: ${widthPct}%;`;
 
             if (group.spanCount > 1) {
-              const firstColContent = col.items.slice(1);
-              let innerCols = `<div class="flow-col">${firstColContent.map(it => it.html).join('')}</div>`;
-              for (let j = group.startIdx + 1; j < group.spanEnd; j++) {
-                innerCols += `<div class="flow-col">${columns[j].items.map(it => it.html).join('')}</div>`;
+              // ── A closing block goes UNDER the columns (2026-10-26, Noam) ──
+              // Her WOD warm-up: "2 rounds" of four exercises, a blank line,
+              // then "spine mobility". The newspaper split packed that last line
+              // into column 2 right after the round's exercises, where it read
+              // as a fifth exercise of the rounds. The blank line is her "after
+              // that": a short block (≤2 real lines) that closes the section,
+              // after a blank, with real content before it, is lifted out of the
+              // last column and drawn across the whole part, below everything.
+              const colItemsOf = j => (j === group.startIdx ? col.items.slice(1) : columns[j].items);
+              const lastJ = group.spanEnd - 1;
+              let footerItems = [];
+              {
+                const last = colItemsOf(lastJ);
+                let sp = -1;
+                for (let k = last.length - 1; k >= 0; k--) if (last[k].type === 'line' && last[k].isSpacer) { sp = k; break; }
+                if (sp >= 0) {
+                  const tail = last.slice(sp + 1);
+                  const tailReal = tail.filter(it => it.type === 'line' && !it.isSpacer);
+                  const before = last.slice(0, sp).filter(it => it.type === 'line' && !it.isSpacer).length;
+                  if (tailReal.length >= 1 && tailReal.length <= 2 && tail.every(it => it.type === 'line')
+                      && !tail.some(it => it.isGroupHeader || it.isPartHeader) && before >= 1) {
+                    footerItems = tail;
+                    columns[lastJ] = { ...columns[lastJ], items: lastJ === group.startIdx ? [col.items[0], ...last.slice(0, sp)] : last.slice(0, sp) };
+                  }
+                }
               }
+              let innerCols = '';
+              for (let j = group.startIdx; j < group.spanEnd; j++) {
+                const items = j === group.startIdx ? columns[j].items.slice(1) : columns[j].items;
+                innerCols += `<div class="flow-col">${items.map(it => it.html).join('')}</div>`;
+              }
+              const footerHTML = footerItems.length
+                ? `<div class="flow-span-footer">${footerItems.map(it => it.html).join('')}</div>` : '';
               colsHTML += `<div class="flow-span part-block" ${partAttr} style="${sizeStyle}">
                 <div class="flow-section-header ${headerTheme}">${headerItem.html}</div>
-                <div class="flow-span-cols">${innerCols}</div>
+                <div class="flow-span-cols">${innerCols}</div>${footerHTML}
               </div>`;
             } else {
               const content = col.items.slice(1);
