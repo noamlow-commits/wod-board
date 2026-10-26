@@ -5194,6 +5194,28 @@
           out.push({ type: 'fortime', capSeconds: cap, label: `TC ${Math.floor(cap / 60)}′` });
         }
       }
+
+      // ── A For Time done INSIDE an every/EMOM window (2026-10-26, Noam) ──
+      // Her WOD part 3: "for time: 50 deadlift 50 burpee" · "Every 2:00 x7 /
+      // 8 heavy kbs" · "Time Cap: 14 minutes". The board offered TWO clocks —
+      // a bare For Time and Every 2:00 ×7. Noam: the work is done inside the
+      // 2-minute windows; "2×7 is the only relevant clock". The proof is
+      // WRITTEN, not guessed: the cell's time cap (14) equals the every
+      // clock's total (2:00 × 7 = 14:00) exactly. Then the For Time is the
+      // task, not a second clock. Different numbers, or no cap at all, keep
+      // both clocks (coach Q2 is still open for the general case).
+      {
+        const capLine = (lines || []).map(l => String(l || '')).map(l =>
+          l.match(/^\s*(?:time\s*cap|t\.?\s*c\.?|cap)\s*[:\-–]?\s*(\d+(?:[.,]\d+)?)\s*(?:min(?:ute)?s?|דקות|['′])?\s*\.?\s*$/i)
+          || l.match(/^\s*(\d+(?:[.,]\d+)?)\s*(?:min(?:ute)?s?|דקות|['′])?\s*(?:time\s*cap|t\.?\s*c\.?|cap)\s*\.?\s*$/i)).find(Boolean);
+        const capSec = capLine ? Math.round(parseFloat(capLine[1].replace(',', '.')) * 60) : 0;
+        const fts = out.filter(c => c.type === 'fortime');
+        const evs = out.filter(c => c.type === 'emom' && (c.totalSeconds || (c.intervalSeconds || 0) * (c.rounds || 0)) === capSec);
+        if (capSec > 0 && fts.length === 1 && evs.length === 1
+            && (!fts[0].capSeconds || fts[0].capSeconds === capSec)) {
+          out = out.filter(c => c !== fts[0]);
+        }
+      }
       return out;
     }
 
