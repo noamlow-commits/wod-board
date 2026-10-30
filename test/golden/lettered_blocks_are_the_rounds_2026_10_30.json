@@ -1,0 +1,85 @@
+{
+  "data": {
+    "headers": [
+      "2",
+      "3",
+      "4"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "teams of 2:",
+              "15 min work, 2 min rest",
+              "A- buy in 1000 m run sync",
+              "and then- amrap",
+              "I GO U GO BY ROUND",
+              "6 sb clean",
+              "6 sb lunge steps",
+              "__SPACER__",
+              "B- buy in:",
+              "1000 m row- for each/ 2500 bike",
+              "I GO U GO BY ROUND",
+              "5 kip pull ups / ring row 5m hsw/",
+              "3 weighted push up / 5 push up"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "4 min work, 1 min rest",
+              "A. 10 burpee",
+              "10 squat",
+              "B. 400 m run",
+              "C. 20 wall ball"
+            ]
+          },
+          {
+            "header": "4",
+            "lines": [
+              "3 min work, 1 min rest",
+              "10 burpee",
+              "10 squat",
+              "20 wall ball"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": [
+        {
+          "label": "15′/2′ ×2",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "3",
+      "timers": [
+        {
+          "label": "4′/1′ ×3",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "4",
+      "timers": [
+        {
+          "label": "3′ work",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}

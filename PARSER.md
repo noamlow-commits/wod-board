@@ -9,6 +9,8 @@ Regression-tested by `test/verify-board.mjs` (see `test/README.md`).
 
 ## Layout System (index.html)
 
+**Work/rest with no written count: letters, then stations, never a guess (2026-10-30, Noam).** In order: a written `×N` / `N rounds` / `N sets of`, then a written total ÷ cycle, then **lettered blocks** (`A-`, `B.`, `C)` …, distinct and in order from A; the clock ends on the last block, `skipLastRest`), then **numbered stations** (`1#`, `#2`, `3.`, one interval per station). The old fallbacks (the count of any line starting with a digit, then `5`) are deleted: they turned `15 min work, 2 min rest` over A/B into an 85-minute clock. With none of the four present, the on/off path gives no clock.
+
 **A For Time inside an every window is not a second clock (2026-10-26, Noam).** The cell had `for time: 50 deadlift 50 burpee`, then `Every 2:00 x7 / 8 heavy kbs`, then `Time Cap: 14 minutes`. The board showed two clocks. Rule: when the cell's written cap equals the total of its every/EMOM clock (14 = 2:00 × 7), the single `fortime` is dropped, and the every clock is the one clock. No match, or no cap, means nothing is dropped (TIMER_ROADMAP Q9 stays open). This runs at the end of `extractTimerConfigs`.
 
 **The column COUNT comes from real lines, not items (fixed 2026-10-26, Noam: "the column split in this part isn't logical").** `numCols` was `ceil(colSize / MAX_PER_COL)`, where `colSize` counts the section header and every blank-line spacer. Her 7-line warm-up (2 rounds, 4 exercises, a blank, `spine mobility`) read as 9 > 8, and the round's exercises were torn across two columns. It is now `ceil(segReal / MAX_PER_COL)`. The `minSide` floor had already been fixed for this trap; the count had not. Asserted in verify-board's layout pass ("warm-up").
