@@ -94,6 +94,9 @@ Coach freely reorders, adds, and removes columns. Never assume column index.
 4. **Add her exact spelling to its class in `test/equivalence-classes.mjs`.** That ratchet is what makes the fix permanent: the 15 spellings added on 10-16 fail 11 times on the code from before these fixes (v166).
 5. Check that the new tests fail on the old code. A test that never fails proves nothing.
 
+### Never a guessed number (2026-10-30)
+A count, a length or a cap on the wall must be one **she wrote**, or one her **written structure** gives (lettered blocks A/B/C, numbered stations 1#/2#, a written total). Never a default, and never "the number of lines". The last guess (`exerciseLines.length || 5`) put an 85-minute clock on a 32-minute workout the day it was finally seen on the real sheet. **If nothing written gives the number, there is no automatic clock.** The manual ⏱＋ timer is the escape hatch, not a guess.
+
 ### Data Source — Apps Script, not gviz
 **Do not use the gviz API for workout content.** It returns NULL for some columns (known bug, cause unknown).
 Use the `getWorkoutSheet` Apps Script endpoint which reads via `getDataRange().getValues()`.

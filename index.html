@@ -4419,33 +4419,36 @@
             const setsOf = ivLine.match(/^\s*(\d+)\s*sets?\s+of\b/i);
             if (setsOf) rounds = parseInt(setsOf[1]);
           }
-          // If still nothing written, count exercise-like lines in the same cell
-          // (lines starting with a number or bullet — rough heuristic, fallback to 5)
+          // Lettered BLOCKS under the spec are the rounds (2026-10-30, Noam):
+          // "15 min work, 2 min rest" over "A- buy in … amrap" and "B- buy in: …"
+          // is A, rest, B — two work blocks, written by her letters. The cell
+          // ends on the last block (no rest after B): 15+2+15 = 32:00. Before
+          // this the exercise-line count below guessed ×5 — an 85-minute clock.
+          // Distinct letters A, B, C… in order, each opening its own line.
+          let lettered = false;
           if (rounds === 0) {
-            // Was a near-copy of rotationRounds' filter that had DRIFTED: it
-            // lacked the set|round exclusion, so a "3 sets" / "5 rounds" line
-            // counted as an exercise and inflated this round count. One source
-            // now (isExerciseLine) — the two ways the coach writes the same
-            // workout must not resolve differently.
-            const exerciseLines = lines.filter(isExerciseLine);
-            rounds = exerciseLines.length;
-            // ⚠️ THE LAST SURVIVING INVENTED VALUE in the pipeline. Nothing the
-            // coach wrote says "5"; it is a guess, in direct violation of the
-            // no-invented-timer-values rule that every other path now obeys.
-            //
-            // NOT deleted — deleting it silently turns some clocks that work
-            // today into NO clock, and we don't know which or how many.
-            // MEASURE FIRST: every firing is recorded (see recordInventedValue)
-            // so the real-world rate can be read off the gym TV before anyone
-            // decides. Remove it only once the record shows it is unused, or
-            // once the coach confirms the blocks it fires on should be
-            // clockless.
-            if (rounds === 0) {
-              rounds = 5;
-              inventedRounds = true;
-              recordInventedValue('rounds-fallback-5', lines);
+            const letters = [];
+            for (const l of lines) {
+              const m = String(l || '').match(/^\s*([A-Z])\s*[-.):]/);
+              if (m && !/^\s*t\.?\s*c\b/i.test(l) && !DU_ABBR_RE.test(l) && !letters.includes(m[1].toUpperCase())) letters.push(m[1].toUpperCase());
             }
+            const inOrder = letters.every((ch, i) => ch.charCodeAt(0) === 65 + i);
+            if (letters.length >= 2 && inOrder) { rounds = letters.length; lettered = true; }
           }
+          // Numbered STATIONS (1#, #2, 3.) are written structure: one interval
+          // per station — the rotation reading the coach confirmed. Counted
+          // here, and only stations: "6 sb clean" is an exercise, not a round.
+          if (rounds === 0) {
+            const stations = lines.filter(l => STATION_LINE_RE.test(String(l || '')));
+            if (stations.length >= 2) rounds = stations.length;
+          }
+          // ⛔ NO GUESSED COUNT (2026-10-30, Noam: "never guess anything").
+          // Until today a missing count was taken from the number of ANY lines
+          // starting with a digit, and failing that a hardcoded 5. Both are guesses: her
+          // "15 min work, 2 min rest" over A/B blocks became 15′/2′ ×5 — an
+          // 85-minute clock on a 32-minute workout. No written count, no
+          // total, no lettered blocks ⇒ no automatic clock here; the manual
+          // ⏱＋ timer is the escape hatch.
           // Priority: written total ÷ (work+rest) → written ×N → nothing.
           // Applied AFTER the ×N chain so that when the total is absent or
           // insane, every ×N form above resolves byte-for-byte as it did before
@@ -4455,11 +4458,12 @@
           // Sanity window — in practice only reachable now that minutes parse
           // (a seconds-only interval could never total 90 min). Blocks an
           // absurd clock from a mis-read line rather than showing a wrong one.
-          if (cycleSec * rounds <= 90 * 60) {
+          if (rounds > 0 && cycleSec * rounds <= 90 * 60) {
             const ivLabel = `${fmtDur(workSec)}/${fmtDur(restSec)} ×${rounds}`;
             results.push({ _line: lineAt(/\d[^\n]*\b(?:work|on|rest|off)\b/i),
               type: 'tabata', workSeconds: workSec, restSeconds: restSec,
               rounds, label: hasTabataWord ? `Tabata ${ivLabel}` : ivLabel,
+              ...(lettered ? { skipLastRest: true } : {}),
               ...(inventedRounds ? { roundsInvented: true } : {})
             });
           }

@@ -580,6 +580,26 @@ console.log('\nA stale remote timer command is not replayed on load');
   ok('×3 over only two AMRAPs is not that shape (34:30 stays)', r.twoOfThree === 2070, JSON.stringify(r));
 }
 
+// ── Lettered blocks are the rounds, and the clock ends on the last block
+// (Noam, 2026-10-30). WOD part 2: "15 min work, 2 min rest" over "A- …" and
+// "B- …", no count written. Was 15′/2′ ×5 (85:00, a guessed count); must be
+// A · rest · B = 32:00.
+{
+  const r = await page.evaluate(() => {
+    const cell = 'teams of 2:\n15 min work, 2 min rest\nA- buy in 1000 m run sync\nand then- amrap\nI GO U GO BY ROUND \n6 sb clean \n6 sb lunge steps \n\nB- buy in:\n1000 m row- for each/ 2500 bike\nI GO U GO BY ROUND \n5 kip pull ups / ring row 5m hsw/ \n3 weighted push up / 5 push up';
+    const d = parseAppsScriptData([['', '2'], ['WOD', cell]]); const x = d.rows[0].cells[0];
+    const cs = extractTimerConfigs(x.lines, x.header, 0) || [];
+    if (cs.length !== 1) return { n: cs.length };
+    configureTimer(cs[0].type, cs[0]); const total = getTimerTotalMs() / 1000;
+    const at = s => tabataPhaseAt(s * 1000).phase;
+    const out = { n: 1, label: cs[0].label, total, a: at(0), b: at(900), c: at(1020) };
+    timerType = null; timerConfig = {}; timerState = 'idle';
+    return out;
+  });
+  ok('A/B blocks under "15 min work, 2 min rest": one clock, A · 2′ rest · B = 32:00',
+     r.n === 1 && r.total === 1920 && r.a === 'work' && r.b === 'rest' && r.c === 'work', JSON.stringify(r));
+}
+
 // ── The buttons stay where they are (coach, 2026-10-11: "the buttons move
 // when you go from screen to screen"). Measured on a real render at 1080p:
 // the bottom nav slid 63px every time a clock appeared or a stage change

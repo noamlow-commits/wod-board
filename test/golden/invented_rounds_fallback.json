@@ -22,12 +22,7 @@
     {
       "section": "—",
       "header": "WOD",
-      "timers": [
-        {
-          "label": "30″/10″ ×5",
-          "type": "tabata"
-        }
-      ]
+      "timers": []
     }
   ]
 }

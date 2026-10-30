@@ -728,14 +728,15 @@ some, the coach. **These are all *detection* defects — for the runtime ones
   the next, which some cells may rely on today. Measure first (which real cells
   match `\d\s*\n\s*amrap`), then decide — same discipline as the invented
   `|| 5` below. Same family as the `tc\n800` bug `capSecondsFromLine` documents.
-- 🟡 **`rounds = exerciseLines.length || 5` — the last surviving invented
+- ✅ **DELETED 2026-10-30 (Noam: "never guess anything").** It fired on the real sheet: her `15 min work, 2 min rest` over `A- …` / `B- …` became `15′/2′ ×5`, an **85-minute** clock on a 32-minute workout. Now the count is a written `×N` / `N rounds` / `N sets of`, then a written total, then **lettered blocks** A, B, C… in order (the clock ends on the last block, `skipLastRest`), then **numbered stations** (1#, #2: one interval per station, the confirmed rotation reading). If none of these exists, this path gives no clock and the manual ⏱＋ timer remains. Fixtures `lettered_blocks_are_the_rounds_2026_10_30`; `invented_rounds_fallback` now forbids the ×5. The history below is kept for the record.
+- ~~🟡 **`rounds = exerciseLines.length || 5` — the last surviving invented
   value.** **Instrumented 2026-08-08, deliberately not deleted.** Every firing
   is recorded to `localStorage['wodboard-invented']` on the live board and the
   config carries `roundsInvented: true`; the harness prints which fixtures
   depend on it. **Read the record off the gym TV in a few weeks, then decide** —
   deleting it blind turns working clocks into no-clock. No fixture except the
   deliberate `invented_rounds_fallback` depends on it today, which is
-  encouraging but is *fixture* evidence, not *real-sheet* evidence.
+  encouraging but is *fixture* evidence, not *real-sheet* evidence.~~
 - 🟡 **Two duration readers are still integer-only** (2026-09-03, the deliberate
   remainder of the decimal fix). Both are *safe* misses, which is why they were
   left — but they are misses:
