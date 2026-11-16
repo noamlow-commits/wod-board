@@ -1,0 +1,89 @@
+{
+  "data": {
+    "headers": [
+      "2",
+      "3",
+      "4",
+      "5"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "pistol squat",
+              "__SPACER__",
+              "16 min",
+              "Skill — 3 rounds",
+              "__SPACER__",
+              "1. 6 box pistols per leg, lowering the box each round",
+              "(or adding plates to make it hard",
+              "__SPACER__",
+              "2. 4 tempo negative pistoles  per leg,",
+              "5 seconds down (use both feet to come up )",
+              "__SPACER__",
+              "OR scaled - 4 tempo negative step downs each leg",
+              "20 sec single-leg balance per side"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "pistol squat",
+              "16 min"
+            ]
+          },
+          {
+            "header": "4",
+            "lines": [
+              "A. Deadlift Prog",
+              "8 min"
+            ]
+          },
+          {
+            "header": "5",
+            "lines": [
+              "10 burpee",
+              "12 min",
+              "row"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": [
+        {
+          "label": "TC 16′ · For Time",
+          "type": "fortime"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "3",
+      "timers": [
+        {
+          "label": "TC 16′ · For Time",
+          "type": "fortime"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "4",
+      "timers": []
+    },
+    {
+      "section": "WOD",
+      "header": "5",
+      "timers": []
+    }
+  ]
+}

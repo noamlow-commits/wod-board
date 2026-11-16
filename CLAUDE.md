@@ -80,6 +80,7 @@ Coach freely reorders, adds, and removes columns. Never assume column index.
 | 10-16 | `10 min work,1:30 restx3` over three `Amrap 10` | 3 separate AMRAPs, no rest | a comma glued to a word was refused (guard meant for the decimal `2,5`); an M:SS side required a unit; `restx3` has no word boundary |
 | 10-16 | the same, once read | 34:30 (a rest after the last AMRAP) | the line spelling did not end the way `AMRAP / rest / AMRAP` already did |
 | 10-26 | `5-5-5 @ 65%` | two lines, `5-5-5` and `65%`, with the @ lost | the `@` splitter's "not before a number" lookahead backtracked over the space: `\s*@\s*(?!\d)` lets `\s*` take zero spaces, then sees a space, not a digit. Now `@(?!\s*\d)` |
+| 11-16 | `30 sec work, 10 sec restx3 sets` | no clock (`rest x3 sets` gave one) | the line splits at the x, and the on/off reader's `rest\b` failed on `restx`. `rest`/`off` may now touch the x |
 
 **Rules:**
 - A missing or extra space, a comma with no space after it, an `x` glued to a word, and a number glued to a keyword are **spellings, not meanings**. A reader must accept them or say why not.

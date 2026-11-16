@@ -108,8 +108,8 @@ export const KNOWN = {
     "block10": {
       "Row 10 min": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
       "row for 10 min": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
-      "חתירה 10 דקות": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
-      "row\n10 min": "SPEC: bare_block_duration_must_lead — a duration written after the work is not a block length — today: no clock [—]"
+      "חתירה 10 דקות": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]"
+
     }
   },
   "agree": {
