@@ -4367,7 +4367,7 @@
         //   matches "30 sec work, 10 sec rest", "30 work 10 sec rest", "4 min on 1 min off"
         let workSec = null, restSec = null;
         const wr = text.match(new RegExp(
-          `${WR_BEFORE}(${WR_NUM})\\s*${ONOFF_UNIT}\\s*(?:of\\s+)?(?:work|on)\\b\\s*[,/\\-]?\\s*${WR_BEFORE}(${WR_NUM})\\s*${ONOFF_UNIT}\\s*(?:of\\s+)?(?:rest|off)\\b`, 'i'));
+          `${WR_BEFORE}(${WR_NUM})\\s*${ONOFF_UNIT}\\s*(?:of\\s+)?(?:work|on)\\b\\s*[,/\\-]?\\s*${WR_BEFORE}(${WR_NUM})\\s*${ONOFF_UNIT}\\s*(?:of\\s+)?(?:rest|off)(?:\\b|(?=[x×*]))`, 'i'));   // "restx3": the x may touch (2026-11-16)
         if (wr) {
           workSec = /:/.test(wr[1]) ? wrSeconds(wr[1]) : unitSecs(wr[1], wr[2]);
           restSec = /:/.test(wr[3]) ? wrSeconds(wr[3]) : unitSecs(wr[3], wr[4]);
@@ -4723,14 +4723,28 @@
       // in this cell produced a clock, that detector owns the block and this
       // would be a ghost beside it.
       if (!chained && results.length === 0) {
-        let firstContent = null;
+        const bareRe = new RegExp(
+          `^(?:(${DUR_NUM_POS})[^\\S\\r\\n]*${MIN_WORD}|${MIN_WORD}[^\\S\\r\\n]*(${DUR_NUM_POS}))[^\\S\\r\\n]*[:.]?$`, 'i');
+        // The duration may follow the block's NAME (2026-11-16, Noam: "part 2
+        // should be 16 minutes, the timer didn't start"): her WOD 2 read
+        // `pistol squat` / (blank) / `16 min` / `Skill — 3 rounds` / … The
+        // name is a title — short, no digit, no format word — and the length
+        // under it is still the only thing that line can mean. One title line
+        // at most; anything else before the duration and the rule stays out.
+        // A lettered station ("A. Deadlift Prog") is not a title: there the
+        // length may be an estimate (roadmap Q6), so it stays clockless.
+        const isTitle = l => !/\d/.test(l) && l.split(/\s+/).length <= 4
+          && !/^[A-Z]\s*[-.):]/i.test(l)
+          && !/\b(amrap|e\d*mom|emom|tabata|tbata|for\s*time|rft|every|rounds?|sets?|rest|work)\b/i.test(l);
+        const content = [];
         for (const raw of lines) {
           const l = (raw || '').trim();
           if (!l || l === '__SPACER__' || isLabelOnly(l)) continue;
-          firstContent = l; break;
+          content.push(l); if (content.length === 2) break;
         }
-        const bare = firstContent && firstContent.match(new RegExp(
-          `^(?:(${DUR_NUM_POS})[^\\S\\r\\n]*${MIN_WORD}|${MIN_WORD}[^\\S\\r\\n]*(${DUR_NUM_POS}))[^\\S\\r\\n]*[:.]?$`, 'i'));
+        const firstContent = content[0] && bareRe.test(content[0]) ? content[0]
+          : (content[0] && content[1] && isTitle(content[0]) && bareRe.test(content[1])) ? content[1] : null;
+        const bare = firstContent && firstContent.match(bareRe);
         const blockSec = bare ? minsToSec(bare[1] || bare[2]) : 0;
         if (blockSec >= 60 && blockSec <= 90 * 60) {
           // The rest underneath is read through the SHARED timeline classifier,

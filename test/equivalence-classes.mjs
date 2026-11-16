@@ -59,7 +59,9 @@ add("int30_10x8", "Interval 30 work / 10 rest x 8", { type: "tabata", work: 30, 
    "עבודה 30 שניות\nמנוחה 10 שניות\n8 סבבים\nburpees", "8 rounds of 30 sec work, 10 sec rest\nburpees", "8 sets of 30 sec on 10 sec off\nburpees",
    "x8\n30 sec work\n10 sec rest\nburpees", "30 sec work, 10 rest x8\nburpees",
    // Her real spacing (2026-10-05/16): no space after the comma, x glued to "rest", M:SS sides.
-   "30 sec work,10 sec rest x8\nburpees", "30 sec work, 10 sec restx8\nburpees", "0:30 work,0:10 restx8\nburpees", "0:30 min work, 10 sec rest x8\nburpees"]);
+   "30 sec work,10 sec rest x8\nburpees", "30 sec work, 10 sec restx8\nburpees", "0:30 work,0:10 restx8\nburpees", "0:30 min work, 10 sec rest x8\nburpees",
+   // 2026-11-16: the x glued to "rest"/"off" with a "sets" after it (the line splits at "x" | "8 sets").
+   "30 sec work, 10 sec restx8 sets\nburpees", "30 on 10 offx8\nburpees"]);
 add("tabata", "Tabata (20/10 x 8)", { type: "tabata", work: 20, rest: 10, rounds: 8 },
   ["tabata\nburpees", "Tabata\nburpees", "TABATA\nburpees", "tabata 8 rounds\nburpees", "Tabata x8\nburpees", "tbata\nburpees", "tabata burpees",
    "20/10 x8\nburpees", "20 sec work 10 sec rest x8\nburpees", "Tabata 20/10 x8\nburpees", "Tabata 4 min\nburpees", "טבטה\nburpees"]);
