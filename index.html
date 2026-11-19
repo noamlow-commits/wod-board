@@ -166,9 +166,35 @@
       display: flex;
       flex-direction: column;
       padding: 0.8rem 1.5rem 5.5rem;
-      height: calc(100vh - 80px);
+      height: calc(100vh - 80px - var(--event-banner-h, 0px));
       gap: 0.6rem;
     }
+
+    /* ── One-day event banner (EVENT_BANNERS) ── shown only on its date, and
+       hidden while a clock is docked (the clock sits top-center over it). */
+    #eventBanner {
+      display: none;
+      height: var(--event-banner-h, 0px);
+      margin: 0.5rem 1.5rem 0;
+      border-radius: 1.2rem;
+      direction: rtl;
+      font-family: 'Heebo', sans-serif;
+      color: #fff;
+      text-align: center;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.2rem;
+      background: linear-gradient(110deg, #7c3aed, #ea580c, #f59e0b, #ea580c, #7c3aed);
+      background-size: 300% 100%;
+      animation: eventBannerShift 12s ease-in-out infinite;
+      box-shadow: 0 6px 30px rgba(234, 88, 12, 0.35), inset 0 0 0 2px rgba(255,255,255,0.18);
+      overflow: hidden;
+    }
+    #eventBanner.on { display: flex; }
+    #eventBanner .eb-line1 { font-size: 3.6vw; font-weight: 900; line-height: 1.05; text-shadow: 0 3px 12px rgba(0,0,0,0.35); }
+    #eventBanner .eb-line2 { font-size: 2.4vw; font-weight: 800; line-height: 1.1; color: #fff7ed; text-shadow: 0 2px 10px rgba(0,0,0,0.35); }
+    @keyframes eventBannerShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 
     /* Docked timer clock: hidden by default, becomes in-flow flex child */
     .timer-dock {
@@ -2066,6 +2092,7 @@
   </div>
 
   <!-- Tab Bar (hidden until tabs exist) -->
+  <div id="eventBanner" aria-live="polite"></div>
   <div class="tab-bar" id="tabBar" style="display:none;"></div>
 
   <!-- Main Content Area -->
@@ -8775,6 +8802,7 @@
       // Dock timer as in-flow flex child — content reflows naturally
       const mc = document.getElementById('mainContent');
       if (mc) mc.classList.add('timer-docked');
+      updateEventBanner();   // the docked clock sits top-center, over the banner's place
       // Force display with inline style (belt + suspenders — CSS class alone
       // was failing in part-focus mode for unknown reasons)
       const bar = document.getElementById('floatingTimerBar');
@@ -8811,6 +8839,7 @@
       if (bar) bar.style.display = 'none';
       const mc = document.getElementById('mainContent');
       if (mc) mc.classList.remove('timer-docked');
+      updateEventBanner();
 
       // Hide timer controls in nav panel
       const ctrl = document.getElementById('tvTimerControls');
@@ -9915,6 +9944,37 @@
     // Init
     // ════════════════════════════════════════
     updateClock();
+    // ── One-day event banners (Noam, 2026-11-19: "write on the board, one
+    // time, styled: welcome to community evening, and mazal tov to Adiel").
+    // Keyed by the LOCAL date; outside that date nothing is shown, so a
+    // banner removes itself at midnight with no deploy. The text lives HERE,
+    // client-side, never via the sheet/JSONP (Hebrew and emoji corrupt there —
+    // see CLAUDE.md). Add a date to show another one.
+    const EVENT_BANNERS = {
+      '2026-11-19': ['🎉 ברוכים הבאים לערב קהילה! 🎉', '🥳 מזל טוב לעדיאל! 🥂'],
+    };
+    const EVENT_BANNER_H = '15vh';
+    function updateEventBanner() {
+      const el = document.getElementById('eventBanner');
+      if (!el) return;
+      const d = new Date();
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const lines = EVENT_BANNERS[key];
+      const docked = document.getElementById('mainContent')?.classList.contains('timer-docked');
+      const show = !!lines && !docked;
+      if (show && el.dataset.key !== key) {
+        el.innerHTML = `<div class="eb-line1">${lines[0]}</div>` + (lines[1] ? `<div class="eb-line2">${lines[1]}</div>` : '');
+        el.dataset.key = key;
+      }
+      if (show !== el.classList.contains('on')) {
+        el.classList.toggle('on', show);
+        document.documentElement.style.setProperty('--event-banner-h', show ? `calc(${EVENT_BANNER_H} + 0.5rem)` : '0px');
+        el.style.height = show ? EVENT_BANNER_H : '';
+        if (typeof autoFitFontSize === 'function') requestAnimationFrame(() => autoFitFontSize());
+      }
+    }
+    updateEventBanner();
+    setInterval(updateEventBanner, 60 * 1000);
     setInterval(updateClock, 1000);
     startApp();
 

@@ -184,6 +184,8 @@ via the `_doReload` indirection.
   - Asserted in verify-board's layout pass ("warm-up", "closing block").
 - **Buttons never move (2026-10-11, coach).** No control may change the size of a box that positions other controls. Hide with `visibility`, not `display:none`, and reserve the height of lines that are sometimes empty. The bottom nav slid 63px whenever a clock appeared or was cleared. The clock's ⏹ sat at 3 heights. Both are asserted in `timer-nav.mjs` ("fixed buttons").
 
+- **One-day banners: `EVENT_BANNERS` in index.html (2026-11-19).** Keyed by the local date (`'YYYY-MM-DD': [line1, line2]`). The banner shows above the board on that date only, and goes away at midnight with no deploy. It hides while a clock is docked, since the clock sits top-center over it. The text is written in the code, never sent via the sheet/JSONP, where Hebrew and emoji corrupt. To add one: one map entry, then bump `CACHE_NAME`.
+
 ### Mobile (score.html, my.html)
 - Athletes use on their phones after a WOD
 - Touch-friendly, fast, minimal UI
