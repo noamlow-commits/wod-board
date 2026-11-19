@@ -196,6 +196,55 @@
     #eventBanner .eb-line2 { font-size: 2.4vw; font-weight: 800; line-height: 1.1; color: #fff7ed; text-shadow: 0 2px 10px rgba(0,0,0,0.35); }
     @keyframes eventBannerShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 
+    /* ── Full-screen event evening (EVENT_SCREENS) ── replaces the whole board
+       for one evening. Any remote key / click steps it aside for 10 min; a
+       running clock always wins. Pure CSS animation (transform/opacity only). */
+    #eventScreen {
+      position: fixed; inset: 0; z-index: 9600; display: none; overflow: hidden;
+      direction: rtl; font-family: 'Heebo', sans-serif; color: #fff;
+      background: radial-gradient(ellipse at 50% 120%, #2a0f4d 0%, #0b0716 55%, #050308 100%);
+    }
+    #eventScreen.on { display: block; }
+    #eventScreen .es-glow { position: absolute; width: 70vw; height: 70vw; border-radius: 50%; filter: blur(90px); opacity: .55; mix-blend-mode: screen; }
+    #eventScreen .es-glow.a { background: #7c3aed; top: -35vw; left: -20vw; animation: esFloatA 18s ease-in-out infinite; }
+    #eventScreen .es-glow.b { background: #ea580c; bottom: -40vw; right: -25vw; animation: esFloatB 22s ease-in-out infinite; }
+    #eventScreen .es-glow.c { background: #f59e0b; width: 40vw; height: 40vw; top: 30%; left: 55%; opacity: .25; animation: esFloatA 26s ease-in-out infinite reverse; }
+    @keyframes esFloatA { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(8vw,6vh) scale(1.15); } }
+    @keyframes esFloatB { 0%,100% { transform: translate(0,0) scale(1.1); } 50% { transform: translate(-10vw,-8vh) scale(.95); } }
+    /* string lights across the top */
+    #eventScreen .es-lights { position: absolute; top: 0; left: 0; right: 0; height: 12vh; }
+    #eventScreen .es-lights svg { width: 100%; height: 100%; }
+    #eventScreen .es-bulb { animation: esTwinkle 2.4s ease-in-out infinite; }
+    @keyframes esTwinkle { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+    /* confetti + balloons */
+    #eventScreen .es-confetti { position: absolute; top: -4vh; width: .7vw; height: 1.4vw; border-radius: 2px; opacity: .9; animation: esFall linear infinite; }
+    @keyframes esFall { 0% { transform: translate3d(0,-5vh,0) rotate(0deg); } 100% { transform: translate3d(var(--dx), 110vh, 0) rotate(var(--rot)); } }
+    #eventScreen .es-balloon { position: absolute; bottom: -18vh; font-size: 6vw; animation: esRise linear infinite; filter: drop-shadow(0 8px 18px rgba(0,0,0,.4)); }
+    @keyframes esRise { 0% { transform: translate3d(0,0,0) rotate(-6deg); } 50% { transform: translate3d(2vw,-60vh,0) rotate(6deg); } 100% { transform: translate3d(-1vw,-125vh,0) rotate(-4deg); } }
+    /* content */
+    #eventScreen .es-center { position: relative; z-index: 2; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.2vh; text-align: center; }
+    #eventScreen .es-logo { height: 13vh; filter: drop-shadow(0 0 25px rgba(249,115,22,.55)); animation: esPulse 4s ease-in-out infinite; }
+    @keyframes esPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    #eventScreen .es-kicker { font-size: 2.1vw; font-weight: 700; letter-spacing: .35em; color: #fdba74; text-transform: uppercase; direction: ltr; }
+    #eventScreen .es-title { font-size: 8.2vw; font-weight: 900; line-height: .95; margin: 0;
+      background: linear-gradient(90deg, #fde68a, #fb923c, #f472b6, #a78bfa, #fde68a); background-size: 200% 100%;
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      animation: esShine 6s linear infinite; filter: drop-shadow(0 6px 30px rgba(249,115,22,.35)); }
+    @keyframes esShine { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+    #eventScreen .es-sub { font-size: 3vw; font-weight: 300; color: #e9d5ff; letter-spacing: .05em; }
+    #eventScreen .es-card { margin-top: 2vh; padding: 2.2vh 4vw; border-radius: 2.5vw; position: relative;
+      background: linear-gradient(135deg, rgba(255,255,255,.14), rgba(255,255,255,.05));
+      border: 2px solid rgba(253,186,116,.55); box-shadow: 0 0 60px rgba(244,114,182,.25), inset 0 0 30px rgba(255,255,255,.06);
+      backdrop-filter: blur(6px); animation: esBob 5s ease-in-out infinite; }
+    @keyframes esBob { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-1.2vh) rotate(1deg); } }
+    #eventScreen .es-card .l1 { font-size: 4.6vw; font-weight: 900; color: #fff; text-shadow: 0 4px 18px rgba(0,0,0,.4); }
+    #eventScreen .es-card .l2 { font-size: 1.8vw; font-weight: 400; color: #fde68a; margin-top: .4vh; }
+    #eventScreen .es-card .em { position: absolute; font-size: 4vw; }
+    #eventScreen .es-card .em.l { right: -3vw; top: -3vw; transform: rotate(14deg); }
+    #eventScreen .es-card .em.r { left: -3vw; bottom: -2.5vw; transform: rotate(-12deg); }
+    #eventScreen .es-foot { position: absolute; z-index: 2; bottom: 3vh; left: 0; right: 0; display: flex; justify-content: space-between; padding: 0 4vw; font-size: 1.6vw; color: rgba(255,255,255,.55); direction: ltr; }
+    #eventScreen .es-clock { font-family: 'Barlow', sans-serif; font-weight: 700; font-size: 2.4vw; color: rgba(255,255,255,.8); letter-spacing: .05em; }
+
     /* Docked timer clock: hidden by default, becomes in-flow flex child */
     .timer-dock {
       display: none;
@@ -2093,6 +2142,7 @@
 
   <!-- Tab Bar (hidden until tabs exist) -->
   <div id="eventBanner" aria-live="polite"></div>
+  <div id="eventScreen" aria-live="polite"></div>
   <div class="tab-bar" id="tabBar" style="display:none;"></div>
 
   <!-- Main Content Area -->
@@ -8803,6 +8853,7 @@
       const mc = document.getElementById('mainContent');
       if (mc) mc.classList.add('timer-docked');
       updateEventBanner();   // the docked clock sits top-center, over the banner's place
+      updateEventScreen();   // a running clock always wins over the event screen
       // Force display with inline style (belt + suspenders — CSS class alone
       // was failing in part-focus mode for unknown reasons)
       const bar = document.getElementById('floatingTimerBar');
@@ -9951,7 +10002,7 @@
     // client-side, never via the sheet/JSONP (Hebrew and emoji corrupt there —
     // see CLAUDE.md). Add a date to show another one.
     const EVENT_BANNERS = {
-      '2026-11-19': ['🎉 ברוכים הבאים לערב קהילה! 🎉', '🥳 מזל טוב לעדיאל! 🥂'],
+      // '2026-11-19' became a full EVENT_SCREENS evening (below).
     };
     const EVENT_BANNER_H = '15vh';
     function updateEventBanner() {
@@ -9975,6 +10026,84 @@
     }
     updateEventBanner();
     setInterval(updateEventBanner, 60 * 1000);
+
+    // ── A whole EVENING instead of the board (Noam, 2026-11-19: "replace the
+    // whole workout board just for tonight — we're at a community evening;
+    // design freely, be creative"). Keyed by local date, active from `from`
+    // (HH:MM) to midnight. Nothing is hidden for good: any remote key or click
+    // steps the screen aside for 10 min (EVENT_SCREEN_SNOOZE_MS), and a clock
+    // that is not idle always wins — a timer started from the phone shows.
+    const EVENT_SCREENS = {
+      '2026-11-19': { from: '15:00', kicker: 'CrossFit Gush Etzion', title: 'ברוכים הבאים', sub: 'לערב קהילה 💛',
+                      card: 'מזל טוב לעדיאל!', cardSub: 'מכל המשפחה של הבוקס 🎂', emL: '🥳', emR: '🥂' },
+    };
+    const EVENT_SCREEN_SNOOZE_MS = 10 * 60 * 1000;
+    let _eventSnoozeUntil = 0;
+    function activeEventScreen() {
+      const d = new Date();
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const ev = EVENT_SCREENS[key];
+      if (!ev) return null;
+      const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      return hm >= (ev.from || '00:00') ? { key, ev } : null;
+    }
+    function buildEventScreen(el, ev) {
+      const COLORS = ['#f97316', '#fbbf24', '#a78bfa', '#f472b6', '#38bdf8', '#34d399', '#fde68a'];
+      let confetti = '';
+      for (let i = 0; i < 70; i++) {
+        const left = Math.random() * 100, dur = 7 + Math.random() * 9, delay = -Math.random() * 16;
+        const dx = (Math.random() * 16 - 8).toFixed(1), rot = Math.round(360 + Math.random() * 720);
+        const c = COLORS[i % COLORS.length], round = Math.random() < .3 ? 'border-radius:50%;width:.9vw;height:.9vw;' : '';
+        confetti += `<i class="es-confetti" style="left:${left.toFixed(1)}%;background:${c};animation-duration:${dur.toFixed(1)}s;animation-delay:${delay.toFixed(1)}s;--dx:${dx}vw;--rot:${rot}deg;${round}"></i>`;
+      }
+      let balloons = '';
+      ['🎈', '🎈', '🎉', '🎈', '🎊', '🎈', '🎈'].forEach((b, i) => {
+        balloons += `<span class="es-balloon" style="left:${(6 + i * 14 + Math.random() * 4).toFixed(1)}%;animation-duration:${(16 + Math.random() * 10).toFixed(1)}s;animation-delay:${(-Math.random() * 24).toFixed(1)}s">${b}</span>`;
+      });
+      // A string of lights: a sagging wire with bulbs in the palette.
+      let bulbs = '';
+      for (let i = 0; i <= 24; i++) {
+        const x = i * 100 / 24, y = 18 + 22 * Math.sin(Math.PI * ((i % 8) / 8));
+        bulbs += `<circle class="es-bulb" cx="${x}" cy="${y.toFixed(1)}" r="1.1" fill="${COLORS[i % COLORS.length]}" style="animation-delay:${(i * .17).toFixed(2)}s"/>`;
+      }
+      let wire = 'M0 18';
+      for (let s = 0; s < 3; s++) wire += ` Q ${(s * 100 / 3) + 100 / 6} 48 ${(s + 1) * 100 / 3} 18`;
+      el.innerHTML = `
+        <div class="es-glow a"></div><div class="es-glow b"></div><div class="es-glow c"></div>
+        <div class="es-lights"><svg viewBox="0 0 100 50" preserveAspectRatio="none"><path d="${wire}" stroke="rgba(255,255,255,.25)" stroke-width=".25" fill="none"/>${bulbs}</svg></div>
+        ${confetti}${balloons}
+        <div class="es-center">
+          <img class="es-logo" src="logo.png" alt="" onerror="this.style.display='none'">
+          <div class="es-kicker">${ev.kicker}</div>
+          <h1 class="es-title">${ev.title}</h1>
+          <div class="es-sub">${ev.sub}</div>
+          <div class="es-card"><span class="em l">${ev.emL}</span><span class="em r">${ev.emR}</span>
+            <div class="l1">${ev.card}</div><div class="l2">${ev.cardSub}</div></div>
+        </div>
+        <div class="es-foot"><span class="es-clock" id="esClock"></span><span>לחיצה על השלט מציגה את הלוח</span></div>`;
+    }
+    function updateEventScreen() {
+      const el = document.getElementById('eventScreen');
+      if (!el) return;
+      const act = activeEventScreen();
+      const show = !!act && timerState === 'idle' && Date.now() >= _eventSnoozeUntil;
+      if (show && el.dataset.key !== act.key) { buildEventScreen(el, act.ev); el.dataset.key = act.key; }
+      el.classList.toggle('on', show);
+      const c = document.getElementById('esClock');
+      if (show && c) c.textContent = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    }
+    // Any key or click while it is up: step aside (the press does nothing else).
+    ['keydown', 'pointerdown'].forEach(ev => document.addEventListener(ev, (e) => {
+      const el = document.getElementById('eventScreen');
+      if (el && el.classList.contains('on')) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        _eventSnoozeUntil = Date.now() + EVENT_SCREEN_SNOOZE_MS;
+        el.classList.remove('on');
+        if (typeof autoFitFontSize === 'function') requestAnimationFrame(() => autoFitFontSize());
+      }
+    }, true));
+    updateEventScreen();
+    setInterval(updateEventScreen, 5 * 1000);
     setInterval(updateClock, 1000);
     startApp();
 
