@@ -1,0 +1,467 @@
+<title>על מה חל ה-t,c?</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Rubik:wght@500;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: one narrow reading column; the gym board is quoted as a dark TV
+   panel, then two to-scale timelines, a live clock demo, and the answer form. */
+:root {
+  --bg: #f2f4f7;
+  --surface: #ffffff;
+  --ink: #171a21;
+  --muted: #586070;
+  --line: #d9dde5;
+  --accent: #d9480f;          /* the board's WOD orange, darkened for text */
+  --accent-soft: #fff0e6;
+  --emom: #f08c00;
+  --rest: #9aa1ad;
+  --ft: #7048e8;              /* the board's CARDIO violet */
+  --focus: #1c7ed6;
+  --font-display: "Rubik", "Assistant", system-ui, sans-serif;
+  --font-body: "Assistant", "Rubik", system-ui, sans-serif;
+  --font-board: "Barlow Semi Condensed", "Rubik", system-ui, sans-serif;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111318; --surface: #1a1d24; --ink: #eceef2; --muted: #a3a9b6; --line: #2d323c;
+    --accent: #ff8a3d; --accent-soft: #2a1d14; --emom: #f59f00; --rest: #6b7280; --ft: #9775fa;
+    --focus: #74c0fc; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111318; --surface: #1a1d24; --ink: #eceef2; --muted: #a3a9b6; --line: #2d323c;
+  --accent: #ff8a3d; --accent-soft: #2a1d14; --emom: #f59f00; --rest: #6b7280; --ft: #9775fa;
+  --focus: #74c0fc; color-scheme: dark;
+}
+
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 17px; line-height: 1.6;
+  direction: rtl;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+}
+main { max-width: 720px; margin-inline: auto; display: grid; gap: 40px; }
+section { display: grid; gap: 14px; min-width: 0; }
+h1, h2 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.25; }
+h1 { font-size: clamp(28px, 6vw, 38px); font-weight: 700; }
+h2 { font-size: 22px; font-weight: 700; }
+p { margin: 0; }
+.eyebrow { font-family: var(--font-display); font-size: 13px; font-weight: 500; letter-spacing: .06em; color: var(--accent); }
+.lede { color: var(--muted); max-width: 62ch; }
+.en { font-family: var(--font-board); direction: ltr; unicode-bidi: isolate; font-weight: 600; }
+
+/* ── The board, quoted as it looks on the TV (single dark look on purpose) ── */
+.board {
+  margin: 0; background: #141414; color: #f1f1f1; border-radius: 14px;
+  padding: 14px 14px 18px; font-family: var(--font-board); direction: ltr;
+  display: grid; gap: 10px; box-shadow: 0 1px 0 rgba(0,0,0,.08);
+}
+.board-bar {
+  background: linear-gradient(90deg, #8b5cf6, #7c3aed); color: #fff; text-align: center;
+  font-weight: 700; font-size: 22px; border-radius: 8px; padding: 2px 0;
+}
+.board-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; }
+@media (max-width: 560px) { .board-cols { grid-template-columns: 1fr; } }
+.bcol { display: grid; align-content: start; min-width: 0; }
+.bl {
+  font-size: 22px; font-weight: 500; text-align: center; padding: 5px 2px;
+  border-bottom: 1px solid #262626; overflow-wrap: anywhere;
+}
+.bl.head { color: #f5a10b; font-weight: 700; border-bottom-color: #5a4310; }
+.st { display: inline-block; background: linear-gradient(#f97316, #ea580c); color: #fff; border-radius: 6px; padding: 0 6px; font-weight: 700; }
+.rp { color: #f5a10b; font-weight: 700; }
+.tb { background: #4a1414; color: #ff4d4d; border-radius: 6px; padding: 0 6px; font-weight: 700; }
+.cap-line {
+  border: 2px dashed var(--accent); border-radius: 10px; margin-top: 4px; position: relative;
+  border-bottom-width: 2px;
+}
+.cap-tag {
+  position: absolute; top: -12px; inset-inline-end: 10px; direction: rtl;
+  font-family: var(--font-display); font-size: 13px; font-weight: 700;
+  background: var(--accent); color: #fff; border-radius: 99px; padding: 0 10px; line-height: 22px;
+}
+.bnote { border-top: 2px dashed #3a3a3a; padding-top: 8px; text-align: center; color: #cfcfcf; font-family: var(--font-display); font-size: 20px; direction: rtl; }
+.board-cap { font-size: 14px; color: var(--muted); }
+
+/* ── The two readings ── */
+.readings { display: grid; gap: 16px; }
+.reading {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 16px; display: grid; gap: 12px; min-width: 0;
+}
+.reading h3 { margin: 0; font-family: var(--font-display); font-size: 19px; font-weight: 700; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.letter {
+  font-family: var(--font-display); font-weight: 700; color: #fff; background: var(--ink);
+  border-radius: 6px; padding: 0 8px; font-size: 16px; line-height: 26px;
+}
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+@media (max-width: 560px) { .facts { grid-template-columns: 1fr; } }
+.facts div { border-top: 2px solid var(--line); padding-top: 6px; }
+.facts dt { font-size: 13px; color: var(--muted); }
+.facts dd { margin: 0; font-weight: 700; }
+
+/* Timeline: flows right→left with the page; 0–40 minutes to scale. */
+.tl { --max: 40; display: grid; gap: 4px; padding-top: 22px; }
+.track { position: relative; height: 30px; background: var(--bg); border-radius: 6px; }
+.seg {
+  position: absolute; top: 0; bottom: 0;
+  inset-inline-start: calc(var(--from) / var(--max) * 100%);
+  width: calc(var(--len) / var(--max) * 100%);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  font-family: var(--font-board); font-weight: 700; font-size: 14px; color: #fff; white-space: nowrap;
+}
+.seg.emom { background: var(--emom); border-start-start-radius: 6px; border-end-start-radius: 6px; }
+.seg.rest { background: repeating-linear-gradient(135deg, var(--rest) 0 4px, transparent 4px 8px); }
+.seg.ft { background: var(--ft); }
+.mark {
+  position: absolute; top: -22px; bottom: -4px; inset-inline-start: calc(var(--at) / var(--max) * 100%);
+  border-inline-start: 2px solid var(--ink);
+}
+.mark span {
+  position: absolute; top: 0; inset-inline-end: 4px; white-space: nowrap;
+  font-size: 13px; font-weight: 700; line-height: 18px; font-variant-numeric: tabular-nums;
+}
+.playhead {
+  position: absolute; top: -6px; bottom: -6px; width: 3px; border-radius: 2px;
+  background: var(--focus); inset-inline-start: calc(var(--t, 0) / var(--max) * 100%);
+}
+.axis { position: relative; height: 18px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.axis span { position: absolute; inset-inline-start: calc(var(--at) / 40 * 100%); transform: translateX(50%); }
+.axis span:first-child { transform: none; }
+.axis span:last-child { transform: translateX(100%); }
+.key { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; color: var(--muted); }
+.key i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-inline-end: 5px; }
+.key .k-emom { background: var(--emom); }
+.key .k-rest { background: repeating-linear-gradient(135deg, var(--rest) 0 3px, transparent 3px 6px); outline: 1px solid var(--rest); }
+.key .k-ft { background: var(--ft); }
+
+/* ── Demo ── */
+.demo { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 16px; min-width: 0; }
+.seg-ctrl { display: flex; gap: 6px; flex-wrap: wrap; }
+button {
+  font: inherit; font-weight: 600; cursor: pointer; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 8px 14px;
+}
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.seg-ctrl button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tv {
+  background: #0e0e0e; color: #fff; border-radius: 12px; padding: 18px 14px; text-align: center;
+  display: grid; gap: 6px; border: 3px solid #f97316;
+}
+.tv-clock { font-family: var(--font-board); font-weight: 700; font-size: clamp(54px, 15vw, 88px); line-height: 1; font-variant-numeric: tabular-nums; direction: ltr; }
+.tv-clock.idle { color: #6b6b6b; }
+.tv-phase { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: #f5a10b; min-height: 1.6em; }
+.tv-sub { font-size: 14px; color: #bdbdbd; min-height: 1.5em; }
+.tv-total { font-size: 13px; color: #9a9a9a; font-variant-numeric: tabular-nums; }
+.beep { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #f5a10b; opacity: 0; margin-inline-start: 6px; vertical-align: middle; }
+.beep.on { animation: beep .35s ease-out; }
+@keyframes beep { from { opacity: 1; transform: scale(1.6); } to { opacity: 0; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .beep.on { animation: none; opacity: 1; } }
+.play-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.play-row .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.hint { font-size: 14px; color: var(--muted); }
+
+/* ── Answers ── */
+.q { display: grid; gap: 8px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.q legend { font-weight: 700; padding: 0; margin-bottom: 4px; }
+.opt {
+  display: flex; gap: 10px; align-items: flex-start; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; cursor: pointer;
+}
+.opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.opt input { margin-top: 6px; accent-color: var(--accent); flex: none; }
+.opt small { display: block; color: var(--muted); font-size: 14px; }
+textarea {
+  font: inherit; width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--ink); padding: 10px 12px; resize: vertical;
+}
+.out { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 10px; }
+.out textarea { background: var(--bg); min-height: 150px; }
+.copy-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.copy-row .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.status { font-weight: 700; color: var(--accent); min-height: 1.5em; }
+</style>
+
+<main dir="rtl" lang="he">
+  <header style="display:grid;gap:12px">
+    <p class="eyebrow">CARDIO · חלק 2 · הלוח של היום</p>
+    <h1>על מה חלות ה-22 דקות?</h1>
+    <p class="lede">היי! הלוח בבוקס קורא את הגיליון ומחליט לבד איזה שעון להפעיל. באימון הקרדיו של היום אפשר להבין את ה-22 דקות בשתי דרכים, וכל דרך נותנת שעון אחר לגמרי. לא רוצים לנחש, כי שעון לא נכון על הקיר יותר גרוע משעון שלא מופיע בכלל. בסוף הדף יש שלוש שאלות קצרות וכפתור שמעתיק את התשובות לוואטסאפ.</p>
+  </header>
+
+  <section aria-labelledby="h-board">
+    <h2 id="h-board">ככה זה מופיע על הלוח</h2>
+    <figure class="board" aria-label="התא של היום כפי שהוא מוצג על הלוח">
+      <div class="board-bar">2</div>
+      <div class="board-cols">
+        <div class="bcol">
+          <div class="bl head">emom 15:</div>
+          <div class="bl"><span class="st">1#</span> 12-10 burpee</div>
+          <div class="bl"><span class="st">2#</span> 12-10 thrusters with a band</div>
+          <div class="bl"><span class="st">3#</span> 8-10 cal row</div>
+        </div>
+        <div class="bcol">
+          <div class="bl head">2-<span class="tb">3 min</span> rest</div>
+          <div class="bl head">for time:</div>
+          <div class="bl"><span class="rp">2000</span> m run</div>
+          <div class="bl"><span class="rp">60</span> r. twist- B.W</div>
+          <div class="bl"><span class="rp">200</span> d.u- 400 s.u</div>
+        </div>
+      </div>
+      <div class="bl cap-line">t,c- <span class="tb">22 min</span><span class="cap-tag">השאלה</span></div>
+      <div class="bnote">*אפשר לחלק איך שרוצים</div>
+    </figure>
+    <p class="board-cap">הטקסט כמו שכתבת אותו בגיליון. השאלה היא על השורה המסומנת.</p>
+  </section>
+
+  <section aria-labelledby="h-read">
+    <h2 id="h-read">שתי דרכים לקרוא את זה</h2>
+    <div class="readings">
+      <article class="reading">
+        <h3><span class="letter">א</span> 22 דקות לכל האימון</h3>
+        <p>ה-EMOM, המנוחה וה-for time נכנסים יחד לתוך 22 הדקות.</p>
+        <div class="tl" aria-hidden="true">
+          <div class="track">
+            <span class="seg emom" style="--from:0;--len:15">EMOM 15</span>
+            <span class="seg rest" style="--from:15;--len:2.5"></span>
+            <span class="seg ft" style="--from:17.5;--len:4.5"></span>
+            <span class="mark" style="--at:22"><span>סוף · 22:00</span></span>
+          </div>
+          <div class="axis"><span style="--at:0">0</span><span style="--at:10">10</span><span style="--at:20">20</span><span style="--at:30">30</span><span style="--at:40">40 דק׳</span></div>
+        </div>
+        <dl class="facts">
+          <div><dt>זמן ל-for time</dt><dd>בערך 4–5 דקות</dd></div>
+          <div><dt>סוף האימון</dt><dd>22 דקות מההתחלה</dd></div>
+          <div><dt>על הלוח</dt><dd>שעון אחד</dd></div>
+        </dl>
+      </article>
+
+      <article class="reading">
+        <h3><span class="letter">ב</span> 22 דקות רק ל-for time</h3>
+        <p>קודם EMOM של 15 דקות, אחר כך מנוחה של 2–3 דקות, ואז for time עם מגבלה של 22 דקות.</p>
+        <div class="tl" aria-hidden="true">
+          <div class="track">
+            <span class="seg emom" style="--from:0;--len:15">EMOM 15</span>
+            <span class="seg rest" style="--from:15;--len:2.5"></span>
+            <span class="seg ft" style="--from:17.5;--len:22">for time · עד 22</span>
+            <span class="mark" style="--at:39.5"><span>סוף · בערך 40:00</span></span>
+          </div>
+          <div class="axis"><span style="--at:0">0</span><span style="--at:10">10</span><span style="--at:20">20</span><span style="--at:30">30</span><span style="--at:40">40 דק׳</span></div>
+        </div>
+        <dl class="facts">
+          <div><dt>זמן ל-for time</dt><dd>עד 22 דקות</dd></div>
+          <div><dt>סוף האימון</dt><dd>בערך 40 דקות מההתחלה</dd></div>
+          <div><dt>על הלוח</dt><dd>שני שעונים</dd></div>
+        </dl>
+      </article>
+    </div>
+    <p class="key"><span><i class="k-emom"></i>EMOM 15</span><span><i class="k-rest"></i>מנוחה 2–3 דקות</span><span><i class="k-ft"></i>for time</span></p>
+  </section>
+
+  <section aria-labelledby="h-demo">
+    <h2 id="h-demo">הדגמה: מה יראה השעון על הלוח</h2>
+    <div class="demo">
+      <div class="seg-ctrl" role="group" aria-label="בחירת קריאה להדגמה">
+        <button type="button" id="optA" aria-pressed="true">א · לכל האימון</button>
+        <button type="button" id="optB" aria-pressed="false">ב · רק ל-for time</button>
+      </div>
+      <div class="tv" aria-live="off">
+        <div class="tv-clock" id="tvClock">00:00</div>
+        <div class="tv-phase" id="tvPhase">EMOM · דקה 1 מתוך 15<span class="beep" id="beep"></span></div>
+        <div class="tv-sub" id="tvSub">שעון אחד שרץ 22 דקות</div>
+        <div class="tv-total" id="tvTotal">מתחילת האימון: 00:00</div>
+      </div>
+      <div class="tl" aria-hidden="true">
+        <div class="track" id="demoTrack"></div>
+        <div class="axis"><span style="--at:0">0</span><span style="--at:10">10</span><span style="--at:20">20</span><span style="--at:30">30</span><span style="--at:40">40 דק׳</span></div>
+      </div>
+      <div class="play-row">
+        <button type="button" class="primary" id="play">▶ הפעלה</button>
+        <button type="button" id="reset">↺ מההתחלה</button>
+        <span class="hint">כל דקה באימון = חצי שנייה בהדגמה.</span>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-ans">
+    <h2 id="h-ans">התשובה שלך</h2>
+    <form id="form" style="display:grid;gap:22px">
+      <fieldset class="q">
+        <legend>ה-22 דקות של היום הן…</legend>
+        <label class="opt"><input type="radio" name="scope" id="scope-a" value="a"><span>לכל האימון (א)</span></label>
+        <label class="opt"><input type="radio" name="scope" id="scope-b" value="b"><span>רק ל-for time (ב)</span></label>
+        <label class="opt"><input type="radio" name="scope" id="scope-x" value="x"><span>משהו אחר. אסביר בהערה</span></label>
+      </fieldset>
+
+      <fieldset class="q" id="formQ" hidden>
+        <legend>אם זה לכל האימון: איך תרצי שהשעון ייראה?</legend>
+        <label class="opt"><input type="radio" name="form" id="form-up" value="up"><span>שעון אחד שעולה מ-0 עד 22<small>בלי צפצוף בכל דקה של ה-EMOM. אפשר לראות את הדקות על השעון.</small></span></label>
+        <label class="opt"><input type="radio" name="form" id="form-down" value="down"><span>צפצוף בכל דקה של ה-EMOM, ואז ספירה לאחור עד 22<small>אחרי 15 הדקות השעון סופר לאחור את 7 הדקות שנשארו (מנוחה + for time).</small></span></label>
+        <label class="opt"><input type="radio" name="form" id="form-upbeep" value="upbeep"><span>שעון אחד שעולה מ-0 עד 22, עם צפצוף בכל דקה עד דקה 15<small>זה ייקח לנו קצת יותר זמן לבנות.</small></span></label>
+      </fieldset>
+
+      <fieldset class="q">
+        <legend>וכשאת כותבת t.c בשורה האחרונה של תא שיש בו כמה חלקים, כמו היום, הכוונה תמיד זהה?</legend>
+        <label class="opt"><input type="radio" name="habit" id="habit-same" value="same"><span>כן, תמיד כמו היום</span></label>
+        <label class="opt"><input type="radio" name="habit" id="habit-total" value="total"><span>לא תמיד. כשזה לכל האימון אכתוב total</span></label>
+        <label class="opt"><input type="radio" name="habit" id="habit-varies" value="varies"><span>לא תמיד, זה תלוי באימון</span></label>
+      </fieldset>
+
+      <div class="q">
+        <label for="note" style="font-weight:700">הערה (לא חובה)</label>
+        <textarea id="note" rows="3" placeholder="כל דבר שיעזור לנו להבין"></textarea>
+      </div>
+    </form>
+
+    <div class="out">
+      <label for="answer" style="font-weight:700">מוכן לשליחה</label>
+      <textarea id="answer" readonly></textarea>
+      <div class="copy-row">
+        <button type="button" class="primary" id="copy">העתקת התשובה</button>
+        <span class="status" id="status" role="status"></span>
+      </div>
+      <p class="hint">אחרי ההעתקה נשאר רק להדביק בוואטסאפ לנועם.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  // ── Demo model: minutes since the start of the workout ──
+  const REST_END = 17.5;                       // a 2.5′ rest, middle of her 2–3
+  const OPTS = {
+    a: { end: 22, ftLen: 4.5 },
+    b: { end: REST_END + 22, ftLen: 22 }
+  };
+  const MS_PER_MIN = 500;
+  let opt = 'a', t = 0, running = false, last = 0, raf = 0, lastMinute = 0;
+
+  const $ = id => document.getElementById(id);
+  const fmt = m => {
+    const s = Math.max(0, Math.round(m * 60));
+    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  };
+
+  function buildTrack() {
+    const o = OPTS[opt];
+    $('demoTrack').innerHTML =
+      '<span class="seg emom" style="--from:0;--len:15">EMOM 15</span>' +
+      '<span class="seg rest" style="--from:15;--len:2.5"></span>' +
+      '<span class="seg ft" style="--from:17.5;--len:' + o.ftLen + '"></span>' +
+      '<span class="mark" style="--at:' + o.end + '"><span>' + (opt === 'a' ? 'סוף · 22:00' : 'סוף · בערך 40:00') + '</span></span>' +
+      '<span class="playhead" id="playhead"></span>';
+  }
+
+  function render() {
+    const o = OPTS[opt];
+    const clock = $('tvClock'), phase = $('tvPhase'), sub = $('tvSub');
+    const beep = '<span class="beep" id="beep"></span>';
+    let clockText, idle = false, phaseText, subText;
+    if (t < 15) {
+      clockText = fmt(t);
+      phaseText = 'EMOM · דקה ' + (Math.floor(t) + 1) + ' מתוך 15' + beep;
+      subText = opt === 'a' ? 'שעון אחד שרץ 22 דקות' : 'שעון 1 מתוך 2';
+    } else if (t < REST_END) {
+      if (opt === 'a') { clockText = fmt(t); subText = 'אותו שעון ממשיך לרוץ'; }
+      else { clockText = '15:00'; idle = true; subText = 'השעון הראשון נגמר. את מפעילה את השני כשמוכנים'; }
+      phaseText = 'מנוחה · 2–3 דקות';
+    } else if (t < o.end) {
+      if (opt === 'a') {
+        clockText = fmt(t);
+        phaseText = 'FOR TIME';
+        subText = 'נשארו ' + fmt(22 - t) + ' עד ה-22';
+      } else {
+        clockText = fmt(t - REST_END);
+        phaseText = 'FOR TIME';
+        subText = 'שעון 2 מתוך 2 · מגבלה 22:00';
+      }
+    } else {
+      clockText = '22:00';
+      phaseText = 'TIME CAP';
+      subText = opt === 'a' ? 'סוף האימון: 22 דקות מההתחלה' : 'סוף האימון: בערך 40 דקות מההתחלה';
+    }
+    clock.textContent = clockText;
+    clock.classList.toggle('idle', idle);
+    phase.innerHTML = phaseText;
+    sub.textContent = subText;
+    $('tvTotal').textContent = 'מתחילת האימון: ' + fmt(Math.min(t, o.end));
+    const ph = $('playhead');
+    if (ph) ph.style.setProperty('--t', Math.min(t, o.end));
+  }
+
+  function flashBeep() {
+    const b = $('beep');
+    if (!b) return;
+    b.classList.remove('on'); void b.offsetWidth; b.classList.add('on');
+  }
+
+  function frame(now) {
+    if (!running) return;
+    const dt = (now - last) / MS_PER_MIN; last = now;
+    t = Math.min(t + dt, OPTS[opt].end);
+    render();
+    const minute = Math.floor(t);
+    if (t < 15 && minute !== lastMinute) flashBeep();
+    lastMinute = minute;
+    if (t >= OPTS[opt].end) { stop(); return; }
+    raf = requestAnimationFrame(frame);
+  }
+  function start() {
+    if (t >= OPTS[opt].end) t = 0;
+    running = true; last = performance.now(); lastMinute = Math.floor(t);
+    $('play').textContent = '⏸ עצירה';
+    raf = requestAnimationFrame(frame);
+  }
+  function stop() { running = false; cancelAnimationFrame(raf); $('play').textContent = '▶ הפעלה'; }
+  function choose(o) {
+    opt = o; stop(); t = 0;
+    $('optA').setAttribute('aria-pressed', String(o === 'a'));
+    $('optB').setAttribute('aria-pressed', String(o === 'b'));
+    buildTrack(); render();
+  }
+
+  $('play').addEventListener('click', () => running ? stop() : start());
+  $('reset').addEventListener('click', () => { stop(); t = 0; render(); });
+  $('optA').addEventListener('click', () => choose('a'));
+  $('optB').addEventListener('click', () => choose('b'));
+  buildTrack(); render();
+
+  // ── Answer text ──
+  const LABELS = {
+    scope: { a: 'לכל האימון (א)', b: 'רק ל-for time (ב)', x: 'משהו אחר (ראו הערה)' },
+    form: { up: 'שעון אחד שעולה מ-0 עד 22, בלי צפצוף בכל דקה',
+            down: 'צפצוף בכל דקה של ה-EMOM, ואז ספירה לאחור עד 22',
+            upbeep: 'שעון אחד שעולה עד 22, עם צפצוף בכל דקה עד דקה 15' },
+    habit: { same: 'כן, תמיד כמו היום', total: 'לא תמיד. כשזה לכל האימון אכתוב total', varies: 'לא תמיד, זה תלוי באימון' }
+  };
+  const val = name => { const el = document.querySelector('input[name="' + name + '"]:checked'); return el ? el.value : ''; };
+  function updateAnswer() {
+    const scope = val('scope');
+    $('formQ').hidden = scope !== 'a';
+    const lines = ['תשובה על הלוח של היום (CARDIO חלק 2, t,c 22):'];
+    if (scope) lines.push('• ה-22 דקות הן: ' + LABELS.scope[scope]);
+    if (scope === 'a' && val('form')) lines.push('• צורת השעון: ' + LABELS.form[val('form')]);
+    if (val('habit')) lines.push('• t.c בסוף תא עם כמה חלקים: ' + LABELS.habit[val('habit')]);
+    const note = $('note').value.trim();
+    if (note) lines.push('• הערה: ' + note);
+    $('answer').value = lines.length > 1 ? lines.join('\n') : 'עוד לא נבחרה תשובה. בחרי למעלה והטקסט יופיע כאן.';
+    $('status').textContent = '';
+  }
+  $('form').addEventListener('change', updateAnswer);
+  $('form').addEventListener('input', updateAnswer);
+  $('form').addEventListener('submit', e => e.preventDefault());
+  updateAnswer();
+
+  $('copy').addEventListener('click', () => {
+    const text = $('answer').value;
+    const fallback = () => { const ta = $('answer'); ta.focus(); ta.select(); $('status').textContent = 'הטקסט מסומן. אפשר להעתיק ידנית'; };
+    try {
+      navigator.clipboard.writeText(text).then(() => { $('status').textContent = 'הועתק ✓'; }, fallback);
+    } catch (e) { fallback(); }
+  });
+})();
+</script>

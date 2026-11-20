@@ -219,6 +219,8 @@ If the answer is "whole cell", the clock options and their price:
 Every boundary in A–C is WRITTEN (15:00 by `emom 15`, 22:00 by the cap); none schedules the 2–3′ rest, which is a range (no invented values). A written total (`(22 min total)`, `total: 22 min`) in a multi-block cell reaches NO clock today either (`22 min` unexplained) — it belongs to the same answer.
 
 > **The coach-facing questionnaire for Q1–Q3, Q5, Q6 and Q8–Q11, plus two display questions, is in `memory/coach_questions_2026-10-02.md`.** It is written in full sentences, with examples and tick-box answers, and has a table for recording her answers.
+>
+> **2026-11-20: she had answered none of it, so the open questions went out again as a visual page** (each with an example from the board and a one-tap answer): https://claude.ai/artifact/P3ovokQxuL2KQHA28nXbZ4, source `memory/coach/open_cases_2026-11-20.html`. The page's q1–q4 are the Q12 follow-ups (fixed rest between parts ≈ Q1/Q3, two lengthless parts under one cap, the foot-cap habit, Q9); q5–q14 map to the questionnaire as recorded in its answer table. The page that got her Q12 answer is `memory/coach/tc22_question_2026-11-19.html`.
 
 ### Q4 — The redundant `For Time` preamble button (answered 2026-08-08: suppress; trigger widened 2026-08-10).
 
