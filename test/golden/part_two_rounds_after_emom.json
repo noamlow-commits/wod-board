@@ -1,0 +1,46 @@
+{
+  "data": {
+    "headers": [
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "emom 15:",
+              "1# 12-10 burpee",
+              "2# 12-10 thrusters with a band",
+              "3# 8-10 cal row",
+              "__SPACER__",
+              "2-3 min rest",
+              "3 rounds:",
+              "400 m run",
+              "20 wall ball",
+              "__SPACER__",
+              "t.c 22"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "CARDIO",
+      "header": "2",
+      "timers": [
+        {
+          "label": "EMOM 15′",
+          "type": "emom"
+        },
+        {
+          "label": "TC 22′",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}

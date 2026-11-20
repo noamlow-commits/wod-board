@@ -172,7 +172,15 @@ Today `E2MOM N` is read as N total **minutes** (`E2MOM 6` → ×3), and `E2MOM x
 ### Q11 — `30 rest` with no unit 🟡 NEW 2026-10-02, for the coach
 The display renders a bare `N rest` as `N sec` (`restNoSec`). That is a unit nobody wrote, and decision 7 says no guessing. The question is whether a bare number beside "rest" is always seconds for her.
 
-### Q12 — A cap at the FOOT of a multi-block cell: that block, or the whole cell? 🔴 NEW 2026-11-19, Noam ⇄ coach
+### ✅ Q12 ANSWERED 2026-11-20 (coach) — a cap at the FOOT of `emom 15` + `for time` caps the FOR TIME
+
+**Her answer** (through the question page, verbatim): *"על החלק השני.. חלק ראשון יש 15 דקות אימון- ואז חלק שני פור טיים"*. The 22 is the cap of part two, the for time. It does not cover the EMOM. So the board's binding was right all along, and since v167 reads `t,c` it shows exactly that: `EMOM 15′` first, then `TC 22′ · For Time`, which the coach starts by hand after the 2–3′ rest. `comma_tc_live_cardio` now asserts both clocks and their order. Noam had read it as one 22′ clock for the whole cell; the arithmetic and her 30–40′ pattern below pointed the other way, and she confirmed it.
+
+**Still open:** she answered this cell, not the habit question ("is a t.c on the last line of a multi-part cell ALWAYS like this?"). Two neighbours are therefore unchanged and not decided by this answer: `TC: 35 min` at the foot of two `Part` blocks (binds to part 2 today), and a written total (`(22 min total)`) in a multi-block cell, which reaches no clock.
+
+**Generalised the same day (Noam asked; PARSER.md, "Part one has a length, part two does not"):** a cap bounds the block with no length of its own, and a block with a length keeps its own clock. `partTwoStart` recognises the shape only from a written rest followed by a lengthless header, and fixed three places that broke it: the cap vanishing when part two is `3 rounds:` / `chipper:`, the single-line interval swallowing part two (§5 "block A", now narrower), and a fallback-only part one losing its clock. Q9 is untouched, with a negative control.
+
+The analysis that led to the question, kept as the record:
 
 Her live CARDIO cell (verbatim, fixture `comma_tc_live_cardio`):
 
@@ -830,7 +838,7 @@ some, the coach. **These are all *detection* defects — for the runtime ones
   (`mmssXmRe`, 3076), 2–30 (E derived, 3219), 2–20 (`detectActivityInterval`,
   3413). Fold into one `resolveRounds(facts, window)` with the windows passed in
   unchanged, then argue about the numbers separately.
-- **Block A's `return` at 2922.** A cell whose first matching line is a
+- **Block A's `return` at 2922.** ⚠️ NARROWED 2026-11-20: a part two after a WRITTEN REST now keeps its clock (`part_two_for_time_after_single_line_interval`). What follows still holds when there is no rest line between them. A cell whose first matching line is a
   work/rest interval can never surface a For Time, a cap, or a leading-duration
   clock written below it. Latent, uncovered by any fixture — the same shape as
   the bug just fixed.

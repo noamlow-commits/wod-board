@@ -3797,6 +3797,49 @@
       return cfgs.filter(c => !c._stationScoped).concat(nested).map(strip);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // PART TWO — the coach's answer of 2026-11-20 (TIMER_ROADMAP Q12), generalised.
+    // Her cell: "emom 15: … / 2-3 min rest / for time: … / t,c- 22 min". Asked
+    // whether the 22 covers the whole cell: "על החלק השני.. חלק ראשון יש 15 דקות
+    // אימון- ואז חלק שני פור טיים". The rule behind it:
+    //   A cap bounds the block that has NO END OF ITS OWN. A block that already
+    //   has a length (EMOM / AMRAP / every / an interval) keeps its own clock and
+    //   is never capped by it. Each part gets its own clock, in written order.
+    // The shape is recognised ONLY from what she wrote — a REST line (a range is
+    // fine: a flexible rest is exactly why part two is started by hand) whose next
+    // line OPENS a block with no length (for time / N RFT / N rounds: / chipper),
+    // with real work under it. No rest or no such header ⇒ null, and everything
+    // behaves as before — Q9's "AMRAP 10 / burpee / 16 min tc" is NOT reached.
+    // Returns { rest, head } (line indices) or null. Consumers: the cap gate and
+    // the single-line interval's early return (detectTimers), and the part-one
+    // fallback (extractTimerConfigs).
+    const REST_SPAN    = `(?:${DUR_NUM}(?:\\s*[-–]\\s*${DUR_NUM})?|\\d{1,2}:\\d{2})(?:\\s*(?:${MIN_WORD}|sec(?:ond)?s?))?`;
+    const REST_ONLY_RE = new RegExp(`^(?:${REST_SPAN}\\s*(?:of\\s+)?rest\\b|rest\\s*[:\\-]?\\s*${REST_SPAN}\\s*$|rest(?:\\s+as\\s+needed)?\\s*$)`, 'i');
+    const OPEN_PART_RE = /^(?:for\s+time\b|\d+\s*(?:rft|rounds?\s+for\s+time)\b|\d+\s*rounds?\s*:?\s*$|chipper\b)/i;
+    function partTwoStart(lines) {
+      const txt = l => String(l || '').trim();
+      const blank = l => { const t = txt(l); return !t || t === '__SPACER__'; };
+      let seenContent = false;
+      for (let i = 0; i < lines.length; i++) {
+        if (blank(lines[i])) continue;
+        const t = txt(lines[i]);
+        if (seenContent && (REST_ONLY_RE.test(t) || heRestSeconds(t) > 0)) {
+          let j = i + 1;
+          while (j < lines.length && blank(lines[j])) j++;
+          if (j < lines.length && OPEN_PART_RE.test(txt(lines[j]))) {
+            for (let k = j + 1; k < lines.length; k++) {
+              if (blank(lines[k])) continue;
+              const w = txt(lines[k]);
+              if (capSecondsFromLine(w) || isNoteLine(w)) continue;
+              return { rest: i, head: j };
+            }
+          }
+        }
+        seenContent = true;
+      }
+      return null;
+    }
+
     // Detect timer configs from a flat list of workout lines (returns array).
     // Part-unaware — extractTimerConfigs() below wraps this with "part N" splitting.
     // `partCapSeconds` (optional) is the external-cap hint from scanPartCapSeconds:
@@ -3823,6 +3866,23 @@
       // path below. It must NOT spawn a standalone "TC N′" timer in every
       // capless sibling cell — that push stays local-cap-only.
       const effCapSeconds = capSeconds || partCapSeconds || 0;
+      // The For Time clock, built in ONE place — the main FOR TIME path below and
+      // the part-two clock both call it, so the label rule cannot drift.
+      const forTimeCfg = () => {
+        const rft = text.match(/\b(\d+)\s*RFT\b/i);
+        const roundsLbl = rft ? `${rft[1]} RFT` : 'For Time';
+        return { _line: lineAt(/\bfor\s+time\b|\b\d+\s*RFT\b/i), type: 'fortime', capSeconds: effCapSeconds,
+                 label: effCapSeconds ? `TC ${fmtDur(effCapSeconds)} · ${roundsLbl}` : roundsLbl };
+      };
+      // Part two (see partTwoStart): its own clock — the For Time when its header
+      // says so, otherwise the cap she wrote (LOCAL only, like the standalone TC).
+      const partTwo = partTwoStart(lines);
+      const partTwoClock = () => {
+        if (!partTwo) return null;
+        if (/\bfor\s+time\b|\b\d+\s*RFT\b/i.test(String(lines[partTwo.head] || ''))) return forTimeCfg();
+        if (capSeconds > 0) return { _line: partTwo.head, type: 'fortime', capSeconds, label: `TC ${fmtDur(capSeconds)}` };
+        return null;
+      };
 
       // ── Shared "what did the coach actually WRITE?" helpers ───────────────
       // Defined here (function scope) because BOTH the single-line interval
@@ -4104,6 +4164,13 @@
             rounds, skipLastRest: endsOnLastAmrap,
             label: `×${rounds} · ${fmtDur(workSec)} work / ${fmtDur(restSec)} rest`
           });
+          // The early return below used to swallow everything written under the
+          // interval (TIMER_ROADMAP §5, "block A"). A part two after a written rest
+          // is a separate block with its own clock (Q12) — keep it, and only it.
+          if (partTwo && lines.indexOf(rawLn) < partTwo.rest) {
+            const p2 = partTwoClock();
+            if (p2) { tpHit('part-two'); results.push(p2); }
+          }
           return blockClocksFirst(results); // the interval line is the timer for this block
         }
       }
@@ -4577,15 +4644,20 @@
       // a part cap must not clone a "TC N′" timer into every capless cell.
       const rftMatch = text.match(/\b(\d+)\s*RFT\b/i);
       if (/\bfor\s+time\b/i.test(text) || rftMatch) {
-        const roundsLbl = rftMatch ? `${rftMatch[1]} RFT` : 'For Time';
         // TIME FIRST (2026-08-11, Noam). #tvTimerBtn is a fixed 11rem box with
         // an ellipsis (so ◄ ► never shift — 2026-07-09), and "12 RFT (TC 14′)"
         // truncated to "12 RFT (T…" — hiding the one number that says how long
         // the block runs, and leaving a rep COUNT looking like the clock. The
         // duration is what the coach needs at a glance, so it leads.
-        results.push({ _line: lineAt(/\bfor\s+time\b|\b\d+\s*RFT\b/i), type: 'fortime', capSeconds: effCapSeconds, label: effCapSeconds ? `TC ${fmtDur(effCapSeconds)} · ${roundsLbl}` : roundsLbl });
+        results.push(forTimeCfg());
       } else if (capSeconds > 0 && results.length === 0) {
         results.push({ _line: lines.findIndex(l => capSecondsFromLine(l || '') > 0), type: 'fortime', capSeconds: capSeconds, label: `TC ${fmtDur(capSeconds)}` });
+      } else if (capSeconds > 0 && partTwo) {
+        // Q12: part one already has its clock; the cap belongs to part two
+        // ("3 rounds:" / "chipper:" after a rest). It used to vanish here — the
+        // results.length === 0 gate above exists for Q9, which has no part two.
+        const p2 = partTwoClock();
+        if (p2) { tpHit('part-two'); results.push(p2); }
       }
 
       // Bare "N min work" / "M:SS work" — last-resort fallback for self-paced time
@@ -5127,7 +5199,7 @@
     // structural bugs have actually been.
     const TIMER_PATHS = ['whole-cell', 'station-blocks', 'activity-fallback', 'sets-interval',
                          'part-split', 'part-inline-spec', 'compound-chain', 'seamless-chain',
-                         'staged-part', 'header-cap'];
+                         'staged-part', 'header-cap', 'part-two', 'part-one-fallback'];
     const __timerPathHits = Object.fromEntries(TIMER_PATHS.map(k => [k, 0]));
     function tpHit(id) { __timerPathHits[id] = (__timerPathHits[id] || 0) + 1; }
     // Exposed as FUNCTIONS on purpose: a top-level `const` in a classic script
@@ -5158,6 +5230,21 @@
             else {
               const si = detectSetsInterval(lines);
               if (si.length) { tpHit('sets-interval'); out = si; }
+            }
+          }
+        } else {
+          // The mirror of Q12: part TWO's For Time made out non-empty, so the
+          // fallbacks above never ran and a part one like "5 sets / 3 min run /
+          // 1 min rest" lost its clock. Ownership by position: part one = the lines
+          // above the rest. Only when NOTHING in part one has a clock of its own.
+          const p2 = partTwoStart(lines);
+          if (p2) {
+            const partOne = lines.slice(0, p2.rest);
+            if (detectTimers(partOne).length === 0) {
+              const sb = detectStationBlocks(partOne);
+              const ai = sb.length ? null : detectActivityInterval(partOne);
+              const got = sb.length ? sb : ai ? [ai] : detectSetsInterval(partOne);
+              if (got.length) { tpHit('part-one-fallback'); out = got.concat(out); }
             }
           }
         }

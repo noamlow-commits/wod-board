@@ -1,0 +1,75 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "30 sec work, 10 sec rest x3",
+              "1# inch worm",
+              "2# squat to down dog",
+              "3# hollow hold",
+              "__SPACER__",
+              "2-3 min rest",
+              "for time:",
+              "2000 m run",
+              "60 r. twist",
+              "__SPACER__",
+              "t.c 22"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "30 sec work, 10 sec rest x3",
+              "1# inch worm",
+              "2# squat to down dog",
+              "3# hollow hold",
+              "__SPACER__",
+              "2-3 min rest",
+              "for time:",
+              "50 burpee",
+              "50 wall ball"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "CARDIO",
+      "header": "1",
+      "timers": [
+        {
+          "label": "×3 · 30″ work / 10″ rest",
+          "type": "tabata"
+        },
+        {
+          "label": "TC 22′ · For Time",
+          "type": "fortime"
+        }
+      ]
+    },
+    {
+      "section": "CARDIO",
+      "header": "2",
+      "timers": [
+        {
+          "label": "×3 · 30″ work / 10″ rest",
+          "type": "tabata"
+        },
+        {
+          "label": "For Time",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}

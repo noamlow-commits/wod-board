@@ -239,7 +239,29 @@ Her live CARDIO cell wrote `t,c- 22 min` — a **comma** for the dot. Six reader
 
 - `TC_WORD = t[.,]?[ \t]*c` is defined once beside `TC_NUM_RE`. The badge (`TC_NUM_RE`), the canonical `capSecondsFromLine` (both directions — and through it the timeline, the fact channel, `isNoteLine`, `partCapHints`, the header scan), the leading-duration ghost guard and the four group/sub-label guards (`TC_LEAD_RE`) all build from it. **A new cap reader builds from `TC_WORD`, never from a literal.**
 - ⛔ Still NOT a cap, on purpose (TIMER_ROADMAP Q8, Noam 1.10): `T.C.` with a trailing dot, `time cap`, `cap`.
-- Which block a FOOT cap bounds in a multi-block cell is a separate, open question: TIMER_ROADMAP **Q12**. `comma_tc_live_cardio` withholds `expectTimers` for that reason.
+- Which block a FOOT cap bounds — answered by the coach 2026-11-20 (TIMER_ROADMAP **Q12**): after `emom 15` + a rest, a cap at the foot of the cell belongs to the **for time**, part two. Two clocks, which is what the code does; `comma_tc_live_cardio` asserts both and their order.
+
+### ⭐⭐ Part one has a length, part two does not — the cap belongs to part two (added 2026-11-20, the coach; fixtures `part_two_*`, `part_one_activity_interval_before_for_time`, control `q9_cap_beside_amrap_stays_open`)
+
+Her answer to TIMER_ROADMAP Q12 (`emom 15 / 2-3 min rest / for time / t,c- 22 min`): *"על החלק השני.. חלק ראשון יש 15 דקות אימון- ואז חלק שני פור טיים"*.
+
+**The rule.** A cap bounds the block that has no end of its own. A block that already has a length (EMOM, AMRAP, every, E2MOM, Tabata, an interval) keeps its own clock and is never capped. Each part gets its own clock, in written order. Part two is started by hand, because the rest between the parts is hers to take.
+
+**How the board recognises the shape: `partTwoStart(lines)`, one predicate with three consumers.** It reads only what she wrote: a REST line (`2-3 min rest`, `3 min rest`, `rest 2:00`, a bare `rest`, a Hebrew rest; a range counts) whose next line OPENS a block with no length (`for time`, `N RFT`, `N rounds:`, `chipper`), with at least one work line under it. No rest line or no such header ⇒ `null`, and nothing changes. Adding it changed none of the 88 existing goldens.
+
+| consumer | what was wrong | now |
+|---|---|---|
+| the cap gate (`detectTimers`) | `3 rounds:` / `chipper:` after an EMOM: the cap vanished, because the standalone-cap push waits for `results.length === 0` (Q9's guard) | `EMOM 15′` + `TC 22′` |
+| the single-line interval's early `return` (roadmap §5, "block A") | `30 sec work, 10 sec rest x3` swallowed the whole For Time under it, capped or not | interval + `TC 22′ · For Time` |
+| the last-resort fallbacks (`extractTimerConfigs`) | `5 sets / 3 min run / 1 min rest` lost its clock as soon as part two's For Time existed | `3′/1′ ×5` + `TC 22′ · For Time` |
+
+Already correct before, and checked against the same rule: AMRAP / every / E2MOM / Tabata before a for time, the for time first, and the cap at the top, the middle or the foot of the cell. Part two's clock is built by the same `forTimeCfg()` as the main FOR TIME path, so the label rule cannot drift.
+
+⛔ **Not reached by her answer, so deliberately unchanged:**
+- Q9: a cap beside an AMRAP with no part two. `q9_cap_beside_amrap_stays_open` is the negative control; if it ever grows a `TC 16′`, the gate has widened past what she said.
+- A FIXED rest between the parts (`3 min rest`): still two clocks, and the rest reaches no clock. Whether it should chain into one compound clock is Q1/Q3 territory.
+- Two lengthless blocks under one cap, and `Part 1` + `Part 2` both lengthless with a cap at the foot (`TC: 35 min` → part 2 today).
+- An interval with a for time under it and NO rest line between them: block A still returns early.
 
 ### The clock reads decimals too (added 2026-09-03)
 

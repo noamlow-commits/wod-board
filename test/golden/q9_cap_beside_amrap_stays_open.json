@@ -1,0 +1,35 @@
+{
+  "data": {
+    "headers": [
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "AMRAP 10",
+              "10 burpee",
+              "10 wall ball",
+              "16 min tc"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "CARDIO",
+      "header": "2",
+      "timers": [
+        {
+          "label": "AMRAP 10′",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "data": {
+    "headers": [
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "5 sets",
+              "3 min run",
+              "1 min rest",
+              "__SPACER__",
+              "2-3 min rest",
+              "for time:",
+              "50 burpee",
+              "50 wall ball",
+              "__SPACER__",
+              "t.c 22"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "CARDIO",
+      "header": "2",
+      "timers": [
+        {
+          "label": "3′/1′ ×5",
+          "type": "tabata"
+        },
+        {
+          "label": "TC 22′ · For Time",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}

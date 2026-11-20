@@ -1,0 +1,46 @@
+{
+  "data": {
+    "headers": [
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "every 3:00 x5:",
+              "1# 10 burpee",
+              "2# 10 thrusters",
+              "3# 10 cal row",
+              "__SPACER__",
+              "2-3 min rest",
+              "chipper:",
+              "100 d.u",
+              "50 wall ball",
+              "__SPACER__",
+              "t.c 22"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "CARDIO",
+      "header": "2",
+      "timers": [
+        {
+          "label": "Every 3:00 ×5 (15′)",
+          "type": "emom"
+        },
+        {
+          "label": "TC 22′",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}
