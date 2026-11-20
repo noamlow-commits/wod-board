@@ -172,6 +172,44 @@ Today `E2MOM N` is read as N total **minutes** (`E2MOM 6` → ×3), and `E2MOM x
 ### Q11 — `30 rest` with no unit 🟡 NEW 2026-10-02, for the coach
 The display renders a bare `N rest` as `N sec` (`restNoSec`). That is a unit nobody wrote, and decision 7 says no guessing. The question is whether a bare number beside "rest" is always seconds for her.
 
+### Q12 — A cap at the FOOT of a multi-block cell: that block, or the whole cell? 🔴 NEW 2026-11-19, Noam ⇄ coach
+
+Her live CARDIO cell (verbatim, fixture `comma_tc_live_cardio`):
+
+```
+emom 15:            ← 3 stations
+(blank)
+2-3 min rest
+for time:           ← 2000 m run · 60 r. twist · 200 d.u / 400 s.u
+(blank)(blank)
+*אפשר לחלק איך שרוצים
+t,c- 22 min
+```
+
+**Today** the cap binds to the only open-ended block: `EMOM 15′` (default) then `TC 22′ · For Time`, ≈ 40′ in all, the For Time started by hand after the flexible rest. **Noam (19.11) reads it the other way:** the 22 covers EVERYTHING — EMOM 15, the rest and the for time — so the room needs ONE 22′ clock, and *"אפשר לחלק איך שרוצים"* says only the total matters.
+
+What the TEXT offers each reading (written down so it is not re-derived):
+
+| for "whole cell" | for "the For Time only" |
+|---|---|
+| The cap is the LAST line, after a double blank line and a note, i.e. outside the for-time block (compare `13 min tc` INSIDE the block in `cashout_after_cap`). | A cap bounds what is otherwise unbounded. The EMOM already ends at 15:00; the For Time is the only block that needs a cap. |
+| Same shape as her Friday sheet (`notes_below_workout` cell 3): `TC: 35 min` at the foot of a 2-part cell, which today binds to part 2 only. | Arithmetic: 22 − 15 − 2..3 leaves 4–5 min for a 2 km run + 60 twists + 200 d.u. Most athletes run 2 km in 8–12 min. |
+| The rest is a RANGE, so the hand-off cannot be scheduled; a total cap absorbs the flexibility. | Her cardio pieces run 30–40′ (CARDIO 2, 4.10: 38′; Endurance Day: 33′; 40′ intervals). 15 + 2.5 + 22 ≈ 40′ fits; 22′ in all would be the shortest. |
+| | *"אפשר לחלק איך שרוצים"* is the CrossFit partition idiom ("partition as you wish", Murph): split the chipper's reps in any order and chunks. It speaks of reps, not of the clock. |
+
+**Do not encode either reading by position alone.** She floats caps to the foot as a habit (her 22.9 request made the BOARD do it too), so "the cap is last" cannot tell the two apart. The cost is asymmetric in neither direction: wrong one way, the clock stops at 22:00 with 18 minutes of for-time left; wrong the other, the coach stops a 22′ cap by hand. Ask her (this is questionnaire question 2, made concrete):
+*"EMOM 15, 2-3 min rest, then a for time, and t.c 22 at the bottom — is the 22 for the whole thing, or for the for time?"*
+
+If the answer is "whole cell", the clock options and their price:
+
+| option | what the room sees | engine | cost |
+|---|---|---|---|
+| A — one count-up `TC 22′` | 00:00 → 22:00, the for-time score read straight off it; no minute beeps during the EMOM | `fortime` | detection only |
+| B — compound countdown | 15 × 1′ EMOM beeps, then ONE 7:00 phase (rest + for time) counting down to the cap | `phases` (as `TC 12′ · 2′ rest`) | detection only; for-time score must be subtracted (Q1) |
+| C — count-up with an EMOM beat | 00:00 → 22:00 counting up, a beep on each minute until 15:00 | new: a beat inside `fortime` | runtime change + `timer-nav` tests |
+
+Every boundary in A–C is WRITTEN (15:00 by `emom 15`, 22:00 by the cap); none schedules the 2–3′ rest, which is a range (no invented values). A written total (`(22 min total)`, `total: 22 min`) in a multi-block cell reaches NO clock today either (`22 min` unexplained) — it belongs to the same answer.
+
 > **The coach-facing questionnaire for Q1–Q3, Q5, Q6 and Q8–Q11, plus two display questions, is in `memory/coach_questions_2026-10-02.md`.** It is written in full sentences, with examples and tick-box answers, and has a table for recording her answers.
 
 ### Q4 — The redundant `For Time` preamble button (answered 2026-08-08: suppress; trigger widened 2026-08-10).

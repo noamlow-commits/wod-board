@@ -233,6 +233,14 @@ set-number fix above stays amber).
 
 The detector was fixed the same day — see the next section.
 
+### ⭐ The cap word is ONE fragment — `TC_WORD` (added 2026-11-19, fixtures `comma_tc_live_cardio`, `comma_tc_number_first_alone`)
+
+Her live CARDIO cell wrote `t,c- 22 min` — a **comma** for the dot. Six readers each carried their own `t\.?\s*c`, so the 22 reached no clock: the For Time ran **uncapped** and the fact channel flagged `22 min` as unexplained. Number-first (`22 min t,c`) was worse: the leading-duration rule's guard had its own copy too, so it grew a ghost `22′ t,c` count-up beside the uncapped For Time.
+
+- `TC_WORD = t[.,]?[ \t]*c` is defined once beside `TC_NUM_RE`. The badge (`TC_NUM_RE`), the canonical `capSecondsFromLine` (both directions — and through it the timeline, the fact channel, `isNoteLine`, `partCapHints`, the header scan), the leading-duration ghost guard and the four group/sub-label guards (`TC_LEAD_RE`) all build from it. **A new cap reader builds from `TC_WORD`, never from a literal.**
+- ⛔ Still NOT a cap, on purpose (TIMER_ROADMAP Q8, Noam 1.10): `T.C.` with a trailing dot, `time cap`, `cap`.
+- Which block a FOOT cap bounds in a multi-block cell is a separate, open question: TIMER_ROADMAP **Q12**. `comma_tc_live_cardio` withholds `expectTimers` for that reason.
+
 ### The clock reads decimals too (added 2026-09-03)
 
 The display half above only paints the badge. The DETECTOR had the same bare

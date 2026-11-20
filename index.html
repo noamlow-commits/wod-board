@@ -2740,9 +2740,22 @@
     const MIN_BADGE_RE       = new RegExp(`\\b(${DUR_NUM})\\s*${MIN_WORD}\\b`, 'gi');
     const SEC_BADGE_TIGHT_RE = new RegExp(`\\b(${DUR_NUM})\\s*sec\\b`, 'gi');
     const SEC_BADGE_RE       = new RegExp(`\\b(${DUR_NUM})\\s*sec(?:ond)?s?\\b`, 'gi');
-    // Time cap: "t.c 37", "tc 12:00", "t.c- 5", "t. c 42", "t.c 7.5". The `:mm`
+    // The time-cap WORD — ONE source for every reader (2026-11-19). Her live
+    // CARDIO cell wrote "t,c- 22 min": a COMMA for the dot. Every reader wanted
+    // "t" + optional DOT, so the cap vanished — the For Time ran uncapped and
+    // the fact channel flagged "22 min" as reaching no clock; "22 min t,c" even
+    // grew a ghost 22′ count-up (the leading-duration guard had its own copy).
+    // Six sites carried their own literal; all of them now build from TC_WORD.
+    // ⚠️ Deliberately NOT widened here — TIMER_ROADMAP Q8 (Noam 1.10: build
+    // conservatively, ask the coach first): "T.C." with a trailing dot,
+    // "time cap", "cap". [ \t] and not \s: a cap must never cross a newline.
+    const TC_WORD    = 't[.,]?[ \\t]*c';
+    // A line that OPENS with the cap word — "t.c 42" reads as letter+dot, so
+    // the group-label / sub-label readers must step around it.
+    const TC_LEAD_RE = new RegExp(`^\\s*${TC_WORD}[\\-\\s:]`, 'i');
+    // Time cap: "t.c 37", "tc 12:00", "t.c- 5", "t. c 42", "t.c 7.5", "t,c- 22". The `:mm`
     // tail stays INSIDE the capture group so "12:00" is badged whole.
-    const TC_NUM_RE          = new RegExp(`\\b(t\\.?\\s*c[\\-\\s:]*)\\s*(${DUR_NUM}(?::\\d{2})?)`, 'gi');
+    const TC_NUM_RE          = new RegExp(`\\b(${TC_WORD}[\\-\\s:]*)\\s*(${DUR_NUM}(?::\\d{2})?)`, 'gi');
 
     // ── Decimal durations: "2.5 min" is two and a half minutes ────────────
     // The coach writes halves. Every duration lexer read its number with a
@@ -3411,8 +3424,8 @@
     function capSecondsFromLine(rawLn) {
       const ln = (rawLn || '').trim();
       if (!ln || ln === '__SPACER__') return 0;
-      let mm = ln.match(new RegExp(`\\bt\\.?[ \\t]*c[\\-: \\t]*(${DUR_NUM}(?::\\d{2})?)\\b`, 'i'));
-      if (!mm) mm = ln.match(new RegExp(`^(${DUR_NUM}(?::\\d{2})?)[ \\t]*(?:${MIN_WORD}[ \\t]+)?t\\.?[ \\t]*c\\b`, 'i'));
+      let mm = ln.match(new RegExp(`\\b${TC_WORD}[\\-: \\t]*(${DUR_NUM}(?::\\d{2})?)\\b`, 'i'));
+      if (!mm) mm = ln.match(new RegExp(`^(${DUR_NUM}(?::\\d{2})?)[ \\t]*(?:${MIN_WORD}[ \\t]+)?${TC_WORD}\\b`, 'i'));
       if (!mm) return 0;
       const tv = mm[1];
       return tv.includes(':') ? parseInt(tv.split(':')[0]) * 60 + parseInt(tv.split(':')[1]) : minsToSec(tv);
@@ -4760,7 +4773,7 @@
             const isWorkHalfOfInterval = lines.some(l => restPairRe.test((l || '').trim()) || heRestSeconds(l));
             if (mins >= 1 && mins <= 90
                 && !actIsIntervalSpec && !alreadyHaveThisLong && !isWorkHalfOfInterval
-                && !/^t\.?\s*c\b/i.test(act)
+                && !new RegExp(`^${TC_WORD}\\b`, 'i').test(act)
                 && !new RegExp(`\\b(?:rest|${PACE_DESCRIPTOR})\\b`, 'i').test(act)) {
               // Trailing punctuation the coach left on a header line ("WARM UP :")
               // is hers to write, not ours to print on a 1080p TV button.
@@ -7075,7 +7088,7 @@
     function isStructuralLine(t) {
       t = (t || '').trim();
       if (PART_HEADER_RE.test(t)) return true;
-      if (!/^\s*t\.?\s*c[\-\s:]/i.test(t) && !DU_ABBR_RE.test(t) && /^[A-Z]\s*[\.\-\)]/i.test(t)) return true; // A. / B- / C)
+      if (!TC_LEAD_RE.test(t) && !DU_ABBR_RE.test(t) && /^[A-Z]\s*[\.\-\)]/i.test(t)) return true; // A. / B- / C)
       if (/^[A-Z]\d+\s*[\.\-\)]/i.test(t)) return true;                    // A1. / B2-
       if (/^\s*(?:set|סט)\s*\d+/i.test(t) || /^\s*תחנה\s*\d+/.test(t)) return true; // Set 2 / סט 1 / תחנה 1
       if (/^\s*\d+\s*[\.\)]\s+/.test(t) || STATION_LINE_RE.test(t)) return true; // 1. / 1) / 1# / #1
@@ -7160,7 +7173,7 @@
       // as letter+dot.
       // Allow an empty trailing group ("A-" / "B-" / "C-" alone on a line) so a
       // bare part-letter divider still gets emphasized as a group header.
-      const groupMatch = !/^\s*t\.?\s*c[\-\s:]/i.test(text) && !DU_ABBR_RE.test(text)
+      const groupMatch = !TC_LEAD_RE.test(text) && !DU_ABBR_RE.test(text)
         && text.match(/^([A-Z])\s*[\.\-\)]\s*(.*)/i);
       if (groupMatch) {
         const label = groupMatch[1].toUpperCase();
@@ -7320,7 +7333,7 @@
       // Separator is "."/"-"/")" with optional surrounding whitespace, OR
       // just whitespace (handles "B5 bw cossack squat" without a period).
       // Skip if the line is actually a time-cap pattern ("t.c 42", "tc 12:00").
-      if (!/^\s*t\.?\s*c[\-\s:]/i.test(text)) {
+      if (!TC_LEAD_RE.test(text)) {
         html = html.replace(/^([A-Z]\d+)(?:\s*[\.\-\)]\s*|\s+)/i, '<span class="subgroup-badge">$1</span> ');
       }
 
@@ -7458,7 +7471,7 @@
           const allItems = [];
           let currentSection = '';
           const cellTimerConfigs = {}; // map section → extracted timer config
-          const isGrpLine = l => /^[A-Z]\s*[\.\-\)]/i.test(l) && !/^\s*t\.?\s*c[\-\s:]/i.test(l) && !DU_ABBR_RE.test(l);
+          const isGrpLine = l => /^[A-Z]\s*[\.\-\)]/i.test(l) && !TC_LEAD_RE.test(l) && !DU_ABBR_RE.test(l);
           // Part-level cap (2026-07-27; refined SAME DAY after a coach flag):
           // a "t.c N" the coach writes for ONE block must NOT leak onto a
           // sibling block in the same part. partCapHints() returns a PER-CELL

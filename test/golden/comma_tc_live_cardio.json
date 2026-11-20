@@ -1,0 +1,69 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "30 sec work, 10 sec restx",
+              "3 sets",
+              "1# inch worm",
+              "2#squat to down dog",
+              "3# hollow hold"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "emom 15:",
+              "1# 12-10 burpee",
+              "2# 12-10 thrusters with a band",
+              "3# 8-10 cal row",
+              "__SPACER__",
+              "2-3 min rest",
+              "for time:",
+              "2000 m run",
+              "60 r. twist- B.W",
+              "200 d.u- 400 s.u",
+              "__SPACER__",
+              "*אפשר לחלק איך שרוצים",
+              "t,c- 22 min"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "CARDIO",
+      "header": "1",
+      "timers": [
+        {
+          "label": "30″/10″ ×3",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "CARDIO",
+      "header": "2",
+      "timers": [
+        {
+          "label": "EMOM 15′",
+          "type": "emom"
+        },
+        {
+          "label": "TC 22′ · For Time",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}

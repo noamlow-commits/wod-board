@@ -25,7 +25,9 @@ add("amrap12_5", "AMRAP 12.5 minutes (12:30)", { type: "amrap", total: 750 },
 // ── Time cap 14 on a For Time ──
 add("tc14", "For Time, time cap 14 min", { type: "fortime", cap: 840 },
   ["t.c 14", "tc 14", "TC: 14", "TC 14", "T.C. 14", "14 min tc", "14 min TC", "time cap 14", "TIME CAP: 14 min", "cap 14", "cap: 14 min",
-   "T.C 14:00", "tc 14 min", "14 דקות tc", "tc 14 דקות", "(tc 14)", "TC-14", "14' tc", "14:00 tc"].map(v => FT(v)));
+   "T.C 14:00", "tc 14 min", "14 דקות tc", "tc 14 דקות", "(tc 14)", "TC-14", "14' tc", "14:00 tc",
+   // a COMMA for the dot — her live CARDIO cell, 2026-11-19 ("t,c- 22 min")
+   "t,c- 14 min", "T,C 14", "14 min t,c"].map(v => FT(v)));
 add("tc14_inline", "For Time with the cap on the header line", { type: "fortime", cap: 840 },
   ["For Time (tc 14)\n21-15-9\nthrusters\npull ups", "For Time - TC 14\n21-15-9\nthrusters\npull ups",
    "For Time, 14 min cap\n21-15-9\nthrusters\npull ups", "For Time (14 min TC)\n21-15-9\nthrusters\npull ups",
@@ -177,7 +179,7 @@ export const DISPLAY = [
   { id: "durations_sec", check: "none", title: "Duration badge (30 seconds)",
     lines: ["30 sec plank", "30 secs plank", "30 seconds plank", "30s plank", "30\" plank", "30″ plank", "plank 30 sec", "plank 0:30", "30 שניות פלאנק", "פלאנק 30 שניות", "30 rest", "30 sec rest", "rest 30 sec"] },
   { id: "tc_badge", check: "none", title: "Time cap badge",
-    lines: ["t.c 14", "tc 14", "TC: 14", "14 min tc", "time cap 14", "cap 14", "T.C 14:00", "14 דקות tc", "TC-14", "(tc 14)"] },
+    lines: ["t.c 14", "tc 14", "TC: 14", "14 min tc", "time cap 14", "cap 14", "T.C 14:00", "14 דקות tc", "TC-14", "(tc 14)", "t,c- 14 min"] },
   { id: "format_header", check: "type", title: "Format header (AMRAP 12)",
     lines: ["AMRAP 12", "amrap 12", "AMRAP 12 min", "12 min AMRAP", "12' AMRAP", "AMRAP 12:", "AMRAP: 12", "amrap 12 דקות", "12 דקות AMRAP", "AMRAP 12.5"] },
   { id: "emom_header", check: "type", title: "Format header (EMOM 10)",

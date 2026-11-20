@@ -1,0 +1,36 @@
+{
+  "data": {
+    "headers": [
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "for time:",
+              "2000 m run",
+              "60 r. twist- B.W",
+              "200 d.u- 400 s.u",
+              "22 min t,c"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "CARDIO",
+      "header": "2",
+      "timers": [
+        {
+          "label": "TC 22′ · For Time",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}

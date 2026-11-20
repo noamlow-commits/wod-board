@@ -637,6 +637,18 @@ const FIXTURES = [
     expectTimerOrder: [["6′ ×3 (18′ total)", "AMRAP 18′"]],
     rows: [["", "2"],
            ["CARDIO", "every 6 minx 3 sets (18 min)\n2 sets:\n10 cal\n8 burpee over rower/ db\n10 box jump\n\namrap 18\n100-200-300-400-500...... m run\n5-6-7-8-9-10..... push up"]] },
+  // ⚠️ The coach's live CARDIO cell, 2026-11-19, VERBATIM from getWorkoutSheet.
+  { name: "comma_tc_live_cardio",
+    note: "She wrote 't,c- 22 min' — a COMMA for the dot. Every cap reader wanted 't' + an optional DOT, so the 22 reached no clock: the TV offered 'EMOM 15′ (1/2)' then an UNCAPPED 'For Time', and the fact channel flagged '22 min' as unexplained. Fix: one shared TC_WORD fragment feeds all six readers. ⚠️ expectTimers is withheld ON PURPOSE: whether this footer cap bounds the For Time alone (today: 'TC 22′ · For Time', a ~40′ piece) or the WHOLE cell (Noam's reading 2026-11-19: one 22′ clock) is an open semantic decision — see TIMER_ROADMAP Q12. The forbid is wrong under BOTH readings.",
+    forbidTimers: ["For Time"],
+    rows: [[" b", "", "1", "2"],
+           ["", "CARDIO", "\n30 sec work, 10 sec restx3 sets \n1# inch worm\n2#squat to down dog\n3# hollow hold\n",
+            "emom 15:\n1# 12-10 burpee\n2# 12-10 thrusters with a band\n3# 8-10 cal row\n\n2-3 min rest\nfor time:\n2000 m run\n60 r. twist- B.W\n200 d.u- 400 s.u\n\n\n*אפשר לחלק איך שרוצים\nt,c- 22 min "]] },
+  { name: "comma_tc_number_first_alone",
+    note: "The same comma, number-first and ALONE in its cell (test/README rule: a new shape is also tested alone). Before the fix '22 min t,c' was worse than silent: the cap went unread AND the leading-duration rule grew a ghost '22′ t,c' count-up beside the uncapped For Time — its guard carried its own separate copy of the cap word.",
+    expectTimers: ["TC 22′ · For Time"],
+    forbidTimers: ["For Time", "22′ t,c"],
+    rows: [["", "2"], ["CARDIO", "for time:\n2000 m run\n60 r. twist- B.W\n200 d.u- 400 s.u\n22 min t,c"]] },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
