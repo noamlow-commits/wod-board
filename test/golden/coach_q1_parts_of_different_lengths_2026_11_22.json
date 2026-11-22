@@ -1,0 +1,62 @@
+{
+  "data": {
+    "headers": [
+      "a",
+      "b"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "a",
+            "lines": [
+              "t.c 14",
+              "12 rft:",
+              "10 burpee",
+              "2:00 rest",
+              "amrap 12",
+              "10 wall ball"
+            ]
+          },
+          {
+            "header": "b",
+            "lines": [
+              "EMOM 10",
+              "5 pull ups",
+              "2 min rest",
+              "EMOM 8",
+              "10 push ups"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "a",
+      "timers": [
+        {
+          "label": "TC 14′ · 2′ rest · AMRAP 12′ (28′)",
+          "type": "tabata"
+        },
+        {
+          "label": "TC 14′ · 12 RFT",
+          "type": "fortime"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "b",
+      "timers": [
+        {
+          "label": "EMOM 10′ · 2′ rest · EMOM 8′ (20′)",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

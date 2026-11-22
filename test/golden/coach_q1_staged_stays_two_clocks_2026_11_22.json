@@ -1,0 +1,41 @@
+{
+  "data": {
+    "headers": [
+      "c"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "c",
+            "lines": [
+              "emom 10:",
+              "10 burpee",
+              "2 min rest",
+              "1000 m run",
+              "ואז amrap 12:",
+              "10 wall ball"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "c",
+      "timers": [
+        {
+          "label": "EMOM 10′",
+          "type": "emom"
+        },
+        {
+          "label": "AMRAP 12′",
+          "type": "amrap"
+        }
+      ]
+    }
+  ]
+}

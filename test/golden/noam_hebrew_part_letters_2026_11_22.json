@@ -1,0 +1,42 @@
+{
+  "data": {
+    "headers": [
+      "1"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "חלק א': 5 סטים, 30 שניות",
+              "חלק ב': EMOM 5",
+              "10 burpee"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "1",
+      "timers": [
+        {
+          "label": "7:30 · 30″ ×5 → EMOM 5′",
+          "type": "tabata"
+        },
+        {
+          "label": "P1 · 30″ ×5 (2:30)",
+          "type": "emom"
+        },
+        {
+          "label": "P2 · EMOM 5′",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

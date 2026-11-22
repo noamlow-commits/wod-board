@@ -30,7 +30,12 @@
     {
       "section": "כוח",
       "header": "WOD",
-      "timers": []
+      "timers": [
+        {
+          "label": "8′ A. Deadlift Prog",
+          "type": "amrap"
+        }
+      ]
     }
   ]
 }

@@ -103,7 +103,7 @@
       "header": "2",
       "timers": [
         {
-          "label": "P3 · TC 35′",
+          "label": "TC 35′ · For Time",
           "type": "fortime"
         }
       ]

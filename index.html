@@ -2681,6 +2681,54 @@
     // A line that OPENS with a station marker ("1# 12 cal+", "#2 amrap 2").
     // Built from the shared bodies above, per the 3-place-pattern rule.
     const STATION_LINE_RE    = new RegExp(`^\\s*${STATION_BODY}`);
+
+    // ── "1 - …" / "2- …" stations, decided by CONTEXT (Noam, 2026-11-22) ──
+    // Page q10: "1 -" looks like a rep range ("10 - 15"), so on its own it is
+    // not a station. His rule: a "1 -" with a "2 -" BELOW it is a numbered
+    // list = stations; a "1 -" followed by "5-10 …" and no "2 -" stays as it
+    // is. The run must start at 1 and count up in written order (1, 2, 3…),
+    // so a "10 - 15 burpees" inside the list never joins it. Returns the
+    // INDICES of the station lines (empty Set = no such list).
+    const DASH_STATION_CAND_RE = /^\s*(\d{1,2})\s*[-–](?!\d)\s*\S/;
+    function dashStationIdx(lines) {
+      const idx = new Set();
+      let want = 1;
+      const run = [];
+      (lines || []).forEach((l, i) => {
+        const m = String(l || '').match(DASH_STATION_CAND_RE);
+        if (m && parseInt(m[1], 10) === want) { run.push(i); want++; }
+      });
+      if (run.length >= 2) run.forEach(i => idx.add(i));
+      return idx;
+    }
+    // ── A rest number with NO unit is MINUTES (Noam, 2026-11-22, page q7) ──
+    // "usually there is no lone number of seconds of rest" — so a line that is
+    // only "2 rest" / "rest 3" is minutes. EXCEPT beside a work written in
+    // seconds or bare ("30 sec work, 10 rest", "40 work / 20 rest", Tabata):
+    // there the rest shares the work's seconds, as her real cells show.
+    const BARE_REST_RE = /^\s*(?:(\d+(?:\.\d+)?)\s*rest|rest\s*[:\-]?\s*(\d+(?:\.\d+)?))\s*$/i;
+    const SEC_WORK_RE  = /(?<![:\d.])\d+(?:\.\d+)?\s*(?:sec(?:ond)?s?\b|s\b|″|")?\s*(?:work|on)\b|\btabata\b|\btbata\b/i;
+    const bareRestIsMinutes = lines => !(lines || []).some(l => SEC_WORK_RE.test(String(l || '')));
+    // Display context, rebuilt by renderWorkout for every render: parseLine sees
+    // ONE line, and both rules above need the cell. A line string that means
+    // two things in two cells keeps the old reading (the conflict is dropped).
+    let LINE_CTX = { dashStation: new Set(), restMin: new Set() };
+    function buildLineContext(data) {
+      const dash = new Set(), notDash = new Set(), restMin = new Set(), restSec = new Set();
+      for (const row of (data && data.rows) || []) for (const cell of row.cells || []) {
+        const lines = cell.lines || [];
+        const st = dashStationIdx(lines);
+        const mins = bareRestIsMinutes(lines);
+        lines.forEach((l, i) => {
+          const t = String(l || '').trim();
+          if (DASH_STATION_CAND_RE.test(t)) (st.has(i) ? dash : notDash).add(t);
+          if (BARE_REST_RE.test(t)) (mins ? restMin : restSec).add(t);
+        });
+      }
+      for (const t of notDash) dash.delete(t);
+      for (const t of restSec) restMin.delete(t);
+      return { dashStation: dash, restMin };
+    }
     // A SET NUMBER written TIGHT against its period — the coach's deadlift wave
     // (2026-09-03): "1.5 REPS- 70-75%" / "2- 4 REPS- 77-80%" / "3- 3 REPS- …".
     // Set 1 is the only line where she used "." instead of the "-" her other
@@ -2746,10 +2794,14 @@
     // the fact channel flagged "22 min" as reaching no clock; "22 min t,c" even
     // grew a ghost 22′ count-up (the leading-duration guard had its own copy).
     // Six sites carried their own literal; all of them now build from TC_WORD.
-    // ⚠️ Deliberately NOT widened here — TIMER_ROADMAP Q8 (Noam 1.10: build
-    // conservatively, ask the coach first): "T.C." with a trailing dot,
-    // "time cap", "cap". [ \t] and not \s: a cap must never cross a newline.
-    const TC_WORD    = 't[.,]?[ \\t]*c';
+    // Q8 ANSWERED (Noam, 2026-11-22: "זה אותו הדבר"): "time cap", "cap" and
+    // "T.C." with a trailing dot are the same word as t.c — "For Time (cap 14)",
+    // "TIME CAP: 14 min", "14 min cap". Widened HERE, so every reader gets it
+    // at once. The trailing dot also stops "T.C. 14" being read as group
+    // letter T (TC_LEAD_RE). Each alternative still needs a NUMBER beside it in
+    // the cap readers, so "cap" inside a word or a sentence is never a cap.
+    // [ \t] and not \s: a cap must never cross a newline.
+    const TC_WORD    = '(?:time[ \\t]*cap|cap|t[.,]?[ \\t]*c\\.?)';
     // A line that OPENS with the cap word — "t.c 42" reads as letter+dot, so
     // the group-label / sub-label readers must step around it.
     const TC_LEAD_RE = new RegExp(`^\\s*${TC_WORD}[\\-\\s:]`, 'i');
@@ -2776,6 +2828,17 @@
     const DUR_NUM_POS = '[1-9]\\d*(?:\\.\\d+)?';   // as DUR_NUM, no leading zero
     const minsToSec = (n) => Math.round(parseFloat(n) * 60);
     const secsToSec = (n) => Math.round(parseFloat(n));
+
+    // ── E2MOM N: the bare number is ROUNDS (coach, 22.11.2026, page q6) ──
+    // "E2MOM 6" is 6 rounds of 2′ = 12′. Her words: "זה 12 דקות — לרוב אכתוב x".
+    // With a unit ("E2MOM 12 min", "12′") or a fraction ("7.5") the number
+    // stays total minutes. Until 22.11 the bare form was read as minutes (×3).
+    // ONE function for the three readers (timeline, detectTimers, the fact
+    // channel), so the meaning cannot drift between them.
+    function eXmomTotalSeconds(ivMin, num, unit) {
+      if (!unit && /^\d+$/.test(String(num))) return parseInt(num, 10) * ivMin * 60;
+      return minsToSec(num);
+    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // FORMAT LENGTH — the ONE reader for the number a format keyword carries
@@ -3034,8 +3097,8 @@
         // workout (see chainFromTimeline). Absent on AMRAP / TC phases, which
         // have no internal beat, so nothing there changes.
         // WORK: E2MOM / E3MOM with total
-        wm = line.match(new RegExp(`\\bE(\\d)MOM\\s+(${DUR_NUM})`, 'i'));
-        if (wm) { const sec = minsToSec(wm[2]); if (pushPhase(classified, { type:'work', seconds:sec, intervalSeconds:parseInt(wm[1])*60, label:`E${wm[1]}MOM ${fmtDur(sec)}` })) continue; }
+        wm = line.match(new RegExp(`\\bE(\\d)MOM\\s+(${DUR_NUM})[^\\S\\r\\n]*(${MIN_WORD}\\b|′)?`, 'i'));
+        if (wm) { const sec = eXmomTotalSeconds(parseInt(wm[1]), wm[2], wm[3]); if (pushPhase(classified, { type:'work', seconds:sec, intervalSeconds:parseInt(wm[1])*60, label:`E${wm[1]}MOM ${fmtDur(sec)}` })) continue; }
         // WORK: EMOM N
         wm = line.match(emomLenRe('i'));            // shared FORMAT LENGTH reader
         const em = wm && emomLen(wm);
@@ -3082,9 +3145,19 @@
           line.match(/\brest\s*(\d+):(\d{2})\b/i);
         if (rm) { if (pushPhase(classified, { type:'rest', seconds:parseInt(rm[1])*60+parseInt(rm[2]) })) continue; }
         rm = line.match(new RegExp(`(?<![:\\d.])(${DUR_NUM})\\s*${MIN_WORD}\\s*rest\\b`, 'i'));
-        if (rm) { if (pushPhase(classified, { type:'rest', seconds:minsToSec(rm[1]) })) continue; }
+        // `range`: "2-3 min rest" — this reads the 3, the upper end, which is the
+        // schedule the coach chose (22.11.2026). The flag is kept for the record.
+        if (rm) { if (pushPhase(classified, { type:'rest', seconds:minsToSec(rm[1]),
+                                              range: new RegExp(`\\d[^\\S\\r\\n]*[-–][^\\S\\r\\n]*$`).test(line.slice(0, rm.index)) })) continue; }
         rm = line.match(new RegExp(`\\brest\\s*(${DUR_NUM})\\s*${MIN_WORD}\\b`, 'i'));
         if (rm) { if (pushPhase(classified, { type:'rest', seconds:minsToSec(rm[1]) })) continue; }
+        // (f) A bare number — "2 rest" / "rest 3" — is MINUTES (Noam 2026-11-22),
+        // unless a seconds / bare work sits in the same lines (then it is that
+        // pair's rest, which the work/rest parsers own). See BARE_REST_RE.
+        const bareRest = line.match(BARE_REST_RE);
+        if (bareRest && bareRestIsMinutes(lines)) {
+          if (pushPhase(classified, { type:'rest', seconds: minsToSec(bareRest[1] || bareRest[2]) })) continue;
+        }
         // (e) Hebrew, either order — "2 דקות מנוחה" / "מנוחה 1:30" (heRestSeconds).
         const heRest = heRestSeconds(line);
         if (heRest) { if (pushPhase(classified, { type:'rest', seconds:heRest })) continue; }
@@ -3150,8 +3223,33 @@
       const allSameWork = tlWork.every(p => p.seconds === tlWork[0].seconds);
       const allSameRest = tlRest.every(p => p.seconds === tlRest[0].seconds);
       // Sanity: total ≤90min, work ≥30s, rest ≤10min
-      if (!(allSameWork && allSameRest && totalSec <= 90 * 60
-            && tlWork[0].seconds >= 30 && tlRest[0].seconds <= 600)) return null;
+      const sane = totalSec <= 90 * 60 && tlWork.every(p => p.seconds >= 30)
+                   && tlRest.every(p => p.seconds <= 600);
+      if (!sane) return null;
+      // ── Parts of DIFFERENT lengths: one continuous clock (coach, 22.11.2026) ──
+      // Page q1: `emom 15 / 3 min rest / for time … / t.c- 22 min`. Her answer
+      // (voice note): "שזה רץ חמש עשרה דקות ואז זה אוטומטית ממשיך לשלוש דקות
+      // מנוחה, ואחרי שלוש דקות מנוחה יכול לרוץ לבד על הזמן הנותר" — ONE clock
+      // that moves on its own: 15 EMOM minutes, the 3′ rest, then the for time
+      // counting DOWN from its cap (option B, competition style; ⏭ הבא ends a
+      // phase early). This is the sequence engine Q3 asked for: the explicit
+      // `phases` schedule (tabataPhaseAt, 2026-08-11) runs non-uniform lengths,
+      // so the uniform rule now guards only the flat work/rest chain below.
+      // A REST written as a range ("2-3 min rest") is scheduled at its UPPER
+      // end — the coach, 22.11.2026 evening (page 3 q1): "שעון רציף עם 3 דקות,
+      // ⏭ אם מוכנים קודם". The rest reader already takes the 3; ⏭ הבא on the
+      // remote ends the rest early when everyone is ready.
+      // Refuses rather than guesses:
+      //   · a staged cell ("ואז" / "and then"): the athletes, not the sheet,
+      //     decide when the next block starts (the 2026-08-10 rule);
+      //   · a work phase that is neither an interval block nor a NAMED block
+      //     (AMRAP / TC) — a bare "9 min work" is her summary line.
+      if (!(allSameWork && allSameRest)) {
+        if ((lines || []).some(l => isStageLine(l))) return null;
+        const hasIvN = p => p.intervalSeconds > 0 && p.seconds % p.intervalSeconds === 0;
+        if (!tlWork.every(p => hasIvN(p) || /^(?:AMRAP|TC)\b/.test(p.label || ''))) return null;
+        return phasesChain(timeline);
+      }
       const workSec = tlWork[0].seconds;
       const restSec = tlRest[0].seconds;
       const workMins = Math.round(workSec / 60);
@@ -3199,6 +3297,27 @@
                                          && p.seconds / p.intervalSeconds >= 1)
                                       : namedBlock(p));
       if (expandable) {
+        const ex = phasesChain(timeline);
+        if (ex) return ex;
+      }
+
+      const label = uniform
+        ? `${names[0].split(' ')[0]} ×${tlWork.length} · ${workMins}′ work / ${restShort} rest`
+        : `${names.join(' → ')} · ${restShort} rest`;
+      return {
+        type: 'tabata', workSeconds: workSec, restSeconds: restSec,
+        rounds: tlWork.length, skipLastRest: true, label
+      };
+    }
+
+    // The explicit-phases schedule of a timeline, in written order: an interval
+    // block expands into its intervals, a beatless block (AMRAP / TC) is ONE
+    // phase of its written length, a rest is its own phase. Shared by the
+    // expandable branch (2026-08-31 / 2026-10-04) and the parts-of-different-
+    // lengths chain (22.11.2026). null when the schedule is unreadable on a TV.
+    function phasesChain(timeline) {
+      const hasIv = p => p.intervalSeconds > 0;
+      {
         const phases = [];
         for (const p of timeline) {
           if (p.type === 'rest') { phases.push({ type: 'rest', seconds: p.seconds }); continue; }
@@ -3233,14 +3352,7 @@
                    skipLastRest: true, label: `${segs.join(' · ')} (${Math.round(schedSec / 60)}′)` };
         }
       }
-
-      const label = uniform
-        ? `${names[0].split(' ')[0]} ×${tlWork.length} · ${workMins}′ work / ${restShort} rest`
-        : `${names.join(' → ')} · ${restShort} rest`;
-      return {
-        type: 'tabata', workSeconds: workSec, restSeconds: restSec,
-        rounds: tlWork.length, skipLastRest: true, label
-      };
+      return null;
     }
 
     // ── A part's written duration is its TOTAL budget (2026-08-11) ──────────
@@ -3526,10 +3638,10 @@
           const e = emomLen(m);
           if (e && !e.mmss && claim(m.index, m.index + m[0].length)) add('duration', e.total, m[0], null);
         }
-        re = new RegExp(`\\bE\\d+MOM\\s+(${DUR_NUM_POS})\\b`, 'gi');
+        re = new RegExp(`\\bE(\\d+)MOM\\s+(${DUR_NUM_POS})\\b(?:[^\\S\\r\\n]*(${MIN_WORD}\\b|′))?`, 'gi');
         while ((m = re.exec(line)) !== null) {
-          const n = parseFloat(m[1]);
-          if (n && claim(m.index, m.index + m[0].length)) add('duration', minsToSec(n), m[0], null);
+          const sec = eXmomTotalSeconds(parseInt(m[1]), m[2], m[3]);   // q6: bare N = rounds
+          if (sec && claim(m.index, m.index + m[0].length)) add('duration', sec, m[0], null);
         }
 
         // ── M:SS ("2:00 rest", "every 4:00", "1:30"). ──
@@ -3576,7 +3688,7 @@
       const vals = new Set();
       for (const c of (configs || [])) {
         for (const k of ['workSeconds', 'restSeconds', 'capSeconds', 'totalSeconds', 'intervalSeconds',
-                         'windowSeconds']) {
+                         'windowSeconds', 'stationSeconds']) {
           if (c[k]) vals.add(c[k]);
         }
         // An explicit (possibly non-uniform) schedule — see tabataPhaseAt. Each
@@ -3587,6 +3699,17 @@
           let sum = 0;
           for (const p of c.phases) { if (p.seconds) { vals.add(p.seconds); sum += p.seconds; } }
           if (sum) vals.add(sum);
+          // A block's own length: an interval block expands into phases that
+          // share its label ("EMOM 15′" × 15), and the written "emom 15" is
+          // their sum, which the chain does run (22.11, parts of different lengths).
+          let run = 0, runLbl = null;
+          for (const p of c.phases) {
+            if (p.type === 'work' && p.label && p.label === runLbl) { run += p.seconds; continue; }
+            if (run) vals.add(run);
+            run = p.type === 'work' ? p.seconds : 0;
+            runLbl = p.type === 'work' ? p.label : null;
+          }
+          if (run) vals.add(run);
         }
         const r = c.rounds || 0;
         if (c.type === 'tabata' && c.workSeconds && r) {
@@ -3840,6 +3963,27 @@
       return null;
     }
 
+    // The cap that bounds ALL the parts of a cell (coach, 22.11.2026, page 3 q3:
+    // "לשני החלקים יחד"), or 0. Holds only when (a) the cell's last written line
+    // is a cap, (b) there are 2+ numbered parts and none has a written length
+    // (no budget on its header), and (c) no part produced a clock with a length
+    // other than that cap — every clock is a capless For Time or the cap itself.
+    function footCapOverAllParts(lines, segments) {
+      const numbered = segments.filter(sg => sg.num);
+      if (numbered.length < 2) return 0;
+      let last = '';
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const t = String(lines[i] || '').trim();
+        if (t && t !== '__SPACER__') { last = t; break; }
+      }
+      const cap = capSecondsFromLine(last);
+      if (!cap) return 0;
+      if (numbered.some(sg => sg.budget)) return 0;
+      const lengthless = c => c.type === 'fortime' && (!c.capSeconds || c.capSeconds === cap);
+      if (!segments.every(sg => (sg.cfgs || []).every(lengthless))) return 0;
+      return cap;
+    }
+
     // Detect timer configs from a flat list of workout lines (returns array).
     // Part-unaware — extractTimerConfigs() below wraps this with "part N" splitting.
     // `partCapSeconds` (optional) is the external-cap hint from scanPartCapSeconds:
@@ -3924,12 +4068,27 @@
       // digit-groups, not the lines — otherwise a merged-station EMOM/E#MOM
       // rotates one interval short. Kept in sync with the highlight (~4628)
       // and clean-break (~4764) regexes.
-      const stationCount = () => lines.reduce((n, l) => {
+      const dashSt = dashStationIdx(lines);   // "1 - / 2 -" lists (2026-11-22)
+      const stationCount = () => lines.reduce((n, l, i) => {
         // Both orders, from the shared STATION_* source. Counts DIGIT GROUPS,
         // not lines: a merged "2+3#" is TWO stations.
         const m = l.match(new RegExp(`^\\s*(?:(${STATION_HASH_FIRST})|(\\d+(?:\\s*[+\\-,&]\\s*\\d+)*)\\s*#)`));
-        return n + (m ? (m[2] ? m[2].split(STATION_MERGE_SEP).length : 1) : 0);
+        return n + (m ? (m[2] ? m[2].split(STATION_MERGE_SEP).length : 1) : dashSt.has(i) ? 1 : 0);
       }, 0);
+      // "x N sets" over numbered stations = N sets AT EACH station (coach,
+      // 22.11.2026, page q5): `every 2:30 x 4 sets (10 min each)` over 1#–3# is
+      // 12 intervals, 30′ (her "(10 min each)" = 4 × 2:30 per station). Only
+      // the word SETS right after the ×N says it: a bare header ×N stays
+      // literal (`EVEY 2:00 X3` over 1#/2# = 6′, coach 14.7), and so does
+      // "x N rounds". Her `x 3 sets (6 Rounds)` over #1/#2 and `x 4 sets
+      // (30 min total)` over four stations already read this way through
+      // their written totals — this is the same reading without the total.
+      // `after` = the text index right after the ×N (the word may follow it).
+      const setsAtEachStation = (n, after) => {
+        if (!/^[^\S\r\n]*[\-–]?[^\S\r\n]*\d*[^\S\r\n]*sets?\b/i.test(text.slice(after))) return n;
+        const st = stationCount();
+        return st >= 2 ? n * st : n;
+      };
       const rotationRounds = (iv, writtenOnly) => {
         const totalMin = writtenTotalMin();
         if (totalMin) return Math.round((totalMin * 60) / iv);
@@ -4263,24 +4422,31 @@
         // (Each optional tail owns its leading spaces — a shared `[^\S\r\n]*`
         // right after MOM would swallow the space and then silently skip the
         // total-minutes group, since an optional group never forces a backtrack.)
+        // A trailing ":" after the number is allowed ("E2MOM 6:", her page-q6
+        // spelling): it used to fail the end-of-line lookahead, the 6 was lost,
+        // and the two exercise lines were counted instead — ×2, 4′.
         const eXmomRe = new RegExp(`\\bE(\\d{1,2})MOM(?:[^\\S\\r\\n]*[x×*][^\\S\\r\\n]*(\\d+)?)?`
-                                 + `(?:[^\\S\\r\\n]+(${DUR_NUM})[^\\S\\r\\n]*(?:${MIN_WORD}|′)?(?=[^\\S\\r\\n]*(?:[\\r\\n]|$)))?`, 'gi');
+                                 + `(?:[^\\S\\r\\n]+(${DUR_NUM})[^\\S\\r\\n]*(${MIN_WORD}|′)?[^\\S\\r\\n]*:?(?=[^\\S\\r\\n]*(?:[\\r\\n]|$)))?`, 'gi');
         while ((m = eXmomRe.exec(text)) !== null) {
           consume(m);
           const ivMin = parseInt(m[1]);
           if (ivMin < 1 || ivMin > 30) continue;
           const iv = ivMin * 60;
 
-          let rounds   = m[2] ? parseInt(m[2]) : 0;   // "E2MOM ×9"
-          const totalMin = m[3] ? minsToSec(m[3]) / 60 : 0; // "E2MOM 18 min" — "7.5" read whole (audit F5)
+          let rounds   = m[2] ? setsAtEachStation(parseInt(m[2]), m.index + m[0].length) : 0;   // "E2MOM ×9" (q5: "x 3 sets" × stations)
+          // "E2MOM 18 min" — "7.5" read whole (audit F5). A bare whole number
+          // is ROUNDS since 22.11 (q6): "E2MOM 6" = 6 × 2′ = 12′.
+          const totalMin = m[3] ? eXmomTotalSeconds(ivMin, m[3], m[4]) / 60 : 0;
 
           if (!rounds && totalMin) rounds = Math.round((totalMin * 60) / iv);
           if (!rounds) rounds = rotationRounds(iv);   // the shared rotation logic
           if (rounds < 1 || rounds > 60) continue;    // nothing written → no timer
 
           const total = totalMin ? totalMin * 60 : iv * rounds;
+          const xNw = m[2] ? parseInt(m[2]) : 0;   // q5: the per-station length when "x N sets" multiplied
           results.push({ _line: lineOfIdx(m.index), type: 'emom', totalSeconds: total, intervalSeconds: iv,
-                         label: `E${ivMin}MOM ×${rounds} (${fmtDur(total)})` });   // fmtDur: whole minutes byte-identical, "7:30" no longer rounds to 8′
+                         label: `E${ivMin}MOM ×${rounds} (${fmtDur(total)})`,   // fmtDur: whole minutes byte-identical, "7:30" no longer rounds to 8′
+                         ...(xNw && rounds !== xNw && !totalMin ? { stationSeconds: iv * xNw } : {}) });
         }
 
         // EMOM N — every occurrence becomes its own timer
@@ -4340,18 +4506,20 @@
           // parseFloat, not parseInt (2026-10-01, audit F5): "every 1.5 min x7"
           // ran a 1′ clock. fmtDur keeps whole minutes byte-identical ("4′").
           const eachMin = parseFloat(m[1]);
-          const rounds = parseInt(m[2]);
-          if (eachMin >= 1 && eachMin <= 30 && rounds >= 2 && rounds <= 10) {
+          const xN = parseInt(m[2]);
+          const rounds = setsAtEachStation(xN, m.index + m[0].length);   // q5
+          if (eachMin >= 1 && eachMin <= 30 && xN >= 2 && xN <= 10 && minsToSec(eachMin) * rounds <= 90 * 60) {
             const iv = minsToSec(eachMin);
             results.push({ _line: lineOfIdx(m.index), type: 'emom', totalSeconds: iv * rounds, intervalSeconds: iv,
-                           label: `${fmtDur(iv)} ×${rounds} (${fmtDur(iv * rounds)} total)` });
+                           label: `${fmtDur(iv)} ×${rounds} (${fmtDur(iv * rounds)} total)`,
+                           ...(rounds !== xN ? { stationSeconds: iv * xN } : {}) });
           }
         }
 
         // "M:SS x N sets/rounds" — set-based interval shorthand without "every"/"mom"/"min".
         // e.g. "complex: 1:30 x 4-3 sets" → 1:30 interval × 4 rounds (range → take higher).
         // Requires trailing "sets"/"rounds" to avoid false matches like "5:00 x 3 burpees".
-        const mmssXmRe = /\b(\d+):(\d{2})\s*[x×*]\s*(\d+)(?:\s*[\-–]\s*(\d+))?\s*(?:sets?|rounds?)\b/gi;
+        const mmssXmRe = /\b(\d+):(\d{2})\s*[x×*]\s*(\d+)(?:\s*[\-–]\s*(\d+))?\s*(sets?|rounds?)\b/gi;
         while ((m = mmssXmRe.exec(text)) !== null) {
           if (isConsumed(m.index, m.index + m[0].length)) continue;
           consume(m);
@@ -4371,11 +4539,15 @@
           // hashfirst_stations_rounds note already claimed this equivalence
           // ("like (N min total) already did") while it was false here.
           const totalMin = writtenTotalMin();
+          // q5 (22.11): "x 4 sets" over three stations = 4 at each = ×12.
+          const xN = /^sets?$/i.test(m[5]) && stationCount() >= 2 ? Math.max(r1, r2) * stationCount() : Math.max(r1, r2);
           const rounds = totalMin ? Math.round((totalMin * 60) / iv)
-                                  : (writtenTotalRounds() || Math.max(r1, r2));
-          if (iv >= 30 && iv <= 30*60 && rounds >= 2 && rounds <= 20) {
+                                  : (writtenTotalRounds() || xN);
+          if (iv >= 30 && iv <= 30*60 && rounds >= 2 && rounds <= 60 && iv * rounds <= 90 * 60) {
+            // stationSeconds: her "(10 min each)" = 4 × 2:30 at one station.
+            const perStation = xN !== Math.max(r1, r2) ? { stationSeconds: iv * Math.max(r1, r2) } : {};
             results.push({ _line: lineOfIdx(m.index), type: 'emom', totalSeconds: totalMin ? totalMin * 60 : iv * rounds,
-                           intervalSeconds: iv, label: `${m[1]}:${m[2]} ×${rounds}` });
+                           intervalSeconds: iv, label: `${m[1]}:${m[2]} ×${rounds}`, ...perStation });
           }
         }
 
@@ -4794,16 +4966,16 @@
           const trail = (!(lead && leadOk) && firstLn)
             ? firstLn.match(new RegExp(`^(.*[^\\s\\d])\\s+[x×*]\\s*(${DUR_NUM})\\s*${MIN_WORD}\\s*[.:]?$`, 'i'))
             : null;
-          // THIRD shape — the block NAME, then nothing but its length, no "x"
-          // (Noam, 2026-10-04, answering roadmap Q6 for warm-ups only). Her
-          // sheet read `warm up: 8 MIN` and the TV showed no clock. A warm-up /
-          // cool-down is a block by name, so a length written right after it
-          // is the block's length; `A. Deadlift Prog-8 min` (a station, where
-          // the 8 may be an estimate) stays clockless — Q6 is still open for
-          // every other name. The remainder must be ONLY the length: a unit is
-          // required unless it is M:SS, so `warm up 2 rounds` never matches.
+          // THIRD shape — the block NAME, then nothing but its length, no "x".
+          // Noam answered roadmap Q6 for warm-ups on 2026-10-04 (`warm up: 8 MIN`
+          // had no clock) and for EVERY name on 2026-11-22: "פה לא צריך X" —
+          // `hip mobility 6 min` and `A. Deadlift Prog-8 min` are clocks, not
+          // estimates. The remainder must be ONLY the length: a unit is required
+          // unless it is M:SS, so `warm up 2 rounds` / `Row 500` never match, and
+          // the shared guards below (interval spec, format word, rest, pace, cap)
+          // keep `EMOM 12 min` / `rest 2 min` / `t.c 14 min` to their own owners.
           const named = (!(lead && leadOk) && !trail && firstLn)
-            ? firstLn.match(new RegExp(`^(warm[\\s-]?up|cool[\\s-]?down|חימום)${LEN_HSP}*[:\\-–(]?${LEN_HSP}*`
+            ? firstLn.match(new RegExp(`^(.*[^\\s\\d:\\-–(])${LEN_HSP}*[:\\-–(]?${LEN_HSP}*`
                 + `${LEN_NUM}${LEN_HSP}*(${LEN_UNIT})?${LEN_HSP}*\\)?${LEN_HSP}*[.:]?$`, 'i'))
             : null;
           const namedOk = !!named && (!!named[3] || /:/.test(named[2]));
@@ -4820,8 +4992,13 @@
             // ghost clock. Caught by the harness: without the second-duration
             // test, "4 min on 1 min off x 4" produced a bogus 4′ count-up next
             // to its correct 4′/1′ ×4 interval timer.
+            // `every` / `כל` / a bare `e` before a length is an INTERVAL ("every 2:30",
+            // "כל 2 דקות", "e 1:30"), never a block's name — the guard the no-x
+            // name shape needs since 2026-11-22 (without it "EVERY 2:30" grew a
+            // ghost "2.5′ EVERY" beside its own rotation clock).
             const actIsIntervalSpec =
               /\b(on|off|work|rest|amrap|e\d*mom|emom|tabata|tbata|for\s*time|rft|rounds?|sets?)\b/i.test(act)
+              || new RegExp(`\\b${EVERY_WORD}\\b|^e$|(?:^|\\s)כל(?=\\s|$)`, 'i').test(act)
               || /[x×*]\s*\d/i.test(act)
               || new RegExp(`${DUR_NUM}\\s*${UNIT_STRICT}\\b`, 'i').test(act);
             const alreadyHaveThisLong = results.some(r => r.totalSeconds === minsToSec(mins));
@@ -4956,7 +5133,12 @@
     // reset/column break) and timer splitter (extractTimerConfigs) — cannot
     // disagree about it. HE_END, not `\b`: "חלק שנייה" is not part 2.
     const HE_PART_ORDINAL = { 'ראשון': 1, 'שני': 2, 'שלישי': 3, 'רביעי': 4, 'חמישי': 5 };
-    const PART_LABEL = `(?:part\\s*\\d+\\b|חלק\\s*(?:\\d+|${Object.keys(HE_PART_ORDINAL).join('|')})${HE_END})`;
+    // The LETTER form too (Noam, 2026-11-22, page q11): "חלק א'" / "חלק ב׳" /
+    // "חלק ג" = part 1 / 2 / 3, geresh optional. HE_END keeps "חלק בתוך" /
+    // "חלק הכי קשה" out — the letter must stand alone.
+    const HE_PART_LETTER = { 'א': 1, 'ב': 2, 'ג': 3, 'ד': 4, 'ה': 5 };
+    const HE_PART_LETTER_RE = `[${Object.keys(HE_PART_LETTER).join('')}]['׳’]?`;
+    const PART_LABEL = `(?:part\\s*\\d+\\b|חלק\\s*(?:\\d+|${Object.keys(HE_PART_ORDINAL).join('|')}|${HE_PART_LETTER_RE})${HE_END})`;
     const PART_HEADER_RE = new RegExp(`^\\s*${PART_LABEL}`, 'i');
     // Just the "part N" label + its separator, so the REST of that line (the
     // coach writes the part's timing there: "part 1: t.c 14", "part 2: amrap
@@ -4964,9 +5146,9 @@
     const PART_HEADER_PREFIX_RE = new RegExp(`^\\s*${PART_LABEL}\\s*[:.)–—-]?\\s*`, 'i');
     // The part's NUMBER ("part 3" → 3, "חלק שלישי" → 3), or null.
     function partNumberOf(line) {
-      const m = String(line || '').match(new RegExp(`^\\s*(?:part|חלק)\\s*(\\d+|${Object.keys(HE_PART_ORDINAL).join('|')})`, 'i'));
+      const m = String(line || '').match(new RegExp(`^\\s*(?:part|חלק)\\s*(\\d+|${Object.keys(HE_PART_ORDINAL).join('|')}|[${Object.keys(HE_PART_LETTER).join('')}](?=['׳’]?${HE_END}))`, 'i'));
       if (!m) return null;
-      return /^\d+$/.test(m[1]) ? parseInt(m[1]) : HE_PART_ORDINAL[m[1]];
+      return /^\d+$/.test(m[1]) ? parseInt(m[1]) : (HE_PART_ORDINAL[m[1]] || HE_PART_LETTER[m[1]]);
     }
     // A part is INTERNALLY STAGED when the coach writes a sequence transition
     // inside it — "part 2: amrap 14 / 1000 m run / and then: amrap: / …". The
@@ -5325,6 +5507,20 @@
           for (const c of cfgs) out.push({ ...c, label: tag + c.label, _preamble: !seg.num });
         }
 
+        // ── ONE foot cap over parts with no length of their own (coach, 22.11.2026) ──
+        // Page 3 q3: "Part 1 / 3 rounds: … / Part 2 / 10 rounds … / TC: 35 min".
+        // Her answer: "לשני החלקים יחד" — the 35 bounds the whole cell, part 1
+        // then part 2, all inside 35 minutes. The same rule as Q12 (a cap bounds
+        // the block with no length): here no part has a length, so the block is
+        // all of them. Before: the cap went to the LAST part only ("P2 · TC 35′").
+        // Recognised only when every numbered part is lengthless and the cap is
+        // the cell's last line — a part with its own length keeps its own clock.
+        const wholeCap = footCapOverAllParts(lines, segments);
+        if (wholeCap) {
+          tpHit('foot-cap-all-parts');
+          out = [{ type: 'fortime', capSeconds: wholeCap, label: `TC ${fmtDur(wholeCap)} · For Time`, _preamble: false }];
+        }
+
         // ── The COMPOUND clock (2026-08-08) ──
         // The parts of one cell are usually one continuous session: "part 1:
         // t.c 14 / … / 2:00 rest / part 2: amrap 14" is 14′ → 2′ → 14′, and the
@@ -5354,10 +5550,10 @@
         // carry no header duration — losing a clock is worse than a wrong one.
         // Third, and only when both find nothing: the parts' OWN clocks laid
         // end to end (Adiel, 2026-10-01) — see seamlessFromParts.
-        let whole = stagedPart ? null
+        let whole = (stagedPart || wholeCap) ? null
           : (compoundFromParts(segments) || chainFromTimeline(lines));
         if (whole) tpHit('compound-chain');
-        else if (!stagedPart) {
+        else if (!stagedPart && !wholeCap) {
           whole = seamlessFromParts(segments);
           if (whole) tpHit('seamless-chain');
         }
@@ -7163,7 +7359,9 @@
     // badged by badgeDurations and are left alone.
     function badgeFormats(html) {
       html = replaceOutsideSpans(html, FORMAT_BADGE_RE, '<span class="time-badge">$1</span>');
-      html = html.replace(/(<span class="time-badge">(?:AMRAP|EMOM|EMOTM|OTM)<\/span>)([^\S\r\n]*[:\-–]?[^\S\r\n]*)(\d{1,3}(?:[.,]\d+)?)(?![\d.,]|:\d)/gi,
+      // TIME CAP joins (Q8, 2026-11-22): its number is the cap, and TC_NUM_RE
+      // cannot reach across this badge's </span> to badge it.
+      html = html.replace(/(<span class="time-badge">(?:AMRAP|EMOM|EMOTM|OTM|TIME[ \t]*CAP)<\/span>)([^\S\r\n]*[:\-–]?[^\S\r\n]*)(\d{1,3}(?:[.,]\d+)?)(?![\d.,]|:\d)/gi,
                           '$1$2<span class="time-badge">$3</span>');
       html = html.replace(/(?<![\d:.,#>])(\d{1,3}(?:[.,]\d+)?['′]?)([^\S\r\n]*)(<span class="time-badge">AMRAP<\/span>)/gi,
                           '<span class="time-badge">$1</span>$2$3');
@@ -7186,6 +7384,17 @@
       // Spacer (preserved empty line from sheet)
       if (text === '__SPACER__') {
         return { type: 'spacer', html: '' };
+      }
+      // "1 - 400 m run" in a 1 -, 2 - … list = a station (page q10, Noam
+      // 2026-11-22; dashStationIdx decides per cell). The number gets the
+      // station badge and the remainder is read exactly as any other line.
+      if (LINE_CTX.dashStation.size && LINE_CTX.dashStation.has(String(text).trim())) {
+        const dm = String(text).match(/^\s*(\d{1,2})\s*[-–]\s*(.*)$/);
+        if (dm) {
+          const inner = parseLine(dm[2]);
+          return { ...inner, type: inner.type === 'sub-header' ? 'exercise' : inner.type,
+                   html: `<span class="station-badge">${dm[1]}</span> ${inner.html}` };
+        }
       }
       // Detect Work:/Hold: prefixed station lines BEFORE the generic ":$" sub-header rule
       // (so "Work: 14 calorie row" becomes a highlighted station line, not a sub-header)
@@ -7321,7 +7530,10 @@
       // Render with synthesized "sec" so it matches "10 sec rest" siblings.
       const restNoSec = text.match(/^(\d+)\s+rest\s*$/i);
       if (restNoSec) {
-        return { type: 'sub-header', html: `<span class="time-badge">${restNoSec[1]} sec</span> rest` };
+        // A LONE bare rest is minutes (Noam 2026-11-22); beside a seconds work
+        // (a Tabata column) it stays seconds — buildLineContext decides per cell.
+        const unit = LINE_CTX.restMin.has(text.trim()) ? 'min' : 'sec';
+        return { type: 'sub-header', html: `<span class="time-badge">${restNoSec[1]} ${unit}</span> rest` };
       }
       // "3 sets" / "5 sets" — round-count cue (was rendered as "[3] sets"
       // with rep-number style; now treated as a proper instruction).
@@ -7511,6 +7723,7 @@
 
     function renderWorkout(data) {
       const container = document.getElementById('wodArea');
+      LINE_CTX = buildLineContext(data);   // dash stations + bare-rest unit, per cell
 
       if (!data || !data.rows || data.rows.length === 0) {
         container.innerHTML = `
@@ -8078,6 +8291,11 @@
               const allText = cell.lines.join(' ');
               const hebrewChars = (allText.match(/[\u0590-\u05FF]/g) || []).length;
               const isRtl = hebrewChars > allText.length * 0.3;
+              // Declared BEFORE the body (2026-11-22): the body's warmupZone reads
+              // isWarmupCard, and as a const declared below it threw "Cannot access
+              // 'isWarmupCard' before initialization" — this whole layout crashed.
+              const isUntitledWarmup = !cell.header;
+              const isWarmupCard = !safety && (isUntitledWarmup || theme === 'warmup' || (cell.lines.length > 0 && /warm\s*up/i.test(cell.lines[0])));
 
               let bodyHTML;
               if (!safety && cell.lines.length >= MULTI_COL_THRESHOLD) {
@@ -8100,8 +8318,6 @@
                 bodyHTML = `<div class="card-body${isRtl ? ' rtl-content' : ''}">${linesHTML}</div>`;
               }
 
-              const isUntitledWarmup = !cell.header;
-              const isWarmupCard = !safety && (isUntitledWarmup || theme === 'warmup' || (cell.lines.length > 0 && /warm\s*up/i.test(cell.lines[0])));
               const displayHeader = isUntitledWarmup ? 'WARM UP' : cell.header;
               // Safety cards skip the header — see flow-layout safety above.
               const headerHTML = safety ? '' : `<div class="card-header ${isWarmupCard ? 'warmup' : theme}">${escapeHtml(displayHeader)}</div>`;

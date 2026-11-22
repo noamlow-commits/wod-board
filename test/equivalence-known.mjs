@@ -25,25 +25,15 @@ export const KNOWN = {
       "AMRAP12\n10 burpees\n10 wall balls": "SPEC: glued \"AMRAP12\" has no word boundary; deliberately not read — today: SILENT no clock [—]"
     },
     "tc14": {
-      "For Time\n21-15-9\nthrusters\npull ups\nT.C. 14": "BUG: \"T.C.\" with a trailing dot is read as group letter T, the cap is lost — today: SILENT cap 0 ≠ 840 [For Time]",
-      "For Time\n21-15-9\nthrusters\npull ups\ntime cap 14": "COACH(Q8): \"time cap N\"/\"cap N\" — Noam 1.10: keep today's behaviour, ask the coach — today: SILENT cap 0 ≠ 840 [For Time]",
-      "For Time\n21-15-9\nthrusters\npull ups\nTIME CAP: 14 min": "COACH(Q8): \"time cap N\"/\"cap N\" — Noam 1.10: keep today's behaviour, ask the coach — today: cap 0 ≠ 840 [For Time]",
-      "For Time\n21-15-9\nthrusters\npull ups\ncap 14": "COACH(Q8): \"time cap N\"/\"cap N\" — Noam 1.10: keep today's behaviour, ask the coach — today: SILENT cap 0 ≠ 840 [For Time]",
-      "For Time\n21-15-9\nthrusters\npull ups\ncap: 14 min": "COACH(Q8): \"time cap N\"/\"cap N\" — Noam 1.10: keep today's behaviour, ask the coach — today: cap 0 ≠ 840 [For Time]",
       "For Time\n21-15-9\nthrusters\npull ups\n14 דקות tc": "BUG(step 2b readDuration): Hebrew unit in a cap — today: cap 0 ≠ 840 [For Time]",
       "For Time\n21-15-9\nthrusters\npull ups\n14' tc": "BUG(step 2b readDuration): prime ' as a minute unit in a cap — today: SILENT cap 0 ≠ 840 [For Time]"
     },
     "tc14_inline": {
-      "For Time, 14 min cap\n21-15-9\nthrusters\npull ups": "COACH(Q8): \"time cap N\"/\"cap N\"/\"N min cap\" — keep today's behaviour, ask the coach — today: cap 0 ≠ 840 [For Time]",
+      "For Time, 14 min cap\n21-15-9\nthrusters\npull ups": "BUG: a number-first cap in the MIDDLE of a header line is not read — 'For Time, 14 min tc' misses the same way (Q8 itself answered by Noam 22.11: cap = t.c) — today: cap 0 ≠ 840 [For Time]",
       "For Time (14 min TC)\n21-15-9\nthrusters\npull ups": "BUG(step 2b): number-first cap inside parentheses after the format word — today: cap 0 ≠ 840 [For Time]",
-      "For Time (time cap 14)\n21-15-9\nthrusters\npull ups": "COACH(Q8): \"time cap N\"/\"cap N\" — Noam 1.10: keep today's behaviour, ask the coach — today: SILENT cap 0 ≠ 840 [For Time]",
-      "For Time (cap 14)\n21-15-9\nthrusters\npull ups": "COACH(Q8): \"time cap N\"/\"cap N\"/\"N min cap\" — keep today's behaviour, ask the coach — today: SILENT cap 0 ≠ 840 [For Time]"
     },
     "emom10": {
       "every 1:00 for 10 min\n5 pull ups\n10 push ups": "BUG(step 2b/6): EMOM / every in this spelling — today: no clock [—]"
-    },
-    "e2mom6": {
-      "E2MOM 6\n5 thrusters\n10 burpees": "SPEC: \"E2MOM N\" = N total minutes (PARSER rotation rule) → ×3; the class's ×6 reading is the alternative — today: SILENT total 360 ≠ 720 [E2MOM ×3 (6′)]"
     },
     "int30_10x8": {
       "30/10 x8\nburpees": "SPEC: \"30/10\" is also how she writes male/female reps (\"12/10 cal\") — never a clock by itself — today: SILENT no clock [—]",
@@ -84,16 +74,12 @@ export const KNOWN = {
       "AMRAP 10\n10 wall balls\n10 T2B\nrest - 2:00\nAMRAP 10\n10 wall balls\n10 T2B": "BUG(step 4 readRest): this rest spelling breaks the chain — today: type amrap ≠ tabata; work 0 ≠ 600; rest 0 ≠ 120; rounds 0 ≠ 2 [AMRAP 10′ | AMRAP 10′]"
     },
     "parts_interval_inline": {
-      "חלק א' 5 sets, 30 sec\nplank\nחלק ב' 5 sets, 45 sec\nhollow\nחלק ג' EMOM 5\n5 burpees": "SPEC(not yet): letter-numbered parts \"חלק א׳\" are listed as unsupported in PARSER.md — today: total 300 ≠ 675 [EMOM 5′]"
     },
     "parts_interval_next": {
-      "חלק א'\n5 sets, 30 sec\nplank\nחלק ב'\n5 sets, 45 sec\nhollow\nחלק ג'\nEMOM 5\n5 burpees": "SPEC(not yet): letter-numbered parts \"חלק א׳\" are listed as unsupported in PARSER.md — today: total 300 ≠ 675 [EMOM 5′]"
     },
     "parts_fortime_inline": {
-      "חלק א' For Time (tc 8)\n21-15-9\nthrusters\nחלק ב' For Time (tc 6)\n15-12-9\nburpees": "SPEC(not yet): letter-numbered parts \"חלק א׳\" are listed as unsupported in PARSER.md — today: 1 clocks, want 2 [TC 8′ · For Time]"
     },
     "parts_fortime_next": {
-      "חלק א'\nFor Time\n21-15-9\nthrusters\nt.c 8\nחלק ב'\nFor Time\n15-12-9\nburpees\nt.c 6": "SPEC(not yet): letter-numbered parts \"חלק א׳\" are listed as unsupported in PARSER.md — today: 1 clocks, want 2 [TC 8′ · For Time]"
     },
     "dec_amrap": {
       "AMRAP 2 וחצי דקות\n10 burpees\n10 wall balls": "BUG(step 2b readDuration): AMRAP 2:30 written as sec / M:SS / comma / Hebrew half — today: SILENT total 120 ≠ 150 [AMRAP 2′]"
@@ -106,9 +92,6 @@ export const KNOWN = {
       "row 2.5 min": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]"
     },
     "block10": {
-      "Row 10 min": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
-      "row for 10 min": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]",
-      "חתירה 10 דקות": "COACH(Q6): trailing duration without the x is deliberately clockless — today: no clock [—]"
 
     }
   },
@@ -197,7 +180,6 @@ export const KNOWN = {
       "x 5 sets": "BUG(decision 1, audit D12): counts render in several categories — one category, its own colour — today: exercise|- ≠ sub-header|count-badge"
     },
     "parts_header": {
-      "חלק א'": "SPEC(not yet): letter-numbered parts are listed as unsupported — today: exercise|- ≠ sub-header|-"
     }
   }
 };

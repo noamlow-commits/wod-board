@@ -33,8 +33,8 @@
       "header": "2",
       "timers": [
         {
-          "label": "Every 3:00 ×5 (15′)",
-          "type": "emom"
+          "label": "Every 3:00 ×5 · 3′ rest · TC 22′ (40′)",
+          "type": "tabata"
         },
         {
           "label": "TC 22′",

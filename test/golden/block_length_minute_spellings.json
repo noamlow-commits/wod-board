@@ -113,7 +113,12 @@
     {
       "section": "—",
       "header": "7",
-      "timers": []
+      "timers": [
+        {
+          "label": "10′ row",
+          "type": "amrap"
+        }
+      ]
     }
   ]
 }

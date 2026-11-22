@@ -238,7 +238,7 @@ The detector was fixed the same day — see the next section.
 Her live CARDIO cell wrote `t,c- 22 min` — a **comma** for the dot. Six readers each carried their own `t\.?\s*c`, so the 22 reached no clock: the For Time ran **uncapped** and the fact channel flagged `22 min` as unexplained. Number-first (`22 min t,c`) was worse: the leading-duration rule's guard had its own copy too, so it grew a ghost `22′ t,c` count-up beside the uncapped For Time.
 
 - `TC_WORD = t[.,]?[ \t]*c` is defined once beside `TC_NUM_RE`. The badge (`TC_NUM_RE`), the canonical `capSecondsFromLine` (both directions — and through it the timeline, the fact channel, `isNoteLine`, `partCapHints`, the header scan), the leading-duration ghost guard and the four group/sub-label guards (`TC_LEAD_RE`) all build from it. **A new cap reader builds from `TC_WORD`, never from a literal.**
-- ⛔ Still NOT a cap, on purpose (TIMER_ROADMAP Q8, Noam 1.10): `T.C.` with a trailing dot, `time cap`, `cap`.
+- ~~⛔ Still NOT a cap, on purpose (TIMER_ROADMAP Q8, Noam 1.10): `T.C.` with a trailing dot, `time cap`, `cap`.~~ **They ARE caps since 2026-11-22 (Noam answered Q8)** — see "Noam's answers, 2026-11-22".
 - Which block a FOOT cap bounds — answered by the coach 2026-11-20 (TIMER_ROADMAP **Q12**): after `emom 15` + a rest, a cap at the foot of the cell belongs to the **for time**, part two. Two clocks, which is what the code does; `comma_tc_live_cardio` asserts both and their order.
 
 ### ⭐⭐ Part one has a length, part two does not — the cap belongs to part two (added 2026-11-20, the coach; fixtures `part_two_*`, `part_one_activity_interval_before_for_time`, control `q9_cap_beside_amrap_stays_open`)
@@ -259,9 +259,55 @@ Already correct before, and checked against the same rule: AMRAP / every / E2MOM
 
 ⛔ **Not reached by her answer, so deliberately unchanged:**
 - Q9: a cap beside an AMRAP with no part two. `q9_cap_beside_amrap_stays_open` is the negative control; if it ever grows a `TC 16′`, the gate has widened past what she said.
-- A FIXED rest between the parts (`3 min rest`): still two clocks, and the rest reaches no clock. Whether it should chain into one compound clock is Q1/Q3 territory.
+- ~~A FIXED rest between the parts (`3 min rest`): still two clocks.~~ **Answered 22.11.2026: ONE continuous clock** — see the next section. A RANGE rest (`2-3 min rest`, her live cell) is still two clocks.
 - Two lengthless blocks under one cap, and `Part 1` + `Part 2` both lengthless with a cap at the foot (`TC: 35 min` → part 2 today).
 - An interval with a for time under it and NO rest line between them: block A still returns early.
+
+### ⭐⭐ The coach's answers to page 3, 2026-11-22 evening (fixtures `coach_q2/q3/q4_*_2026_11_22`)
+
+Adiel answered four of the five (copy-button text, via Noam). ⏭ (Q2) still unanswered.
+
+| page 3 | her answer | the board |
+|---|---|---|
+| q1 range rest | "שעון רציף עם 3 דקות, ⏭ אם מוכנים קודם" | **CHANGED.** `2-3 min rest` is scheduled at its upper end (3′) and the parts run as ONE continuous clock; ⏭ הבא ends the rest early. `chainFromTimeline` no longer refuses a range rest. Her live cell (`comma_tc_live_cardio`) and `part_two_rounds_after_emom` / `part_two_chipper_after_every` now open with the chain, their own clocks behind it. |
+| q2 no rest line | "שני שעונים, אני מפעילה את השני" | unchanged (partTwoStart needs a written rest line) — locked by `coach_q2_no_rest_line_two_clocks_2026_11_22`. |
+| q3 two lengthless parts + one foot cap | "לשני החלקים יחד" | **CHANGED.** `footCapOverAllParts`: when every numbered part is lengthless and the cell's last line is a cap, ONE `TC N′ · For Time` covers the whole cell (was `P2 · TC 35′`, and `P3 · TC 35′` in the 3-part Friday sheet). A part with its own length, or a cap not on the last line, keeps the old reading (negative controls in the fixture). |
+| q4 "ואז" | "תמיד אכתוב ואז / and then" + note | unchanged. Her note: a lengthless `amrap:` inside a part that already has an AMRAP length is "as many reps as possible" inside THAT clock — only the top AMRAP counts; `amrap 10 / 2 min rest / amrap 14` = two blocks. Both already true; locked by `coach_q4_inner_amrap_is_the_top_amraps_2026_11_22`. |
+
+Not extended on purpose: a range rest after a part one that the timeline cannot read as a work phase (`30 sec work, 10 sec rest x3`, `5 sets / 3 min run / 1 min rest`) still gives separate clocks — the chain needs both parts as timeline phases. Those two cells are our own test cells (20.11), not hers; nothing in principle stops the extension. **Waiting on Noam** (explanation page with board screenshots: https://claude.ai/artifact/Rd8jfp63trEe9poigJ9ntp), together with a gap found the same evening: q5's `x N sets` × stations (`setsAtEachStation`) is applied only in the every / EXMOM readers, so her live warm-up `30 sec work, 10 sec restx3 sets` over three stations still runs `30″/10″ ×3` (2′) where her rule gives ×9 (6′). The 16.11 fixture `restx_sets_glued_2026_11_16` locks ×3 today and would change.
+
+### ⭐⭐ Noam's answers, 2026-11-22 — five rules (fixtures `noam_*_2026_11_22`)
+
+He answered five questions of the coach page himself ("אני כבר יכול לענות"):
+
+| page | rule | where | fixture |
+|---|---|---|---|
+| q4 = Q8 | `time cap` / `cap` / `T.C.` (trailing dot) / `N min cap` **are t.c** | `TC_WORD` widened in one place, so the badge, `capSecondsFromLine` (both directions), the leading-duration guard and the group-letter guards all read it; `badgeFormats` badges the number after a TIME CAP badge | `noam_q8_cap_words_2026_11_22` |
+| q5 = Q6 | **a length beside a block's name needs no x** — `hip mobility 6 min`, `A. Deadlift Prog-8 min`, `row 10 min` are clocks | the "named" shape of the leading-duration rule, formerly warm-ups only, now any name; `every` / `כל` / a bare `e` joined the interval-spec guard (without it `EVERY 2:30` grew a ghost `2.5′ EVERY`) | `noam_q6_block_name_length_no_x_2026_11_22` |
+| q7 = Q11 | **a rest number with no unit is MINUTES** ("usually there is no lone number of seconds of rest") — except beside a work in seconds or bare (`30 sec work, 10 rest`, `40 work / 20 rest`, Tabata), where it keeps the work's seconds | `BARE_REST_RE` + `bareRestIsMinutes`: the timeline reads `2 rest` as a 2′ rest phase (so `AMRAP 10 / 2 rest / AMRAP 10` chains); the display badge says `min` | `noam_bare_rest_is_minutes_2026_11_22` |
+| q10 | **`1 -` is a station only in a list**: a `1 -` with a `2 -` below it (counting up in written order) = stations; a `1 - 5-10 …` with no `2 -` stays as it was | `dashStationIdx`: the station badge and `stationCount` (rotation math) | `noam_dash_stations_by_context_2026_11_22` |
+| q11 | **`חלק א'` / `חלק ב'` are parts** like `חלק 1` / `חלק 2` (geresh optional) | `HE_PART_LETTER` → `PART_LABEL`, `partNumberOf` | `noam_hebrew_part_letters_2026_11_22` |
+
+**Display needs the cell, `parseLine` sees one line.** The bare-rest unit and the dash stations are decided per CELL, so `renderWorkout` rebuilds `LINE_CTX` (`buildLineContext`) on every render, and `parseLine` looks the line up there. A line string that means two things in two cells keeps the old reading. Not yet threaded through the layout's own station logic (clean break, category): the badge and the clock math only.
+
+Also answered (q9): the clock has not frozen since the 29.9 fix — that issue is closed.
+
+**Found on the way, fixed:** the card layout's body read `isWarmupCard` two lines before its `const` declaration (since v161), so that layout threw `Cannot access 'isWarmupCard' before initialization` and the board rendered nothing. The declaration now comes first.
+
+### ⭐⭐ Parts of different lengths with a FIXED rest: ONE clock that moves on its own (added 2026-11-22, the coach; fixtures `coach_q1_*`)
+
+Her answer to page q1 (a voice note): *"באחד הייתי רוצה, נגיד לדוגמה שזה רץ חמש עשרה דקות ואז זה אוטומטית כאילו ממשיך לשלוש דקות מנוחה, ואחרי שלוש דקות מנוחה יכול לרוץ לבד על הזמן הנותר"*. For `emom 15 / 3 min rest / for time … / t.c- 22 min` that is **one** clock, `EMOM 15′ · 3′ rest · TC 22′ (40′)`: fifteen one-minute beats, the rest, then the for time **counting DOWN from its cap** (her "הזמן הנותר", option B on the page — the competition cap clock; `⏭ הבא` ends a phase early). Her answer to q3 ("כן, תמיד") confirms the cap at the foot is part two's.
+
+**What changed.** `chainFromTimeline` refused any chain whose blocks differ in length — the uniform rule, kept because the flat work/rest cycle cannot express 15 → 3 → 22. The explicit `phases` schedule (`tabataPhaseAt`, 2026-08-11) can, so the uniform rule now guards only the flat chain. Non-uniform → `phasesChain(timeline)`, the expandable branch's builder, now a shared function: an interval block expands into its intervals, an AMRAP / TC block is one phase of its written length, a rest is its own phase. The for time alone stays behind the chain in ⏱↻, exactly as it already did behind a uniform chain. Also chains now: `t.c 14 / 12 rft / 2:00 rest / amrap 12` (14′ → 2′ → 12′) and `EMOM 10 / 2 min rest / EMOM 8` — Q3's "sometimes one clock, sometimes two" is gone for written fixed rests.
+
+**It refuses rather than guesses:**
+- a **range** rest (`2-3 min rest`, the `range` flag on the timeline's rest phase): which end is the schedule is her call, still open — so her live cell `comma_tc_live_cardio` keeps its two clocks;
+- a **staged** cell (`ואז` / `and then`, `isStageLine`): the athletes decide when the next block starts (the 2026-08-10 rule) — `coach_q1_staged_stays_two_clocks_2026_11_22`;
+- a work phase that is neither an interval block that divides evenly nor a NAMED block (AMRAP / TC) — a bare `9 min work` is her summary line (`du_is_not_group_d`).
+
+The fact channel learned that a phases chain runs each block's own length (`configSeconds`: consecutive work phases sharing a label are summed — `emom 15` = 15 × 60″). ⚠️ Cosmetic, not fixed: the round counter counts every work phase, so the EMOM reads `3/16` (the for time is phase 16). The 4.10 `every … → amrap` chain has the same behaviour.
+
+**Not reached (still two clocks):** no rest line between the parts (the page said the same answer would apply; not built — block A, and a lengthless header right under a block cannot be told from a sub-list without a rest); a for time with no cap after the rest (nothing to count down).
 
 ### The clock reads decimals too (added 2026-09-03)
 
@@ -539,7 +585,7 @@ Two guards now close that gap. Neither changes a single config — they are pure
 ### Chained interval detection (`buildWorkoutTimeline`)
 Two-layer detection. Layer 1 sequential timeline parser scans lines top→bottom, classifies phases (WORK/REST/TIME_STANDALONE). If 2+ uniform WORK phases + REST found → one chained Tabata-style timer with `skipLastRest: true`. Layer 2 regex fallback (AMRAP N, EMOM N, every X:XX ×N, Tabata 20/10, custom on/off, For Time, t.c N) runs if no chain detected.
 
-Sanity limits for chains: total ≤ 90 min, work ≥ 30s, rest ≤ 10 min, uniform durations only.
+Sanity limits for chains: total ≤ 90 min, work ≥ 30s, rest ≤ 10 min. Uniform durations only for the FLAT chain; blocks of different lengths go through the explicit phases schedule since 2026-11-22 (see "Parts of different lengths with a FIXED rest").
 
 Chained timer button label: `${timerName} ×${rounds} · ${workMins}' work / ${restShort} rest` → e.g. `AMRAP ×3 · 10' work / 2' rest`.
 
@@ -706,6 +752,7 @@ Both paths now go through **one shared helper**, `rotationRounds(iv)` / `written
 | Written | Means | Example |
 |---|---|---|
 | `×N` **in the header itself** | N intervals, **literally**. Not multiplied by the stations — each interval covers the whole rotation. | `EVEY 2:00 X3` + `1#`/`2#` → `Every 2:00 ×3` = **6 min** |
+| `× N sets` **in the header** (the word SETS after the ×N) — **since 22.11.2026, the coach** | N sets **at each** station → × the stations. | `every 2:30 x 4 sets (10 min each)` + `1#`..`3#` → `2:30 ×12` = **30 min** |
 | `N sets` **on its own line** | N sets **of** the rotation → × the stations. | `EVERY 2:30` + `1#`..`4#` + `3 sets` → `×12` = **30 min** |
 
 A written total (`(30 min total)`) still overrides both.
@@ -755,13 +802,16 @@ The reason it hid is **matcher order, not the regex**. `mmssXmRe` runs *before* 
 
 These are **documented, not fixed** — Noam's call on 2026-08-20 was the one confirmed defect only, and each of these changes a live clock and needs its own fixture + counterfactual. Tracked in TIMER_ROADMAP §5.
 
-**This deliberately does not decide what `x N sets` MEANS with no total written.** That still resolves to the literal `×N`, byte-for-byte — the live cell `every 2:30 x 4 sets (10 min each)` over three stations still yields `2:30 ×4` (10′), even though her own note in the cell reads *"נשארים בכל תחנה ארבע סטים ואז עוברים"*. Whether that should be 30′ is a **semantics question for the coach** (TIMER_ROADMAP §1 / §2e), not a code-consistency one — the `evey_typo_explicit_rounds` asymmetry stands until she answers. Note also that **`(10 min each)` has no pattern anywhere in the parser** — "each" is unparseable — so the board currently cannot express "N minutes per station" at all.
+**✅ ANSWERED 22.11.2026 by the coach (page q5): `x N sets` over stations is N sets at EACH station.** `every 2:30 x 4 sets (10 min each)` over three stations is `2:30 ×12` (30′); `(10 min each)` is the per-station length (`stationSeconds` on the config explains it to the fact channel). It agrees with her two earlier written totals (`x 3 sets (6 Rounds)` over two stations, `x 4 sets (30 min total)` over four). One helper, `setsAtEachStation`, in the three spellings that carry a ×N (`mmssXmRe`, `minXmRe`, `eXmomRe`); a bare `X3` and `x N rounds` stay literal. Fixtures `coach_q5_sets_at_each_station_2026_11_22`, `station_amrap_nested_in_rotation` (×4 → ×12). The paragraph below is the record of the question:
+
+~~**This deliberately does not decide what `x N sets` MEANS with no total written.**~~ That still resolves to the literal `×N`, byte-for-byte — the live cell `every 2:30 x 4 sets (10 min each)` over three stations still yields `2:30 ×4` (10′), even though her own note in the cell reads *"נשארים בכל תחנה ארבע סטים ואז עוברים"*. Whether that should be 30′ is a **semantics question for the coach** (TIMER_ROADMAP §1 / §2e), not a code-consistency one — the `evey_typo_explicit_rounds` asymmetry stands until she answers. Note also that **`(10 min each)` has no pattern anywhere in the parser** — "each" is unparseable — so the board currently cannot express "N minutes per station" at all.
 
 Fixtures: `e2mom_rotation`, `every_rotation_stations`, `evey_typo_explicit_rounds`, `hashfirst_stations_rounds`, `xsets_written_total_beats_xN`.
 
 - The coach writes a **dangling `x`** (`e2momx`). That trailing letter kills the `\b` in `\bE\d*MOM\b`, so before this fix the line matched *nothing*: no timer, no time-badge, not a format header. All four sites now accept an optional `[x×]` tail (`E\d*MOM[x×]?`) — `extractTimerConfigs`, `parseLine.isInstruction`, the two time-badge replacements, and `isFormatHeader` (see the 3-parallel-places rule).
 - The 3-parallel-places rule keeps getting **half-applied**. `tbata` was in `isInstruction` and the time-badge list but **not** in `isFormatHeader`, so a `TBATA` line got a timer and a badge yet could still be torn from its own exercises across a column break. Fixed 2026-07-14 alongside `EVERY_WORD`, which is now threaded through every site from one source fragment rather than copied. **When adding a keyword alias, grep the bare keyword repo-wide and fix every hit — a partially-recognised format is worse than an unrecognised one, because it looks like it worked.**
-- The **total is never guessed** (no-invented-timer-values). Resolution order, all from written values: explicit `×N` → same-line total minutes (`E2MOM 18`) → an explicit total anywhere in the block (`(18 min total)` / `(6 Rounds)`) → `N sets` × the number of `1#/2#/3#` stations. Nothing written → **no timer** (the old code fell back to a 10-min default).
+- ⭐ **`E2MOM N` with a bare whole N is ROUNDS (the coach, 22.11.2026, page q6): `E2MOM 6` = 6 × 2′ = 12′.** Her words: *"זה 12 דקות — לרוב אכתוב x"*. A unit (`E2MOM 12 min`, `12′`) or a fraction keeps it total minutes. One function, `eXmomTotalSeconds`, for the three readers (timeline, `eXmomRe`, the fact channel). `E2MOM 6:` (trailing colon, her page spelling) used to lose the 6 and count the exercise lines — ×2. Fixture `coach_q6_e2mom_bare_number_is_rounds_2026_11_22`.
+- The **total is never guessed** (no-invented-timer-values). Resolution order, all from written values: explicit `×N` → same-line total minutes (`E2MOM 18 min`; a bare `E2MOM 18` is 18 rounds since 22.11) → an explicit total anywhere in the block (`(18 min total)` / `(6 Rounds)`) → `N sets` × the number of `1#/2#/3#` stations. Nothing written → **no timer** (the old code fell back to a 10-min default).
 - Every optional tail in `eXmomRe` owns its own leading `[^\S\r\n]*`. A shared one right after `MOM` swallows the space and then silently skips the total-minutes group — an optional group never forces a backtrack. That bug ate `E2MOM 18`; `e2mom_rotation` + the existing goldens guard it.
 - Horizontal-whitespace classes keep every part on the header's own line, so `E2MOM\n3 sets` can't read the `3` as minutes.
 
@@ -820,7 +870,7 @@ What had to change, and the rule behind each piece:
 
    Readers: `heWorkRest` and `heWorkOnlySeconds`. Duration tokens are shared with the rest reader. ⛔ **No count written → no clock** (`hebrew_work_rest_no_count_no_clock`). On the board these lines are instructions with their durations badged. They are not exercises, and not notes, even though they are mostly Hebrew (`isHeIntervalSpec`).
 
-**Not recognised (yet):** `חלק א׳/ב׳` (Hebrew letter numerals), `החלק הראשון`, a Hebrew work/rest spec with a written TOTAL instead of a count (`30 שניות עבודה 10 שניות מנוחה, 4 דקות`), `30 שניות x 5` (duration first), and the Hebrew units anywhere outside the sets-interval shape and the fact channel (e.g. `AMRAP 10 דקות` works only because AMRAP reads its own number). Outside a rest line, the time **badge** does not paint Hebrew durations either.
+**Not recognised (yet):** ~~`חלק א׳/ב׳` (Hebrew letter numerals)~~ (recognised since 2026-11-22), `החלק הראשון`, a Hebrew work/rest spec with a written TOTAL instead of a count (`30 שניות עבודה 10 שניות מנוחה, 4 דקות`), `30 שניות x 5` (duration first), and the Hebrew units anywhere outside the sets-interval shape and the fact channel (e.g. `AMRAP 10 דקות` works only because AMRAP reads its own number). Outside a rest line, the time **badge** does not paint Hebrew durations either.
 
 ### ⭐ ONE reader for a format keyword's length (2026-10-01, audit plan step 2a; fixtures `format_length_one_reader`, `decimal_durations_read_whole`)
 

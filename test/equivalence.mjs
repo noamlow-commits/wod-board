@@ -80,7 +80,9 @@ const timerRuns = await page.evaluate((classes) => {
 const dispRuns = await page.evaluate((groups) => {
   const num = (s) => { const m = String(s).match(/\d+(?:[.:,]\d+)?/); return m ? m[0] : null; };
   const capNum = (s) => {
-    const m = String(s).match(/t\.?\s*c[\-\s:]*(\d+(?:[.:]\d+)?)/i) || String(s).match(/(\d+(?:[.:]\d+)?)\s*(?:min\w*\s*)?t\.?\s*c/i);
+    // The cap WORD mirrors index.html's TC_WORD (Q8, Noam 2026-11-22: time cap / cap / T.C. = t.c).
+    const W = "(?:time\\s*cap|cap|t[.,]?\\s*c\\.?)";
+    const m = String(s).match(new RegExp(W + "[\\-\\s:]*(\\d+(?:[.:]\\d+)?)", "i")) || String(s).match(new RegExp("(\\d+(?:[.:]\\d+)?)\\s*(?:min\\w*\\s*)?" + W, "i"));
     return m ? m[1] : null;
   };
   const out = [];

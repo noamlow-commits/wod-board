@@ -47,7 +47,8 @@ add("e90x7", "Every 1:30 x 7 (10:30)", { type: "emom", interval: 90, total: 630 
    "every1:30 x7", "every1:30 x 7"
   ].map(v => v + "\n5 pull ups\n10 push ups"));
 add("e2mom6", "E2MOM x 6 (12:00)", { type: "emom", interval: 120, total: 720 },
-  ["E2MOM x6", "E2MOM 6", "E2MOM x 6 rounds", "E2MOM 12", "E2MOM 12 min", "every 2:00 x6", "every 2 min x 6", "every 2 minutes x 6", "e 2:00 x 6", "evry 2:00 x6", "EVERY 2:00 X 6", "e2mom x 6", "every 2 min for 12 min"
+  // "E2MOM 12" (bare) left this class 22.11.2026: a bare number is ROUNDS (the coach, page q6).
+  ["E2MOM x6", "E2MOM 6", "E2MOM 6:", "E2MOM x 6 rounds", "E2MOM 12 min", "every 2:00 x6", "every 2 min x 6", "every 2 minutes x 6", "e 2:00 x 6", "evry 2:00 x6", "EVERY 2:00 X 6", "e2mom x 6", "every 2 min for 12 min"
   ].map(v => v + "\n5 thrusters\n10 burpees"));
 
 // ── Work/rest intervals 30/10 x8 ──

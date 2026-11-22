@@ -1,0 +1,85 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "hip mobility 6 min",
+              "90/90 hip switch",
+              "pigeon stretch"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "ריצה 10 דקות",
+              "קצב נוח"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "EVERY 2:30",
+              "1# row",
+              "2# bike",
+              "3 sets"
+            ]
+          },
+          {
+            "header": "4",
+            "lines": [
+              "Row 500",
+              "10 burpee"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "1",
+      "timers": [
+        {
+          "label": "6′ hip mobility",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "2",
+      "timers": [
+        {
+          "label": "10′ ריצה",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "3",
+      "timers": [
+        {
+          "label": "Every 2:30 ×6 (15′)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "4",
+      "timers": []
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "data": {
+    "headers": [
+      "a",
+      "b",
+      "c",
+      "d",
+      "e"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "a",
+            "lines": [
+              "every 2:30 x 4 sets",
+              "1# 400 m run",
+              "2# 15 wall ball",
+              "3# 12 cal row"
+            ]
+          },
+          {
+            "header": "b",
+            "lines": [
+              "every 2 min x 4 sets",
+              "1# 10 burpee",
+              "2# 10 thrusters",
+              "3# 10 row"
+            ]
+          },
+          {
+            "header": "c",
+            "lines": [
+              "E2MOM x 3 sets",
+              "1# 10 burpee",
+              "2# 10 thrusters",
+              "3# 10 row"
+            ]
+          },
+          {
+            "header": "d",
+            "lines": [
+              "every 2:30 x 4 rounds",
+              "1# 400 m run",
+              "2# 15 wall ball",
+              "3# 12 cal row"
+            ]
+          },
+          {
+            "header": "e",
+            "lines": [
+              "EVEY 2:00 X3",
+              "1# 10 burpee",
+              "2# 10 thrusters"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "a",
+      "timers": [
+        {
+          "label": "2:30 ×12",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "b",
+      "timers": [
+        {
+          "label": "2′ ×12 (24′ total)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "c",
+      "timers": [
+        {
+          "label": "E2MOM ×9 (18′)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "d",
+      "timers": [
+        {
+          "label": "2:30 ×4",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "e",
+      "timers": [
+        {
+          "label": "Every 2:00 ×3 (6′)",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

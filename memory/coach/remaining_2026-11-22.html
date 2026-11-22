@@ -1,0 +1,379 @@
+<title>עוד שאלות על הלוח</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Rubik:wght@500;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: one reading column; a short "what changed" list, three main questions
+   (board quote + tap-able options with to-scale timelines), then eight quick cards. */
+:root {
+  --bg: #f2f4f7;
+  --surface: #ffffff;
+  --ink: #171a21;
+  --muted: #586070;
+  --line: #d9dde5;
+  --accent: #d9480f;
+  --accent-soft: #fff0e6;
+  --emom: #f08c00;
+  --rest: #9aa1ad;
+  --ft: #7048e8;
+  --ft2: #4c6ef5;
+  --focus: #1c7ed6;
+  --font-display: "Rubik", "Assistant", system-ui, sans-serif;
+  --font-body: "Assistant", "Rubik", system-ui, sans-serif;
+  --font-board: "Barlow Semi Condensed", "Rubik", system-ui, sans-serif;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111318; --surface: #1a1d24; --ink: #eceef2; --muted: #a3a9b6; --line: #2d323c;
+    --accent: #ff8a3d; --accent-soft: #2a1d14; --emom: #f59f00; --rest: #6b7280; --ft: #9775fa; --ft2: #748ffc;
+    --focus: #74c0fc; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111318; --surface: #1a1d24; --ink: #eceef2; --muted: #a3a9b6; --line: #2d323c;
+  --accent: #ff8a3d; --accent-soft: #2a1d14; --emom: #f59f00; --rest: #6b7280; --ft: #9775fa; --ft2: #748ffc;
+  --focus: #74c0fc; color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 17px; line-height: 1.6; direction: rtl;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+}
+main { max-width: 720px; margin-inline: auto; display: grid; gap: 44px; }
+section { display: grid; gap: 14px; min-width: 0; }
+h1, h2 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.25; }
+h1 { font-size: clamp(28px, 6vw, 38px); font-weight: 700; }
+h2 { font-size: 21px; font-weight: 700; display: flex; gap: 10px; align-items: baseline; }
+h2 .num { font-family: var(--font-board); color: var(--accent); font-size: 26px; }
+p { margin: 0; }
+.eyebrow { font-family: var(--font-display); font-size: 13px; font-weight: 500; letter-spacing: .06em; color: var(--accent); }
+.lede { color: var(--muted); max-width: 62ch; }
+.today { color: var(--muted); font-size: 15px; }
+.today b { color: var(--ink); }
+
+/* Quoted TV board (single dark look on purpose). */
+.board {
+  margin: 0; background: #141414; color: #f1f1f1; border-radius: 14px; padding: 10px 14px 12px;
+  font-family: var(--font-board); direction: ltr; display: grid;
+}
+.bl { font-size: 20px; font-weight: 500; text-align: center; padding: 3px 2px; border-bottom: 1px solid #262626; overflow-wrap: anywhere; }
+.bl:last-child { border-bottom: 0; }
+.bl.head { color: #f5a10b; font-weight: 700; }
+.bl.part { color: #c4b5fd; font-weight: 700; }
+.bl.he { font-family: var(--font-display); direction: rtl; font-size: 17px; color: #cfcfcf; }
+.st { display: inline-block; background: linear-gradient(#f97316, #ea580c); color: #fff; border-radius: 6px; padding: 0 6px; font-weight: 700; }
+.rp { color: #f5a10b; font-weight: 700; }
+.tb { background: #4a1414; color: #ff4d4d; border-radius: 6px; padding: 0 6px; font-weight: 700; }
+.hl { outline: 2px dashed var(--accent); outline-offset: -2px; border-radius: 8px; }
+
+/* Options */
+.q { display: grid; gap: 10px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.q legend { font-weight: 700; padding: 0; margin-bottom: 4px; }
+.opt {
+  display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--r); padding: 12px; cursor: pointer; min-width: 0;
+}
+.opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.opt input { margin-top: 6px; accent-color: var(--accent); }
+.opt .t { font-weight: 700; }
+.opt small { display: block; color: var(--muted); font-size: 14px; font-weight: 400; }
+.opt .tl { grid-column: 1 / -1; }
+
+/* Timeline: flows right→left with the page, to scale within each question. */
+.tl { display: grid; gap: 2px; padding-top: 20px; min-width: 0; }
+.track { position: relative; height: 26px; background: var(--bg); border-radius: 6px; }
+.seg {
+  position: absolute; top: 0; bottom: 0;
+  inset-inline-start: calc(var(--from) / var(--max) * 100%);
+  width: calc(var(--len) / var(--max) * 100%);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  font-family: var(--font-display); font-weight: 700; font-size: 13px; color: #fff; white-space: nowrap;
+}
+.seg.emom { background: var(--emom); }
+.seg.rest { background: repeating-linear-gradient(135deg, var(--rest) 0 4px, transparent 4px 8px); }
+.seg.off { background: transparent; border: 2px dashed var(--rest); color: var(--muted); }
+.seg.ft { background: var(--ft); }
+.seg.ft2 { background: var(--ft2); }
+.mark {
+  position: absolute; top: -20px; bottom: -3px; inset-inline-start: calc(var(--at) / var(--max) * 100%);
+  border-inline-start: 2px solid var(--ink);
+}
+.mark span { position: absolute; top: 0; inset-inline-end: 4px; white-space: nowrap; font-size: 12px; font-weight: 700; line-height: 16px; font-variant-numeric: tabular-nums; }
+.hand { position: absolute; top: -20px; inset-inline-start: calc(var(--at) / var(--max) * 100%); transform: translateX(50%); font-size: 12px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.cap-note { font-size: 13px; color: var(--muted); }
+
+textarea {
+  font: inherit; width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--ink); padding: 10px 12px; resize: vertical;
+}
+button {
+  font: inherit; font-weight: 600; cursor: pointer; border-radius: 8px;
+  border: 1px solid var(--accent); background: var(--accent); color: #fff; padding: 9px 16px;
+}
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.out { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 10px; }
+.out textarea { background: var(--bg); min-height: 160px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.status { font-weight: 700; color: var(--accent); min-height: 1.5em; }
+.hint { font-size: 14px; color: var(--muted); }
+
+/* Optional quick questions: compact cards, pill answers. */
+.more { display: grid; gap: 12px; }
+.mini { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; gap: 8px; min-width: 0; }
+.mini fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; min-width: 0; }
+.mini legend { padding: 0; font-family: var(--font-display); font-weight: 700; font-size: 17px; display: flex; gap: 8px; align-items: baseline; }
+.mini legend .num { font-family: var(--font-board); color: var(--accent); font-size: 20px; }
+.code { font-family: var(--font-board); direction: ltr; unicode-bidi: isolate; background: #141414; color: #f1f1f1; border-radius: 6px; padding: 1px 8px; font-weight: 600; display: inline-block; }
+.mini .now { font-size: 14px; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; cursor: pointer; background: var(--bg); font-weight: 600; }
+.chip:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.chip input { accent-color: var(--accent); margin: 0; }
+.cmp { display: grid; grid-template-columns: max-content 1fr; gap: 6px 10px; align-items: center; font-size: 13px; color: var(--muted); }
+.cmp .track { height: 18px; }
+.board.sm { padding: 6px 10px 8px; }
+.board.sm .bl { font-size: 16px; padding: 2px; }
+.board.sm .bl.he { font-size: 15px; }
+.ex { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 560px) { .ex { grid-template-columns: 1fr; } }
+.exc { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.cap { font-size: 13px; color: var(--muted); }
+.track .seg.blk { box-sizing: border-box; border-inline-start: 2px solid var(--surface); font-family: var(--font-board); font-size: 12px; }
+.seg.s1 { background: var(--emom); } .seg.s2 { background: var(--ft); } .seg.s3 { background: var(--ft2); }
+.tvm { background: #0e0e0e; color: #fff; border-radius: 10px; border: 2px solid #f97316; padding: 8px 10px; text-align: center; display: grid; gap: 2px; }
+.tvm .clk { font-family: var(--font-board); font-weight: 700; font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; direction: ltr; }
+.tvm .lbl { font-size: 13px; color: #f5a10b; font-weight: 700; font-family: var(--font-display); }
+.tvm.dim .clk { color: #8a8a8a; }
+.btnm { display: inline-block; background: #1f1f1f; color: #fff; border: 1px solid #444; border-radius: 8px; padding: 0 8px; font-weight: 700; }
+</style>
+
+
+<main dir="rtl" lang="he">
+  <header style="display:grid;gap:12px">
+    <p class="eyebrow">שאלות המשך · אחרי התשובות שלך</p>
+    <h1>עוד כמה שאלות על הלוח</h1>
+    <p class="lede">תודה על התשובות! חלק מהשאלות סגרת את, וחלק סגר נועם. אלה השאלות שנשארו: שלוש חשובות ושתיים קצרות. אפשר לבחור ולהעתיק בסוף, או פשוט לצלם מסך ולשלוח כמו בפעם הקודמת.</p>
+  </header>
+
+  <!-- 1: range rest -->
+  <section aria-labelledby="h1q">
+    <h2 id="h1q"><span class="num">1</span>מנוחה של 2-3 דקות, בשעון הרציף</h2>
+    <figure class="board" aria-label="התא שלך מיום חמישי: EMOM 15, מנוחה של 2-3 דקות, for time עם t,c 22">
+      <div class="bl head">emom 15:</div>
+      <div class="bl"><span class="st">1#</span> 12-10 burpee · <span class="st">2#</span> 12-10 thrusters · <span class="st">3#</span> …</div>
+      <div class="bl hl"><span class="tb">2-3 min</span> rest</div>
+      <div class="bl head">for time:</div>
+      <div class="bl"><span class="rp">2000</span> m run · <span class="rp">60</span> r. twist · <span class="rp">200</span> d.u</div>
+      <div class="bl">t,c- <span class="tb">22 min</span></div>
+    </figure>
+    <p class="today">ככה כתבת ביום חמישי. כשהמנוחה כתובה כטווח, <b>הלוח עדיין נותן שני שעונים</b>, כי הוא לא יודע אם לתזמן 2 או 3 דקות.</p>
+    <fieldset class="q">
+      <legend>כשכתוב 2-3 דקות מנוחה, מה עדיף?</legend>
+      <label class="opt"><input type="radio" name="q1" id="q1-3" value="three"><span class="t">שעון רציף עם 3 דקות מנוחה<small>אם כולם מוכנים קודם, אני לוחצת <span class="btnm">⏭ הבא</span> בשלט וה-for time מתחיל מיד.</small></span>
+        <span class="tl" aria-hidden="true" style="--max:40"><span class="track">
+          <span class="seg emom" style="--from:0;--len:15">EMOM 15</span>
+          <span class="seg rest" style="--from:15;--len:3"></span>
+          <span class="seg ft" style="--from:18;--len:22">22:00 ← 0:00</span>
+          <span class="mark" style="--at:40"><span>40:00</span></span>
+        </span></span></label>
+      <label class="opt"><input type="radio" name="q1" id="q1-2" value="two_min"><span class="t">שעון רציף עם 2 דקות מנוחה</span>
+        <span class="tl" aria-hidden="true" style="--max:40"><span class="track">
+          <span class="seg emom" style="--from:0;--len:15">EMOM 15</span>
+          <span class="seg rest" style="--from:15;--len:2"></span>
+          <span class="seg ft" style="--from:17;--len:22">22:00 ← 0:00</span>
+          <span class="mark" style="--at:39"><span>39:00</span></span>
+        </span></span></label>
+      <label class="opt"><input type="radio" name="q1" id="q1-clocks" value="clocks"><span class="t">בטווח עדיפים שני שעונים, ואני מפעילה את השני<small>כמו היום.</small></span>
+        <span class="tl" aria-hidden="true" style="--max:40"><span class="track">
+          <span class="seg emom" style="--from:0;--len:15">שעון 1</span>
+          <span class="seg off" style="--from:15;--len:3">2-3</span>
+          <span class="hand" style="--at:18">▶ את</span>
+          <span class="seg ft" style="--from:18;--len:22">שעון 2 · עד 22</span>
+        </span></span></label>
+    </fieldset>
+  </section>
+
+  <!-- 2: no rest line -->
+  <section aria-labelledby="h2q">
+    <h2 id="h2q"><span class="num">2</span>בלי שורת מנוחה בין החלקים</h2>
+    <figure class="board" aria-label="אותו אימון בלי שורת המנוחה">
+      <div class="bl head">emom 15:</div>
+      <div class="bl"><span class="st">1#</span> 12-10 burpee · <span class="st">2#</span> 12-10 thrusters</div>
+      <div class="bl head hl">for time:</div>
+      <div class="bl"><span class="rp">2000</span> m run · <span class="rp">60</span> r. twist</div>
+      <div class="bl">t.c- <span class="tb">22 min</span></div>
+    </figure>
+    <p class="today">אותו אימון, רק בלי שורת המנוחה. היום: <b>שני שעונים</b>, ואת מפעילה את ה-for time.</p>
+    <fieldset class="q">
+      <legend>כשלא כתובה מנוחה בין החלקים, מה עדיף?</legend>
+      <label class="opt"><input type="radio" name="q2" id="q2-straight" value="straight"><span class="t">שעון רציף: ה-for time מתחיל מיד בסוף ה-EMOM</span>
+        <span class="tl" aria-hidden="true" style="--max:40"><span class="track">
+          <span class="seg emom" style="--from:0;--len:15">EMOM 15</span>
+          <span class="seg ft" style="--from:15;--len:22">22:00 ← 0:00</span>
+          <span class="mark" style="--at:37"><span>37:00</span></span>
+        </span></span></label>
+      <label class="opt"><input type="radio" name="q2" id="q2-clocks" value="clocks"><span class="t">שני שעונים, ואני מפעילה את השני כשכולם מוכנים<small>כמו היום.</small></span>
+        <span class="tl" aria-hidden="true" style="--max:40"><span class="track">
+          <span class="seg emom" style="--from:0;--len:15">שעון 1</span>
+          <span class="seg off" style="--from:15;--len:2"></span>
+          <span class="hand" style="--at:17">▶ את</span>
+          <span class="seg ft" style="--from:17;--len:22">שעון 2 · עד 22</span>
+        </span></span></label>
+    </fieldset>
+  </section>
+
+  <!-- 3: two lengthless parts, one cap (old q2) -->
+  <section aria-labelledby="h3q">
+    <h2 id="h3q"><span class="num">3</span>שני חלקים בלי אורך, ומגבלה אחת בסוף</h2>
+    <figure class="board" aria-label="דוגמה מהגיליון שלך מספטמבר: שני חלקים ומגבלה של 35 דקות בסוף">
+      <div class="bl part">Part 1</div>
+      <div class="bl"><span class="rp">3</span> rounds: <span class="rp">30</span> Deadlift · <span class="rp">20</span> Wall Ball</div>
+      <div class="bl part">Part 2 <span class="bl he" style="display:inline;border:0;padding:0">- מחליפים אחרי סיבוב שלם!</span></div>
+      <div class="bl"><span class="rp">10</span> rounds: 20m Shuttle Run</div>
+      <div class="bl hl">TC: <span class="tb">35 min</span></div>
+    </figure>
+    <p class="today">מהגיליון שלך מספטמבר. כאן לאף חלק אין אורך משלו, אז הכלל "ה-t.c של החלק בלי האורך" לא מכריע. היום: <b>ה-35 רק על חלק 2.</b></p>
+    <fieldset class="q">
+      <legend>ה-35 דקות הן…</legend>
+      <label class="opt"><input type="radio" name="q3" id="q3-both" value="both"><span class="t">לשני החלקים יחד<small>שעון אחד: חלק 1 ואחריו חלק 2, הכול בתוך 35 דקות.</small></span>
+        <span class="tl" aria-hidden="true" style="--max:72"><span class="track">
+          <span class="seg ft" style="--from:0;--len:15">חלק 1</span>
+          <span class="seg ft2" style="--from:15;--len:20">חלק 2</span>
+          <span class="mark" style="--at:35"><span>35:00 סוף</span></span>
+        </span></span></label>
+      <label class="opt"><input type="radio" name="q3" id="q3-last" value="last"><span class="t">רק לחלק האחרון, כמו היום<small>חלק 1 בלי שעון, ואחריו שעון של עד 35 דקות לחלק 2.</small></span>
+        <span class="tl" aria-hidden="true" style="--max:72"><span class="track">
+          <span class="seg off" style="--from:0;--len:15">חלק 1</span>
+          <span class="seg ft2" style="--from:15;--len:35">חלק 2 · עד 35</span>
+        </span></span></label>
+      <label class="opt"><input type="radio" name="q3" id="q3-each" value="each"><span class="t">לכל חלק בנפרד<small>שני שעונים, כל אחד עד 35 דקות.</small></span>
+        <span class="tl" aria-hidden="true" style="--max:72"><span class="track">
+          <span class="seg ft" style="--from:0;--len:35">חלק 1 · עד 35</span>
+          <span class="seg ft2" style="--from:35;--len:35">חלק 2 · עד 35</span>
+        </span></span></label>
+    </fieldset>
+    <p class="cap-note">האורך של חלק 1 בציור הוא דוגמה בלבד. אותה שאלה גם כשכתוב פעמיים for time עם t.c אחד בסוף.</p>
+  </section>
+
+  <section aria-labelledby="h-more">
+    <h2 id="h-more">עוד שתי שאלות קצרות</h2>
+    <p class="today">לא חובה, אבל שתיהן נוגעות לשעון הרציף.</p>
+    <div class="more">
+      <div class="mini"><fieldset>
+        <legend><span class="num">4</span>"ואז" בתוך חלק</legend>
+        <div class="ex">
+          <div class="exc">
+            <figure class="board sm" aria-label="עם ואז">
+              <div class="bl part">part 2: amrap <span class="tb">14</span></div>
+              <div class="bl"><span class="rp">1000</span> m run</div>
+              <div class="bl head hl"><span dir="rtl">ואז</span> amrap:</div>
+              <div class="bl"><span class="rp">20</span> squat jump</div>
+            </figure>
+            <div class="tl" aria-hidden="true" style="--max:20"><span class="track">
+              <span class="seg off" style="--from:0;--len:5">ריצה</span>
+              <span class="hand" style="--at:5">▶</span>
+              <span class="seg emom" style="--from:5;--len:14">AMRAP 14</span>
+            </span></div>
+            <p class="cap">עם "ואז": ה-AMRAP מתחיל כשמסיימים לרוץ.</p>
+          </div>
+          <div class="exc">
+            <figure class="board sm" aria-label="בלי ואז">
+              <div class="bl part">part 2: amrap <span class="tb">14</span></div>
+              <div class="bl"><span class="rp">1000</span> m run</div>
+              <div class="bl head hl">amrap:</div>
+              <div class="bl"><span class="rp">20</span> squat jump</div>
+            </figure>
+            <div class="tl" aria-hidden="true" style="--max:20"><span class="track">
+              <span class="seg emom" style="--from:0;--len:14">AMRAP 14 · עוד רצים</span>
+            </span></div>
+            <p class="cap">בלי "ואז": הלוח עלול להתחיל את 14 הדקות כבר כשמתחילים לרוץ.</p>
+          </div>
+        </div>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="q4" id="q4-always" value="always">תמיד אכתוב "ואז" או and then</label>
+          <label class="chip"><input type="radio" name="q4" id="q4-not" value="not">לא תמיד</label>
+        </div>
+      </fieldset></div>
+
+      <div class="mini"><fieldset>
+        <legend><span class="num">5</span>כפתור ⏭ הבא</legend>
+        <figure class="board sm" aria-label="דוגמה לשעון רציף">
+          <div class="bl head">for time · t.c <span class="tb">12</span></div>
+          <div class="bl"><span class="tb">2:00</span> rest</div>
+          <div class="bl head">amrap <span class="tb">10</span></div>
+        </figure>
+        <div class="tl" aria-hidden="true" style="--max:24"><span class="track">
+          <span class="seg ft" style="--from:0;--len:12">for time</span>
+          <span class="mark" style="--at:9.5"><span>כולם סיימו</span></span>
+          <span class="seg rest" style="--from:12;--len:2"></span>
+          <span class="seg emom" style="--from:14;--len:10">AMRAP 10</span>
+        </span></div>
+        <p class="now">כולם סיימו ב-9:30, אבל בשעון רציף המנוחה מתחילה רק ב-12:00. הכפתור <span class="btnm">⏭ הבא</span> בשלט מקפיץ מיד למנוחה.</p>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="q5" id="q5-press" value="press">ללחוץ "הבא" זה מצוין</label>
+          <label class="chip"><input type="radio" name="q5" id="q5-auto" value="auto">הייתי רוצה שיעבור לבד</label>
+          <label class="chip"><input type="radio" name="q5" id="q5-run" value="run">אני נותנת לזמן לרוץ עד הסוף</label>
+        </div>
+      </fieldset></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-send">
+    <h2 id="h-send">שליחה</h2>
+    <div class="q">
+      <label for="note" style="font-weight:700">הערה (לא חובה)</label>
+      <textarea id="note" rows="3" placeholder="כל דבר שיעזור לנו להבין"></textarea>
+    </div>
+    <div class="out">
+      <label for="answer" style="font-weight:700">מוכן לשליחה</label>
+      <textarea id="answer" readonly></textarea>
+      <div class="row">
+        <button type="button" id="copy">העתקת התשובות</button>
+        <span class="status" id="status" role="status"></span>
+      </div>
+      <p class="hint">אחרי ההעתקה נשאר רק להדביק בוואטסאפ לנועם. צילום מסך של השאלות עם הבחירות שלך עובד באותה מידה. אם יש רק דקה, שלוש הראשונות הכי חשובות.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const L = {
+    q1: { title: 'מנוחה של 2-3 דקות בשעון הרציף',
+          three: 'שעון רציף עם 3 דקות, ⏭ אם מוכנים קודם', two_min: 'שעון רציף עם 2 דקות', clocks: 'בטווח עדיפים שני שעונים' },
+    q2: { title: 'בלי שורת מנוחה בין החלקים',
+          straight: 'שעון רציף, ה-for time מתחיל מיד', clocks: 'שני שעונים, אני מפעילה את השני' },
+    q3: { title: 'שני חלקים בלי אורך ומגבלה אחת בסוף',
+          both: 'לשני החלקים יחד', last: 'רק לחלק האחרון', each: 'לכל חלק בנפרד' },
+    q4: { title: '"ואז" בתוך חלק', always: 'תמיד אכתוב ואז / and then', not: 'לא תמיד' },
+    q5: { title: 'כפתור הבא', press: 'ללחוץ הבא זה מצוין', auto: 'שיעבור לבד', run: 'נותנת לזמן לרוץ עד הסוף' }
+  };
+  const ORDER = ['q1', 'q2', 'q3', 'q4', 'q5'];
+  const $ = id => document.getElementById(id);
+  const val = n => { const el = document.querySelector('input[name="' + n + '"]:checked'); return el ? el.value : ''; };
+  function update() {
+    const lines = ['תשובות על הלוח: עוד שאלות'];
+    ORDER.forEach((q, i) => {
+      const v = val(q);
+      if (v) lines.push('• ' + (i + 1) + '. ' + L[q].title + ': ' + L[q][v]);
+    });
+    const note = $('note').value.trim();
+    if (note) lines.push('• הערה: ' + note);
+    $('answer').value = lines.length > 1 ? lines.join('\n') : 'עוד לא נבחרה תשובה. בחרי למעלה והטקסט יופיע כאן.';
+    $('status').textContent = '';
+  }
+  document.querySelectorAll('input[type="radio"]').forEach(el => el.addEventListener('change', update));
+  $('note').addEventListener('input', update);
+  update();
+  $('copy').addEventListener('click', () => {
+    const text = $('answer').value;
+    const fallback = () => { const ta = $('answer'); ta.focus(); ta.select(); $('status').textContent = 'הטקסט מסומן. אפשר להעתיק ידנית'; };
+    try { navigator.clipboard.writeText(text).then(() => { $('status').textContent = 'הועתק ✓'; }, fallback); }
+    catch (e) { fallback(); }
+  });
+})();
+</script>

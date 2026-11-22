@@ -1,0 +1,55 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "AMRAP 10",
+              "10 burpee",
+              "2 rest",
+              "AMRAP 10",
+              "10 wall ball"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "30 sec work, 10 rest",
+              "x8",
+              "burpee"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "1",
+      "timers": [
+        {
+          "label": "AMRAP ×2 · 10′ work / 2′ rest",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "2",
+      "timers": [
+        {
+          "label": "30″/10″ ×8",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

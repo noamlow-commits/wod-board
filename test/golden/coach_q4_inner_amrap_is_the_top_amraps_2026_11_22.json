@@ -1,0 +1,56 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "part 2: amrap 14",
+              "1000 m run",
+              "ואז amrap:",
+              "20 squat jump"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "amrap 10",
+              "10 burpees",
+              "2 min rest",
+              "amrap 14",
+              "20 squat jump"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "1",
+      "timers": [
+        {
+          "label": "AMRAP 14′",
+          "type": "amrap"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": [
+        {
+          "label": "AMRAP 10′ · 2′ rest · AMRAP 14′ (26′)",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}

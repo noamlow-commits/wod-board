@@ -56,8 +56,8 @@
       "header": "2",
       "timers": [
         {
-          "label": "EMOM 15′",
-          "type": "emom"
+          "label": "EMOM 15′ · 3′ rest · TC 22′ (40′)",
+          "type": "tabata"
         },
         {
           "label": "TC 22′ · For Time",

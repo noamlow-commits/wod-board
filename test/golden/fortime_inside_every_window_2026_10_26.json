@@ -99,7 +99,7 @@
       "header": "5",
       "timers": [
         {
-          "label": "For Time",
+          "label": "TC 20′ · For Time",
           "type": "fortime"
         },
         {

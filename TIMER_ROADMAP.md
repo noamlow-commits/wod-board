@@ -11,6 +11,22 @@ than none.
 
 ## 1. ⚠️ OPEN QUESTIONS FOR THE COACH — do not guess these
 
+> **✅ 2026-11-22 — the coach answered five questions on the follow-up page** (https://claude.ai/artifact/P3ovokQxuL2KQHA28nXbZ4; a voice note for q1, screenshots for the rest). Built the same day, sw **v184**:
+>
+> | page | her answer | → | what the board does now |
+> |---|---|---|---|
+> | q1 fixed rest between parts | voice: *"באחד… רץ חמש עשרה דקות ואז אוטומטית ממשיך לשלוש דקות מנוחה, ואחרי… יכול לרוץ לבד על הזמן הנותר"* | Q1 + Q3 | ONE clock, the for time counting down from its cap (PARSER: "Parts of different lengths with a FIXED rest") |
+> | q3 is the foot t.c always part two's? | "כן, תמיד" | Q12 habit | confirms `partTwoStart`; no change |
+> | q4 AMRAP + 16 min tc | "לא הבנתי… אולי טעות הקלדה" | Q9 | she does not recognise the shape — **unchanged on purpose** (AMRAP 10′ only); treat such a cell as a typo |
+> | q5 `x 4 sets` over stations | "4 בכל תחנה (30 דקות)" | §2e / questionnaire #10 | `2:30 ×12` (30′) |
+> | q6 `E2MOM 6` | "כשאני מתכוונת לסבבים אני כותבת x" + *"אהה עכשיו הבנתי את 6 — זה 12 דקות — לרוב אכתוב x"* | Q10 | bare number = rounds, `E2MOM ×6 (12′)` |
+>
+> **Same evening, the coach answered page 3** (via Noam): range rest → ONE clock with 3′ (⏭ if ready early) · no rest line → two clocks (as today) · two lengthless parts + one foot cap → the cap covers BOTH (footCapOverAllParts) · always writes "ואז"; a lengthless inner `amrap:` belongs to the top AMRAP. **Only ⏭ (Q2) is still open.** PARSER: "The coach's answers to page 3".
+>
+> **Same day, Noam answered five more himself** (page 3, https://claude.ai/artifact/VozrpxTZwLf411tcEwNu3U): Q8 cap words = t.c · Q6 no x needed · Q11 bare rest = minutes · the clock has not frozen since 29.9 · `1 -` stations by context · `חלק א'/ב'` = parts. PARSER: "Noam's answers, 2026-11-22". The page now asks only: the range rest, no rest line, two lengthless parts under one cap (q2), "ואז" (Q5), ⏭ (Q2).
+>
+> **Still open after her answers (before Noam's):** q2 (two lengthless parts under one cap), q7 (`time cap` / `cap` = Q8), q8 (duration beside a block name without x = Q6), q9 ("ואז" habit = Q5), q10 (`30 rest` = Q11), q11 (⏭ = Q2), q12 (timer freeze), q13 (station numbering), q14 (חלק א׳/ב׳). New, from the answers: a RANGE rest (`2-3 min rest`) in a continuous clock — take 3 and cut short with ⏭, or keep two clocks?; and no rest line between the parts.
+
 These are workout *semantics*. The standing rule (`PARSER.md`, the ×N/stations
 asymmetry) applies: **the coach decides semantics, not code consistency.**
 
@@ -40,6 +56,8 @@ not marked, and therefore not included in the running timer"* — which reads li
 a timer defect, and the obvious fix would have been a second clock for the
 cashout. That would have been a whole feature, and **wrong**. Asking the one
 semantic question instead of building turned a feature into a badge.
+
+> **✅ Q1 and Q3 ANSWERED 2026-11-22 (coach, page q1): one continuous clock, and a countdown for the for time is what she wants** ("יכול לרוץ לבד על הזמן הנותר"). The uniform rule no longer blocks a chain of different lengths (explicit phases). See the box at the top of §1.
 
 ### Q1 — The compound clock counts part 1 DOWN. Is that acceptable? 🟡 LIVE, but narrower
 
@@ -112,7 +130,8 @@ predicate is already correct and this closes. If not, the answer is probably a
 convention ("write *and then* when a part has an untimed lead-in") rather than a
 cleverer regex.
 
-### Q6 — Does she ever write a block duration with NO multiplier? 🔴 NEW 2026-08-21
+### ✅ Q6 ANSWERED 2026-11-22 (Noam: "פה לא צריך X") — a length beside ANY block name is its clock, no x needed. PARSER: "Noam's answers, 2026-11-22".
+### Q6 — Does she ever write a block duration with NO multiplier? 🔴 NEW 2026-08-21 (the record)
 
 > **🟡 2026-10-04 — answered by Noam for WARM-UPS ONLY (sw v165).** Her sheet
 > read `warm up: 8 MIN` and the TV had no clock. A warm-up / cool-down / חימום
@@ -156,20 +175,24 @@ regex — because no regex can separate her two meanings here.
 
 The first build of `seamlessFromParts` also laid AMRAP parts end to end (`part 1: amrap 10 / part 2: amrap 8` → `18′ · AMRAP 10′ → AMRAP 8′`). Noam's answer, word for word in meaning: *two parts UNDER one AMRAP run with no rest, obviously. Two separate AMRAPs back to back with no rest between them stay two clocks.* The rule now chains interval parts only. `amrap_parts_no_rest_two_clocks` locks the two clocks, and `one_amrap_over_parts_one_clock` locks the single-AMRAP shape (the preamble's `AMRAP 20′`). Recorded in `memory/project_2026-10-01_adiel_timer.md`.
 
-### Q8 — Is `time cap 14` / `cap 14` a time cap? 🟡 NEW 2026-10-01 (audit), for the coach
+### ✅ Q8 ANSWERED 2026-11-22 (Noam: "זה אותו הדבר") — `time cap` / `cap` / `T.C.` = t.c (TC_WORD).
+### Q8 — Is `time cap 14` / `cap 14` a time cap? 🟡 NEW 2026-10-01 (audit), for the coach (the record)
 
 Only `t.c 14` / `tc 14` / `14 min tc` are caps today. `time cap 14`, `cap 14`, `TIME CAP: 14 min` and `T.C. 14` leave a For Time **uncapped**. The display meanwhile paints `time cap` red, as if it had been understood. **Noam (1.10): keep today's behaviour and build conservatively; ask her at the end.** **Ask:** *do you ever write "time cap" or "cap" instead of t.c, and should the board read it?*
 
 ### Q9 — A cap beside another clock in the same cell 🟡 NEW 2026-10-01 (audit), for the coach
+> **22.11.2026 (page q4):** she did not recognise `AMRAP 10 / … / 16 min tc` — "לא הבנתי… אולי טעות הקלדה". So the shape does not occur on purpose; today's behaviour (AMRAP 10′, the 16 reaches no clock) stays, and `q9_cap_beside_amrap_stays_open` keeps guarding it.
 
 `AMRAP 10 / burpee / 16 min tc` and `every 1:30 x7 / 1# / 2# / t.c 12` **drop the cap** today: it is read only when no other clock exists (`results.length === 0`). Noam doesn't know which reading is right. **Ask:** *when a cap sits in the same cell as another clock, is it a separate clock, or does it cap that block?* The audit plan's step 8 (arbitration) waits on this answer.
 
 **Partly answered 2026-10-26 (Noam), for ONE shape only:** a `For Time` block plus an every/EMOM clock in the same cell, where the written cap **equals** the every clock's total (`Every 2:00 x7` with `Time Cap: 14 minutes`). The For Time is done inside the windows, so the every clock is the only clock. Fixture `fortime_inside_every_window_2026_10_26`. A cap that does not match, or no cap at all, still yields both clocks. The general question is still open.
 
-### Q10 — `E2MOM 6`: minutes or rounds? 🟡 NEW 2026-10-02, for the coach
+### ✅ Q10 ANSWERED 2026-11-22 (coach) — `E2MOM 6` is 6 ROUNDS (12′); a unit keeps it minutes. Shipped v184.
+### Q10 — `E2MOM 6`: minutes or rounds? 🟡 NEW 2026-10-02, for the coach (the record)
 Today `E2MOM N` is read as N total **minutes** (`E2MOM 6` → ×3), and `E2MOM xN` as N **rounds**. The audit's equivalence class wanted ×6 for the bare form. It is listed as SPEC in `test/equivalence-known.mjs` until she answers.
 
-### Q11 — `30 rest` with no unit 🟡 NEW 2026-10-02, for the coach
+### ✅ Q11 ANSWERED 2026-11-22 (Noam) — a lone rest number with no unit is MINUTES; beside a work in seconds it keeps the seconds.
+### Q11 — `30 rest` with no unit 🟡 NEW 2026-10-02, for the coach (the record)
 The display renders a bare `N rest` as `N sec` (`restNoSec`). That is a unit nobody wrote, and decision 7 says no guessing. The question is whether a bare number beside "rest" is always seconds for her.
 
 ### ✅ Q12 ANSWERED 2026-11-20 (coach) — a cap at the FOOT of `emom 15` + `for time` caps the FOR TIME

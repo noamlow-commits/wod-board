@@ -1,0 +1,72 @@
+{
+  "data": {
+    "headers": [
+      "a",
+      "b",
+      "c"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "a",
+            "lines": [
+              "E2MOM 6:",
+              "10 burpee",
+              "12 cal row"
+            ]
+          },
+          {
+            "header": "b",
+            "lines": [
+              "E2MOM 6",
+              "10 burpee",
+              "12 cal row"
+            ]
+          },
+          {
+            "header": "c",
+            "lines": [
+              "E2MOM 12 min",
+              "10 burpee",
+              "12 cal row"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "a",
+      "timers": [
+        {
+          "label": "E2MOM ×6 (12′)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "b",
+      "timers": [
+        {
+          "label": "E2MOM ×6 (12′)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "c",
+      "timers": [
+        {
+          "label": "E2MOM ×6 (12′)",
+          "type": "emom"
+        }
+      ]
+    }
+  ]
+}

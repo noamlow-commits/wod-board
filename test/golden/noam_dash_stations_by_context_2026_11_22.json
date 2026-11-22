@@ -1,0 +1,48 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "—",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "E2MOM x 3 sets",
+              "1 - 400 m run",
+              "2 - 15 wall ball",
+              "3 - 12 cal row"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "1 - 5-10 burpees",
+              "10 - 15 push ups"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "—",
+      "header": "1",
+      "timers": [
+        {
+          "label": "E2MOM ×9 (18′)",
+          "type": "emom"
+        }
+      ]
+    },
+    {
+      "section": "—",
+      "header": "2",
+      "timers": []
+    }
+  ]
+}

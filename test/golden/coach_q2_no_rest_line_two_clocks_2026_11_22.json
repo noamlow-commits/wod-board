@@ -1,0 +1,42 @@
+{
+  "data": {
+    "headers": [
+      "2"
+    ],
+    "rows": [
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "2",
+            "lines": [
+              "emom 15:",
+              "1# 12-10 burpee",
+              "2# 12-10 thrusters",
+              "for time:",
+              "2000 m run",
+              "60 r. twist",
+              "t.c- 22 min"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "CARDIO",
+      "header": "2",
+      "timers": [
+        {
+          "label": "EMOM 15′",
+          "type": "emom"
+        },
+        {
+          "label": "TC 22′ · For Time",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}

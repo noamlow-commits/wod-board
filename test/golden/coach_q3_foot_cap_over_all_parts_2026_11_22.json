@@ -1,0 +1,115 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "rows": [
+      {
+        "label": "WOD",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "Part 1",
+              "3 rounds:",
+              "30 Deadlift",
+              "20 Wall Ball",
+              "__SPACER__",
+              "Part 2 - מחליפים אחרי סיבוב שלם!",
+              "10 rounds:",
+              "20m Shuttle Run",
+              "__SPACER__",
+              "TC: 35 min"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "חלק א'",
+              "3 rounds:",
+              "30 Deadlift",
+              "חלק ב'",
+              "10 rounds",
+              "20m Shuttle Run",
+              "t.c 30"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "Part 1: amrap 10",
+              "10 burpees",
+              "10 pull ups",
+              "Part 2",
+              "for time:",
+              "50 wall ball",
+              "50 d.u",
+              "t.c 15"
+            ]
+          },
+          {
+            "header": "4",
+            "lines": [
+              "Part 1",
+              "3 rounds:",
+              "30 Deadlift",
+              "TC: 35 min",
+              "Part 2",
+              "10 rounds",
+              "20m Shuttle Run"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "WOD",
+      "header": "1",
+      "timers": [
+        {
+          "label": "TC 35′ · For Time",
+          "type": "fortime"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "2",
+      "timers": [
+        {
+          "label": "TC 30′ · For Time",
+          "type": "fortime"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "3",
+      "timers": [
+        {
+          "label": "P1 · AMRAP 10′",
+          "type": "amrap"
+        },
+        {
+          "label": "P2 · TC 15′ · For Time",
+          "type": "fortime"
+        }
+      ]
+    },
+    {
+      "section": "WOD",
+      "header": "4",
+      "timers": [
+        {
+          "label": "P1 · TC 35′",
+          "type": "fortime"
+        }
+      ]
+    }
+  ]
+}
