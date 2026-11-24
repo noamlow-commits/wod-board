@@ -3321,6 +3321,13 @@
         const phases = [];
         for (const p of timeline) {
           if (p.type === 'rest') { phases.push({ type: 'rest', seconds: p.seconds }); continue; }
+          // A work/rest interval block (partOneIntervalChain, 24.11.2026) brings
+          // its own written schedule — its work AND its inner rests.
+          if (Array.isArray(p.subPhases)) {
+            for (const sp of p.subPhases) phases.push(sp.type === 'rest' ? { type: 'rest', seconds: sp.seconds }
+                                                                          : { type: 'work', seconds: sp.seconds, label: p.label });
+            continue;
+          }
           if (!hasIv(p)) { phases.push({ type: 'work', seconds: p.seconds, label: p.label }); continue; }
           const n = p.seconds / p.intervalSeconds;
           for (let k = 0; k < n; k++) phases.push({ type: 'work', seconds: p.intervalSeconds, label: p.label });
@@ -3984,6 +3991,49 @@
       return cap;
     }
 
+    // ── An INTERVAL part one, chained (Noam's approval, 24.11.2026) ──────────
+    // The coach's answer (22.11.2026 evening, page 3 q1) — "שעון רציף עם 3
+    // דקות, ⏭ אם מוכנים קודם" — is about the SHAPE: a part with a length, a
+    // written rest, a part two bounded by its cap. It does not depend on how
+    // part one is spelled. chainFromTimeline reads only timeline blocks (EMOM /
+    // every / AMRAP / TC), so a part one written as a work/rest interval
+    // (`30 sec work, 10 sec rest x3`, `5 sets / 3 min run / 1 min rest`) still
+    // gave two clocks. This joins them into ONE: part one's own interval clock
+    // (read from part one's lines ALONE, so part two's stations never count),
+    // the written rest (a range at its upper end, like the timeline chain), and
+    // part two counting down from the cap written under it.
+    // The interval's LAST rest is not run: the written rest between the parts
+    // takes its place — a chain ends a block on work (the skipLastRest rule)
+    // and never shows two rests back to back.
+    // Refuses rather than guesses: a staged cell ("ואז"), a rest with no
+    // number ("rest as needed"), no cap written in part two, a part one with
+    // anything but ONE plain interval clock, a schedule too long for a TV.
+    function partOneIntervalChain(lines, p2, partOneCfgs) {
+      if (!p2 || (lines || []).some(l => isStageLine(l))) return null;
+      if (!partOneCfgs || partOneCfgs.length !== 1) return null;
+      const iv = partOneCfgs[0];
+      if (iv.type !== 'tabata' || iv.phases || !(iv.workSeconds > 0) || !(iv.restSeconds > 0)
+          || !(iv.rounds >= 1)) return null;
+      const restLine = String(lines[p2.rest] || '').trim();
+      const restPh = buildWorkoutTimeline([restLine]).find(p => p.type === 'rest');
+      const restSec = restPh ? restPh.seconds : heRestSeconds(restLine);
+      if (!(restSec > 0) || restSec > 600) return null;
+      let cap = 0;
+      for (const l of lines.slice(p2.head)) { cap = capSecondsFromLine(l); if (cap) break; }
+      if (!cap) return null;
+      const sub = [];
+      for (let r = 1; r <= iv.rounds; r++) {
+        sub.push({ type: 'work', seconds: iv.workSeconds });
+        if (r < iv.rounds) sub.push({ type: 'rest', seconds: iv.restSeconds });
+      }
+      const ivLabel = `${/^Tabata\b/.test(iv.label || '') ? 'Tabata ' : ''}`
+                    + `${fmtDur(iv.workSeconds)}/${fmtDur(iv.restSeconds)} ×${iv.rounds}`;
+      return phasesChain([
+        { type: 'work', seconds: sub.reduce((t, p) => t + p.seconds, 0), subPhases: sub, label: ivLabel },
+        { type: 'rest', seconds: restSec },
+        { type: 'work', seconds: cap, label: `TC ${fmtDur(cap)}` }]);
+    }
+
     // Detect timer configs from a flat list of workout lines (returns array).
     // Part-unaware — extractTimerConfigs() below wraps this with "part N" splitting.
     // `partCapSeconds` (optional) is the external-cap hint from scanPartCapSeconds:
@@ -4281,7 +4331,11 @@
         const restSec = wrSeconds(wr[3], unit(wr[4]));
         const cycleSec = workSec + restSec;
         // Written ×N off this line: higher end of a range ("5-4 sets" → 5).
-        const writtenRounds = mult ? Math.max(parseInt(mult[1]), mult[2] ? parseInt(mult[2]) : 0) : 0;
+        // "x N sets" over numbered stations = N at EACH station (coach q5,
+        // 22.11.2026; Noam 24.11: the work/rest readers too — see setsAtEachStation).
+        const xSets = !!mult && /^[x×*]/i.test(mult[0]) && /sets?$/i.test(mult[0].trim());
+        const atEach = xSets && stationCount() >= 2 ? stationCount() : 1;
+        const writtenRounds = mult ? Math.max(parseInt(mult[1]), mult[2] ? parseInt(mult[2]) : 0) * atEach : 0;
         // ⚠️ A WRITTEN TOTAL OVERRIDES A WRITTEN ×N — the same rule the rotation
         // paths use, through the SAME shared helper (writtenTotalMin, hoisted to
         // the top of detectTimers). Do NOT re-derive the total inline: the point
@@ -4733,8 +4787,15 @@
                               && cycleSec * derivedRounds <= 90 * 60;
           // Try to find round count: "x5", "x 8", "× 6", "* 2", "5 rounds"
           // ("*" is coach shorthand — "30 work, 10 rest * 2")
-          const roundsMatch = text.match(/[x×*]\s*(\d+)/i) || text.match(/(\d+)\s*rounds?/i);
+          const xMatch = text.match(/[x×*]\s*(\d+)/i);
+          const roundsMatch = xMatch || text.match(/(\d+)\s*rounds?/i);
           let rounds = roundsMatch ? parseInt(roundsMatch[1]) : 0;
+          // "x N sets" over numbered stations = N at EACH station (coach q5,
+          // 22.11.2026). Her warm-up `30 sec work, 10 sec restx3 sets` over
+          // 1#–3# is 9 intervals, 6′ — it ran ×3 (2′) until 24.11.2026, because
+          // the rule had reached only the every / EXMOM readers. A bare ×N
+          // (no "sets") stays literal, through the same helper.
+          if (xMatch) rounds = setsAtEachStation(rounds, xMatch.index + xMatch[0].length);
           let inventedRounds = false;   // set only by the `|| 5` guess below
           // "N sets OF <the work/rest spec>" — a WRITTEN count, but only when it
           // sits on the SAME LINE as the interval it multiplies ("3 sets of 30
@@ -5381,7 +5442,7 @@
     // structural bugs have actually been.
     const TIMER_PATHS = ['whole-cell', 'station-blocks', 'activity-fallback', 'sets-interval',
                          'part-split', 'part-inline-spec', 'compound-chain', 'seamless-chain',
-                         'staged-part', 'header-cap', 'part-two', 'part-one-fallback'];
+                         'staged-part', 'header-cap', 'part-two', 'part-one-fallback', 'part-one-chain'];
     const __timerPathHits = Object.fromEntries(TIMER_PATHS.map(k => [k, 0]));
     function tpHit(id) { __timerPathHits[id] = (__timerPathHits[id] || 0) + 1; }
     // Exposed as FUNCTIONS on purpose: a top-level `const` in a classic script
@@ -5422,12 +5483,21 @@
           const p2 = partTwoStart(lines);
           if (p2) {
             const partOne = lines.slice(0, p2.rest);
-            if (detectTimers(partOne).length === 0) {
+            let one = detectTimers(partOne);
+            if (one.length === 0) {
               const sb = detectStationBlocks(partOne);
               const ai = sb.length ? null : detectActivityInterval(partOne);
               const got = sb.length ? sb : ai ? [ai] : detectSetsInterval(partOne);
-              if (got.length) { tpHit('part-one-fallback'); out = got.concat(out); }
+              if (got.length) { tpHit('part-one-fallback'); out = got.concat(out); one = got; }
             }
+            // An interval part one + written rest + capped part two = ONE clock
+            // (partOneIntervalChain). Only when the cell's clocks are exactly that
+            // interval and part two's own: part two's clock stays behind the
+            // chain in ⏱↻, the interval's own clock goes — as after an EMOM.
+            const notP2 = out.filter(c => c.type !== 'fortime');
+            const ch = notP2.length === 1 && notP2[0].type === 'tabata' && !notP2[0].phases
+                     ? partOneIntervalChain(lines, p2, one) : null;
+            if (ch) { tpHit('part-one-chain'); out = [ch].concat(out.filter(c => c.type === 'fortime')); }
           }
         }
       } else {

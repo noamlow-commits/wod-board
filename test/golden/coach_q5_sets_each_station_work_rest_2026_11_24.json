@@ -1,0 +1,75 @@
+{
+  "data": {
+    "headers": [
+      "1",
+      "2",
+      "3"
+    ],
+    "rows": [
+      {
+        "label": "CARDIO",
+        "cells": [
+          {
+            "header": "1",
+            "lines": [
+              "30 sec work, 10 sec rest x 3 sets",
+              "1# lunges",
+              "2# push up",
+              "3# hollow hold"
+            ]
+          },
+          {
+            "header": "2",
+            "lines": [
+              "30 sec work, 10 sec rest x3",
+              "1# lunges",
+              "2# push up",
+              "3# hollow hold"
+            ]
+          },
+          {
+            "header": "3",
+            "lines": [
+              "30 on 10 off x",
+              "2 sets",
+              "1# burpee",
+              "2# air squat"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "timers": [
+    {
+      "section": "CARDIO",
+      "header": "1",
+      "timers": [
+        {
+          "label": "×9 · 30″ work / 10″ rest",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "CARDIO",
+      "header": "2",
+      "timers": [
+        {
+          "label": "×3 · 30″ work / 10″ rest",
+          "type": "tabata"
+        }
+      ]
+    },
+    {
+      "section": "CARDIO",
+      "header": "3",
+      "timers": [
+        {
+          "label": "30″/10″ ×4",
+          "type": "tabata"
+        }
+      ]
+    }
+  ]
+}
