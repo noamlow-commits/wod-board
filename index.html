@@ -4383,6 +4383,17 @@
           if (partTwo && lines.indexOf(rawLn) < partTwo.rest) {
             const p2 = partTwoClock();
             if (p2) { tpHit('part-two'); results.push(p2); }
+          } else if (!partTwo) {
+            // NO rest line between them (coach, 22.11.2026 evening, page 3 q2:
+            // "שני שעונים, אני מפעילה את השני"): a for time written BELOW the
+            // interval is a second block with its own clock, started by hand —
+            // exactly what an EMOM or an on/off part one already got (their
+            // paths never returned early). Until 24.11.2026 the for time and
+            // its cap vanished here.
+            const ivAt = lines.indexOf(rawLn);
+            if (lines.some((l, i) => i > ivAt && /\bfor\s+time\b|\b\d+\s*RFT\b/i.test(l || ''))) {
+              tpHit('part-two'); results.push(forTimeCfg());
+            }
           }
           return blockClocksFirst(results); // the interval line is the timer for this block
         }
@@ -5482,8 +5493,22 @@
           // above the rest. Only when NOTHING in part one has a clock of its own.
           const p2 = partTwoStart(lines);
           if (p2) {
-            const partOne = lines.slice(0, p2.rest);
-            let one = detectTimers(partOne);
+            // `5 sets / 3 min run / 1 min rest / for time: …` — NO rest line
+            // between the parts: the line partTwoStart took as the boundary is the
+            // interval's OWN rest (the run/rest interval reads only WITH it), and
+            // without it part one lost its clock (24.11.2026). Then the rest
+            // belongs to part one, the parts are two clocks (page 3 q2: "שני
+            // שעונים, אני מפעילה את השני"), and nothing is chained.
+            // Only when the lines above the rest have NO interval clock of their
+            // own — `restx3 sets / 1#… / 2 min rest / 3 rounds:` already has one,
+            // and its 2 min rest is the rest between the parts.
+            const above = lines.slice(0, p2.rest);
+            const aboveCfgs = detectTimers(above);
+            const restIsPartOnes = !aboveCfgs.some(c => c.type === 'tabata')
+                                && !detectActivityInterval(above)
+                                && !!detectActivityInterval(lines.slice(0, p2.rest + 1));
+            const partOne = restIsPartOnes ? lines.slice(0, p2.rest + 1) : above;
+            let one = restIsPartOnes ? detectTimers(partOne) : aboveCfgs;
             if (one.length === 0) {
               const sb = detectStationBlocks(partOne);
               const ai = sb.length ? null : detectActivityInterval(partOne);
@@ -5495,7 +5520,7 @@
             // interval and part two's own: part two's clock stays behind the
             // chain in ⏱↻, the interval's own clock goes — as after an EMOM.
             const notP2 = out.filter(c => c.type !== 'fortime');
-            const ch = notP2.length === 1 && notP2[0].type === 'tabata' && !notP2[0].phases
+            const ch = !restIsPartOnes && notP2.length === 1 && notP2[0].type === 'tabata' && !notP2[0].phases
                      ? partOneIntervalChain(lines, p2, one) : null;
             if (ch) { tpHit('part-one-chain'); out = [ch].concat(out.filter(c => c.type === 'fortime')); }
           }
